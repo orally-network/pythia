@@ -4,19 +4,6 @@
       "candid": "src/pythia_backend/pythia_backend.did",
       "package": "pythia_backend",
       "type": "rust"
-    },
-    "pythia_frontend": {
-      "dependencies": [
-        "pythia_backend"
-      ],
-      "frontend": {
-        "entrypoint": "src/pythia_frontend/src/index.html"
-      },
-      "source": [
-        "src/pythia_frontend/assets",
-        "dist/pythia_frontend/"
-      ],
-      "type": "assets"
     }
   },
   "defaults": {
