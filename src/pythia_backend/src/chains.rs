@@ -5,10 +5,9 @@ use ic_cdk::export::candid::Nat;
 
 use crate::{
     CHAINS,
-    types::{
-        Chain, U256,
-        errors::PythiaError
-    },
+    PythiaError,
+    U256,
+    Chain,
     utils::validate_caller,
 };
 
@@ -20,9 +19,8 @@ pub fn add_chain(chain_id: Nat, rpc: String) -> Result<(), String> {
     let chain = Chain::new(&chain_id, &rpc)
         .map_err(|e| format!("{}", e))?;
     
-    CHAINS.with(move |chains| {
+    CHAINS.with(|chains| {
         let mut chains = chains.borrow_mut();
-
         if chains.contains_key(&chain.chain_id) {
             return Err(format!("{}", PythiaError::ChainAlreadyExists));
         };
@@ -38,14 +36,10 @@ pub fn remove_chain(chain_id: Nat) -> Result<(), String> {
     validate_caller()
         .map_err(|e| format!("{}", e))?;
 
-    CHAINS.with(move |chains| {
+    CHAINS.with(|chains| {
         let mut chains = chains.borrow_mut();
-
-        if !chains.contains_key(&U256::from(&chain_id)) {
-            return Err(format!("{}", PythiaError::ChainDoesNotExist));
-        };
-
-        chains.remove(&U256::from(&chain_id));
+        chains.remove(&U256::from(&chain_id))
+            .ok_or_else(|| format!("{}", PythiaError::ChainDoesNotExist))?;
 
         Ok(())
     })
@@ -56,14 +50,10 @@ pub fn update_rpc(chain_id: Nat, rpc: String) -> Result<(), String> {
     validate_caller()
         .map_err(|e| format!("{}", e))?;
 
-    CHAINS.with(move |chains| {
+    CHAINS.with(|chains| {
         let mut chains = chains.borrow_mut();
-
-        if !chains.contains_key(&U256::from(&chain_id)) {
-            return Err(format!("{}", PythiaError::ChainDoesNotExist));
-        };
-
-        let chain = chains.get_mut(&U256::from(&chain_id)).unwrap();
+        let chain = chains.get_mut(&U256::from(&chain_id))
+            .ok_or_else(|| format!("{}", PythiaError::ChainDoesNotExist))?;
 
         chain.rpc = rpc.parse()
             .map_err(|e| format!("{}", e))?;
@@ -77,9 +67,8 @@ pub fn get_chain_rpc(chain_id: Nat) -> Result<String, String> {
     validate_caller()
         .map_err(|e| format!("{}", e))?;
 
-    CHAINS.with(move |chains| {
+    CHAINS.with(|chains| {
         let chains = chains.borrow();
-
         let chain = chains.get(&U256::from(&chain_id))
             .ok_or_else(|| format!("{}", PythiaError::ChainDoesNotExist))?;
 
