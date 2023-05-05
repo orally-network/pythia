@@ -17,4 +17,9 @@ pub enum PythiaError {
     UserNotFound,
     #[error("not enoght funds on an execution addr")]
     InsufficientBalance,
+    #[error("invalid a abi function")]
+    InvalidABIFunction(String),
+    #[allow(dead_code)]
+    #[error("tx failed")]
+    TxFailed,
 }

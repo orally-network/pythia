@@ -4,10 +4,20 @@ type Error = variant { Ok : null; Err : text };
 service : {
     // controllers
     get_controllers : () -> (vec principal);
+    update_tx_fee : (tx_fee: nat) -> (Error);
 
     // chains
-    add_chain : (chain_id: nat, rpc: text) -> (Error);
+    add_chain : (chain_id: nat, rpc: text, min_balance: nat) -> (Error);
     remove_chain : (chain_id: nat) -> (Error);
-    update_rpc : (chain_id: nat, rpc: text) -> (Error);
+    update_chain_rpc : (chain_id: nat, rpc: text) -> (Error);
+    update_chain_min_balance : (chain_id: nat, min_balance: nat) -> (Error);
+    update_chain_native_price : (chain_id: nat, native_price: nat) -> (Error);
     get_chain_rpc : (chain_id: nat) -> (Result);
+
+    // subs
+    subscribe : (chain_id: nat, contract_addr: text, method_abi: text, frequency: nat) -> (Error);
+    refresh_subs : (chain_id: nat) -> (Error);
+
+    // users
+    add_user : (msg: text, sig: text) -> (Result);
 }

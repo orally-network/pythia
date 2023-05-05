@@ -1,0 +1,5 @@
+type Result = variant { Ok : text; Err : text };
+
+service : {
+    get_signer : (msg: text, sig: text) -> (text);
+}

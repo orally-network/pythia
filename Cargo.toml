@@ -1,4 +1,5 @@
 [workspace]
 members = [
     "src/pythia_backend",
+    "src/siwe_signer",
 ]

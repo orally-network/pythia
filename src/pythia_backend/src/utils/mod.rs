@@ -1,35 +1,21 @@
+pub mod publish;
+
 use std::str::FromStr;
 
+use anyhow::{anyhow, Context, Result};
 use url::Url;
-use time::OffsetDateTime;
-use anyhow::{Result, Context, anyhow};
-use siwe::{Message, VerificationOpts};
 
-use ic_cdk_macros::update;
-use ic_cdk::{
-    export::Principal,
-    api::management_canister::main::{
-        canister_status,
-        CanisterIdRecord
-    },
-};
 use ic_web3::{
-    Web3,
-    types::H160,
+    ethabi::{ParamType, Token},
     transports::ICHttp,
+    types::H160,
+    Web3,
 };
 
-use crate::{
-    U256,
-    CONTROLLERS,
-    MIN_BALANCE,
-    types::errors::PythiaError
-};
+use crate::{types::errors::PythiaError, Chain, User, CONTROLLERS, U256, SIWE_CANISTER};
 
 pub fn validate_caller() -> Result<()> {
-    let controllers = CONTROLLERS.with(|controllers| {
-        controllers.borrow().clone()
-    });
+    let controllers = CONTROLLERS.with(|controllers| controllers.borrow().clone());
 
     if controllers.contains(&ic_cdk::caller()) {
         return Ok(());
@@ -39,76 +25,53 @@ pub fn validate_caller() -> Result<()> {
 }
 
 pub async fn rec_eth_addr(msg: &str, sig: &str) -> Result<H160> {
-    let msg = Message::from_str(msg)
-        .context("failed to parse the message")?;
+    let siwe_canister = SIWE_CANISTER.with(|siwe_canister| siwe_canister.borrow().clone())
+        .expect("canister should be initialized");
 
-    let sig = hex::decode(sig)
-        .context("failed to decode the signature")?;
-    
-    let timestamp = OffsetDateTime::from_unix_timestamp((ic_cdk::api::time() / 1_000_000_000) as i64)
-        .context("failed to get the timestamp")?;
+    let msg = msg.to_string();
+    let sig = sig.to_string();
 
-    let opts = VerificationOpts {
-        timestamp: Some(timestamp),
-        ..Default::default()
-    };
-
-    msg.verify(&sig, &opts)
+    let (signer, ): (String, ) = ic_cdk::call(siwe_canister, "get_signer", (msg, sig))
         .await
-        .context("failed to verify the signature")?;
+        .map_err(|(code, msg)| anyhow!("{:?}: {}", code, msg))?;
 
-    Ok(H160::from_slice(&msg.address))
+    Ok(H160::from_str(&signer).context("failed to parse signer address")?)
 }
 
-pub async fn check_balance(address: &H160, rpc: &Url) -> Result<()> {
-    let balance = get_balance(address, rpc).await?;
+pub async fn check_balance(user: &User, chain: &Chain) -> Result<()> {
+    let balance = get_balance(&user.exec_addr, &chain.rpc).await?;
 
-    MIN_BALANCE.with(|min_balance| {
-        if balance < *min_balance.borrow() {
-            return Err(anyhow!(PythiaError::InsufficientBalance));
-        }
+    if balance < chain.min_balance {
+        return Err(anyhow!(PythiaError::InsufficientBalance));
+    }
 
-        Ok(())
-    })
+    Ok(())
 }
 
 pub async fn get_balance(address: &H160, rpc: &Url) -> Result<U256> {
-    let w3 = Web3::new(
-        ICHttp::new(rpc.as_str(), None, None)
-            .context("failed to connect to a node")?
-    );
+    let w3 =
+        Web3::new(ICHttp::new(rpc.as_str(), None, None).context("failed to connect to a node")?);
 
-    let balance = w3.eth()
-        .balance(address.clone(), None)
+    let balance = w3
+        .eth()
+        .balance(*address, None)
         .await
         .context("failed to get balance")?;
 
     Ok(U256(balance))
 }
 
-#[update]
-pub async fn get_controllers() -> Vec<Principal> {
-    let controllers = CONTROLLERS.with(|controllers| {
-        controllers.borrow().clone()
-    });
+pub fn add_brackets(data: &str) -> String {
+    format!("[{}]", data)
+}
 
-    if !controllers.is_empty() {
-        return controllers;
+pub fn cast_to_param_type(value: u64, kind: &ParamType) -> Option<Token> {
+    match kind {
+        ParamType::Bytes => Some(Token::Bytes(value.to_le_bytes().to_vec())),
+        ParamType::FixedBytes(_) => Some(Token::FixedBytes(value.to_le_bytes().to_vec())),
+        ParamType::Uint(_) => Some(Token::Uint(value.into())),
+        ParamType::Int(_) => Some(Token::Int(value.into())),
+        ParamType::String => Some(Token::String(value.to_string())),
+        _ => None,
     }
-
-    let canister_id_record = CanisterIdRecord{
-        canister_id: ic_cdk::id(),
-    };
-
-    let (canister_status, ) = canister_status(canister_id_record)
-        .await
-        .expect("Failed to get canister status");
-
-    CONTROLLERS.with(|controllers| {
-        *controllers.borrow_mut() = canister_status.settings.controllers;
-    });
-
-    CONTROLLERS.with(|controllers| {
-        controllers.borrow().clone()
-    })
 }
