@@ -9,7 +9,7 @@ use std::time::Duration;
 use types::{chains::Chain, errors::PythiaError, subs::Sub, users::User, U256};
 
 use ic_cdk::{
-    api::management_canister::http_request::{TransformArgs, HttpResponse},
+    api::management_canister::http_request::{HttpResponse, TransformArgs},
     export::{candid::Nat, Principal},
     spawn,
 };

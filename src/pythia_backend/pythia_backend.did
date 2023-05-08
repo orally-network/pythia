@@ -7,7 +7,7 @@ service : {
     update_tx_fee : (tx_fee: nat) -> (Error);
 
     // chains
-    add_chain : (chain_id: nat, rpc: text, min_balance: nat) -> (Error);
+    add_chain : (chain_id: nat, rpc: text, min_balance: nat, treasurer: text) -> (Error);
     remove_chain : (chain_id: nat) -> (Error);
     update_chain_rpc : (chain_id: nat, rpc: text) -> (Error);
     update_chain_min_balance : (chain_id: nat, min_balance: nat) -> (Error);
@@ -15,7 +15,7 @@ service : {
     get_chain_rpc : (chain_id: nat) -> (Result);
 
     // subs
-    subscribe : (chain_id: nat, contract_addr: text, method_abi: text, frequency: nat) -> (Error);
+    subscribe : (chain_id: nat, contract_addr: text, method_abi: text, frequency: nat, is_random: bool) -> (Error);
     refresh_subs : (chain_id: nat) -> (Error);
 
     // users

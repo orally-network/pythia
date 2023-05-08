@@ -20,6 +20,5 @@ pub async fn add_user(msg: String, sig: String) -> Result<String, String> {
         users_state.borrow_mut().insert(caller, user);
     });
 
-
     Ok(exec_addr)
 }

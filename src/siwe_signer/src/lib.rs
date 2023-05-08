@@ -10,9 +10,7 @@ use ic_cdk_macros::query;
 #[query]
 #[allow(unused_variables)]
 pub async fn get_signer(msg: String, sig: String) -> String {
-    let msg = Message::from_str(&msg)
-        .expect("must be valid message");
-
+    let msg = Message::from_str(&msg).expect("must be valid message");
 
     // todo: temp mock
     // let sig = hex::decode(sig)
@@ -26,7 +24,6 @@ pub async fn get_signer(msg: String, sig: String) -> String {
     //     timestamp: Some(timestamp),
     //     ..Default::default()
     // };
-
 
     // msg.verify(&sig, &opts)
     //     .await

@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use url::Url;
 
 use ic_cdk::export::candid::Nat;
+use ic_web3::types::H160;
 
 use crate::types::U256;
 
@@ -11,10 +12,11 @@ pub struct Chain {
     pub rpc: Url,
     pub min_balance: U256,
     pub native_price: u64,
+    pub treasurer: H160,
 }
 
 impl Chain {
-    pub fn new(chain_id: &Nat, rpc: &str, min_balance: &Nat) -> Result<Self> {
+    pub fn new(chain_id: &Nat, rpc: &str, min_balance: &Nat, treasurer: &H160) -> Result<Self> {
         let rpc = rpc.parse().context("Failed to parse RPC URL")?;
 
         let chain_id = U256::from(chain_id.clone());
@@ -26,6 +28,7 @@ impl Chain {
             rpc,
             min_balance,
             native_price: 0,
+            treasurer: *treasurer,
         })
     }
 }

@@ -22,4 +22,6 @@ pub enum PythiaError {
     #[allow(dead_code)]
     #[error("tx failed")]
     TxFailed,
+    #[error("tx reached timeout")]
+    TxTimeout,
 }

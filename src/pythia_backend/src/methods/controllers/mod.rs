@@ -2,10 +2,7 @@ use anyhow::Result;
 
 use ic_cdk::{
     api::management_canister::main::{canister_status, CanisterIdRecord},
-    export::{
-        Principal,
-        candid::Nat,
-    },
+    export::{candid::Nat, Principal},
 };
 use ic_cdk_macros::update;
 

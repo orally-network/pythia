@@ -27,6 +27,7 @@ pub struct Sub {
     pub frequency: u64,
     pub principal: Principal,
     pub timer_id: TimerId,
+    pub is_random: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -45,6 +46,7 @@ impl Sub {
         frequency: &u64,
         user: &User,
         principal: &Principal,
+        is_random: bool,
     ) -> Result<Self> {
         let id = USERS.with(|users| {
             users
@@ -58,7 +60,7 @@ impl Sub {
         let contract_addr =
             H160::from_str(contract_addr).context("failed to parse contract address")?;
 
-        let owner = principal.clone();
+        let owner = *principal;
         let timer_id = set_timer_interval(Duration::from_secs(*frequency), move || {
             publish(id, owner);
         });
@@ -68,16 +70,10 @@ impl Sub {
 
         let param = validate_params(&func)?;
 
-        let gas_limit = calculate_gas_limit(
-            chain,
-            &func.name,
-            &param,
-            method_abi,
-            &contract_addr,
-            user,
-        )
-        .await
-        .context("failed to calculate gas limit")?;
+        let gas_limit =
+            calculate_gas_limit(chain, &func.name, &param, method_abi, &contract_addr, user)
+                .await
+                .context("failed to calculate gas limit")?;
 
         let method = Method {
             name: func.name,
@@ -94,6 +90,7 @@ impl Sub {
             frequency: *frequency,
             principal: *principal,
             timer_id,
+            is_random,
         })
     }
 }
@@ -110,8 +107,8 @@ async fn calculate_gas_limit(
         ICHttp::new(chain.rpc.as_str(), None, None).context("failed to connect to a node")?,
     );
 
-    let abi = EthabiContract::load(add_brackets(method_abi).as_bytes())
-        .expect("abi should be valid");
+    let abi =
+        EthabiContract::load(add_brackets(method_abi).as_bytes()).expect("abi should be valid");
 
     let contract = Contract::new(w3.eth(), *contract_addr, abi);
 

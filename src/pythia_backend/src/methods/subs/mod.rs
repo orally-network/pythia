@@ -2,15 +2,12 @@ use std::time::Duration;
 
 use anyhow::Result;
 
-use ic_cdk::export::{
-    Principal,
-    candid::Nat,
-};
+use ic_cdk::export::{candid::Nat, Principal};
 use ic_cdk_macros::update;
 use ic_cdk_timers::set_timer_interval;
 
 use crate::{
-    utils::{check_balance, publish::publish},
+    utils::{check_balance, collect_fee, publish::publish},
     Chain, PythiaError, Sub, User, CHAINS, U256, USERS,
 };
 
@@ -20,9 +17,13 @@ pub async fn subscribe(
     contract_addr: String,
     method_abi: String,
     frequency: Nat,
+    is_random: bool,
 ) -> Result<(), String> {
     let caller = ic_cdk::caller();
-    let frequency = frequency.0.to_string().parse::<u64>()
+    let frequency = frequency
+        .0
+        .to_string()
+        .parse::<u64>()
         .expect("valid number");
 
     let chain_id = U256::from(chain_id);
@@ -34,9 +35,21 @@ pub async fn subscribe(
         .await
         .map_err(|e| format!("{}", e))?;
 
-    let sub = Sub::instance(&chain, &contract_addr, &method_abi, &frequency, &user, &caller)
+    collect_fee(&user, &chain)
         .await
         .map_err(|e| format!("{}", e))?;
+
+    let sub = Sub::instance(
+        &chain,
+        &contract_addr,
+        &method_abi,
+        &frequency,
+        &user,
+        &caller,
+        is_random,
+    )
+    .await
+    .map_err(|e| format!("{}", e))?;
 
     add_sub(&sub, &caller);
 
@@ -63,7 +76,7 @@ pub async fn refresh_subs(chain_id: Nat) -> Result<(), String> {
             let id = sub.id;
 
             sub.timer_id = set_timer_interval(Duration::from_secs(sub.frequency), move || {
-                publish(id, caller.clone());
+                publish(id, caller);
             });
         }
 
