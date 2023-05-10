@@ -2,7 +2,7 @@ use std::{str::FromStr, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
 
-use ic_cdk::export::candid::{CandidType, Nat};
+use ic_cdk::export::candid::{CandidType, Nat, Deserialize};
 use ic_cdk_timers::{set_timer_interval, TimerId};
 use ic_web3::{
     contract::{Contract, Options},
@@ -146,7 +146,7 @@ fn validate_params(func: &Function) -> Result<ParamType> {
     }
 }
 
-#[derive(Clone, Debug, CandidType)]
+#[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct CandidSub {
     pub id: Nat,
     pub chain_id: Nat,
@@ -160,12 +160,12 @@ pub struct CandidSub {
 impl From<Sub> for CandidSub {
     fn from(sub: Sub) -> Self {
         Self {
-            id: Nat(sub.id.into()),
+            id: Nat::from(sub.id),
             chain_id: Nat::from(sub.chain_id),
             contract_addr: sub.contract_addr.to_string(),
             method_name: sub.method.name,
             method_abi: sub.method.abi,
-            frequency: Nat(sub.frequency.into()),
+            frequency: Nat::from(sub.frequency),
             is_random: sub.is_random,
         }
     }
