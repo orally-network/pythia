@@ -2,4 +2,5 @@
 members = [
     "src/pythia_backend",
     "src/siwe_signer",
+    "src/siwe_signer_mock",
 ]

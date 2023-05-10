@@ -2,7 +2,6 @@ use std::{str::FromStr, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
 
-use ic_cdk::export::Principal;
 use ic_cdk_timers::{set_timer_interval, TimerId};
 use ic_web3::{
     contract::{Contract, Options},
@@ -25,7 +24,6 @@ pub struct Sub {
     pub contract_addr: H160,
     pub method: Method,
     pub frequency: u64,
-    pub principal: Principal,
     pub timer_id: TimerId,
     pub is_random: bool,
 }
@@ -45,13 +43,12 @@ impl Sub {
         method_abi: &str,
         frequency: &u64,
         user: &User,
-        principal: &Principal,
         is_random: bool,
     ) -> Result<Self> {
         let id = USERS.with(|users| {
             users
                 .borrow()
-                .get(principal)
+                .get(&user.pub_key)
                 .expect("user should exist")
                 .subs
                 .len() as u64
@@ -60,7 +57,7 @@ impl Sub {
         let contract_addr =
             H160::from_str(contract_addr).context("failed to parse contract address")?;
 
-        let owner = *principal;
+        let owner = user.pub_key;
         let timer_id = set_timer_interval(Duration::from_secs(*frequency), move || {
             publish(id, owner);
         });
@@ -88,7 +85,6 @@ impl Sub {
             contract_addr,
             method,
             frequency: *frequency,
-            principal: *principal,
             timer_id,
             is_random,
         })

@@ -1788,6 +1788,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "siwe_signer_mock"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "ic-cdk 0.6.10",
+ "ic-cdk-macros",
+ "siwe",
+ "time",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"

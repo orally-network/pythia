@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 
 use ic_cdk::export::candid::Nat;
 use ic_cdk_macros::{query, update};
@@ -9,9 +9,13 @@ use ic_web3::types::H160;
 use crate::{utils::validate_caller, Chain, PythiaError, CHAINS, U256};
 
 #[update]
-pub fn add_chain(chain_id: Nat, rpc: String, min_balance: Nat, treasurer: String) -> Result<(), String> {
-    _add_chain(chain_id, rpc, min_balance, treasurer)
-        .map_err(|e| e.to_string())
+pub fn add_chain(
+    chain_id: Nat,
+    rpc: String,
+    min_balance: Nat,
+    treasurer: String,
+) -> Result<(), String> {
+    _add_chain(chain_id, rpc, min_balance, treasurer).map_err(|e| e.to_string())
 }
 
 fn _add_chain(chain_id: Nat, rpc: String, min_balance: Nat, treasurer: String) -> Result<()> {
@@ -35,8 +39,7 @@ fn _add_chain(chain_id: Nat, rpc: String, min_balance: Nat, treasurer: String) -
 
 #[update]
 pub fn remove_chain(chain_id: Nat) -> Result<(), String> {
-    _remove_chain(chain_id)
-        .map_err(|e| e.to_string())
+    _remove_chain(chain_id).map_err(|e| e.to_string())
 }
 
 fn _remove_chain(chain_id: Nat) -> Result<()> {
@@ -54,8 +57,7 @@ fn _remove_chain(chain_id: Nat) -> Result<()> {
 
 #[update]
 pub fn update_chain_rpc(chain_id: Nat, rpc: String) -> Result<(), String> {
-    _update_chain_rpc(chain_id, rpc)
-        .map_err(|e| e.to_string())
+    _update_chain_rpc(chain_id, rpc).map_err(|e| e.to_string())
 }
 
 fn _update_chain_rpc(chain_id: Nat, rpc: String) -> Result<()> {
@@ -67,8 +69,7 @@ fn _update_chain_rpc(chain_id: Nat, rpc: String) -> Result<()> {
             .get_mut(&U256::from(chain_id))
             .ok_or(PythiaError::ChainDoesNotExist)?;
 
-        chain.rpc = rpc
-            .parse()?;
+        chain.rpc = rpc.parse()?;
 
         Ok(())
     })
@@ -76,8 +77,7 @@ fn _update_chain_rpc(chain_id: Nat, rpc: String) -> Result<()> {
 
 #[update]
 pub fn update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<(), String> {
-    _update_chain_min_balance(chain_id, min_balance)
-        .map_err(|e| e.to_string())
+    _update_chain_min_balance(chain_id, min_balance).map_err(|e| e.to_string())
 }
 
 fn _update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<()> {
@@ -97,8 +97,7 @@ fn _update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<()> {
 
 #[update]
 pub fn update_chain_native_price(chain_id: Nat, native_price: Nat) -> Result<(), String> {
-    _update_chain_native_price(chain_id, native_price)
-        .map_err(|e| e.to_string())
+    _update_chain_native_price(chain_id, native_price).map_err(|e| e.to_string())
 }
 
 fn _update_chain_native_price(chain_id: Nat, native_price: Nat) -> Result<()> {
@@ -122,8 +121,7 @@ fn _update_chain_native_price(chain_id: Nat, native_price: Nat) -> Result<()> {
 
 #[query]
 pub fn get_chain_rpc(chain_id: Nat) -> Result<String, String> {
-    _get_chain_rpc(chain_id)
-        .map_err(|e| e.to_string())
+    _get_chain_rpc(chain_id).map_err(|e| e.to_string())
 }
 
 fn _get_chain_rpc(chain_id: Nat) -> Result<String> {
