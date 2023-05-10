@@ -1,14 +1,14 @@
 use anyhow::{anyhow, Context, Result};
 
-use ic_cdk::{api::management_canister::main::raw_rand, api::time, export::Principal};
+use ic_cdk::{api::management_canister::main::raw_rand, api::time};
 use ic_cdk_timers::clear_timer;
 use ic_utils::logger::log_message;
 use ic_web3::{
     contract::{Contract, Options},
-    ethabi::Contract as EthabiContract,
+    ethabi::{Contract as EthabiContract, Token},
     ic::KeyInfo,
     transports::ICHttp,
-    types::H256,
+    types::{H160, H256},
     Web3,
 };
 
@@ -19,12 +19,13 @@ use crate::{
 
 const TIMEOUT: u64 = 60 * 60;
 const MAX_RETRY_ATTEMPTS: u64 = 3;
+const BITS_IN_BYTE: usize = 8;
 
-pub fn publish(sub_id: u64, owner: Principal) {
+pub fn publish(sub_id: u64, owner: H160) {
     ic_cdk::spawn(_publish(sub_id, owner));
 }
 
-async fn _publish(sub_id: u64, owner: Principal) {
+async fn _publish(sub_id: u64, owner: H160) {
     let user = USERS.with(|users| {
         users
             .borrow()
@@ -59,9 +60,7 @@ async fn _publish(sub_id: u64, owner: Principal) {
 fn stop_sub(sub: &Sub, user: &User) {
     log_message(format!(
         "[{}] insufficient funds | exec_addr: {}, chain_id: {}",
-        ic_cdk::caller(),
-        user.exec_addr,
-        sub.chain_id.0,
+        user.pub_key, user.exec_addr, sub.chain_id.0,
     ));
 
     clear_timer(sub.timer_id)
@@ -83,14 +82,7 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
 
     let contract = Contract::new(w3.eth(), sub.contract_addr, abi);
 
-    let raw_input = if sub.is_random {
-        let (raw_data,) = raw_rand().await.expect("random should be generated");
-        u64::from_be_bytes(raw_data[..7].try_into().expect("valid convertation"))
-    } else {
-        chain.native_price
-    };
-
-    let input = cast_to_param_type(raw_input, &sub.method.param).expect("should be able to cast");
+    let input = get_input(chain, sub).await;
 
     let key_info = KeyInfo {
         derivation_path: vec![user.pub_key.as_bytes().to_vec()],
@@ -134,6 +126,29 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
     }
 
     Ok(())
+}
+
+async fn get_input(chain: &Chain, sub: &Sub) -> Token {
+    let raw_input = if sub.is_random {
+        let (mut raw_data,) = raw_rand().await.expect("random should be generated");
+
+        let (insufficient_bytes_count, was_overflowed) =
+            raw_data.len().overflowing_sub(BITS_IN_BYTE);
+
+        if was_overflowed {
+            raw_data.append(&mut vec![0; insufficient_bytes_count]);
+        }
+
+        u64::from_be_bytes(
+            raw_data[..BITS_IN_BYTE - 1]
+                .try_into()
+                .expect("valid convertation"),
+        )
+    } else {
+        chain.native_price
+    };
+
+    cast_to_param_type(raw_input, &sub.method.param).expect("should be able to cast")
 }
 
 async fn wait_until_confimation(tx_hash: &H256, w3: &Web3<ICHttp>) -> Result<()> {

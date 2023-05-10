@@ -19,7 +19,6 @@ pub enum PythiaError {
     InsufficientBalance,
     #[error("invalid a abi function")]
     InvalidABIFunction(String),
-    #[allow(dead_code)]
     #[error("tx failed")]
     TxFailed,
     #[error("tx reached timeout")]

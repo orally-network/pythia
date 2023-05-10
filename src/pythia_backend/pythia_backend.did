@@ -1,5 +1,16 @@
+type Sub record {
+    id : nat,
+    chain_id : nat,
+    contract_addr : text,
+    method_name : text,
+    method_abi : text,
+    frequency : nat,
+    is_random : bool,
+}
+
 type Result = variant { Ok : text; Err : text };
 type Error = variant { Ok : null; Err : text };
+type GetSubsResult = variant { Ok : vec Sub; Err : text };
 
 service : {
     // controllers
@@ -15,8 +26,17 @@ service : {
     get_chain_rpc : (chain_id: nat) -> (Result);
 
     // subs
-    subscribe : (chain_id: nat, contract_addr: text, method_abi: text, frequency: nat, is_random: bool) -> (Error);
-    refresh_subs : (chain_id: nat) -> (Error);
+    subscribe : (
+        chain_id: nat,
+        contract_addr: text,
+        method_abi: text,
+        frequency: nat,
+        is_random: bool,
+        msg: text,
+        sig: text,
+    ) -> (Error);
+    get_subs : (pub_key : text) -> (GetSubsResult);
+    refresh_subs : (chain_id: nat, msg: text, sig: text) -> (Error);
 
     // users
     add_user : (msg: text, sig: text) -> (Result);
