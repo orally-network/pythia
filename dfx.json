@@ -9,6 +9,11 @@
       "candid": "src/siwe_signer/siwe_signer.did",
       "package": "siwe_signer",
       "type": "rust"
+    },
+    "siwe_signer_mock": {
+      "candid": "src/siwe_signer_mock/siwe_signer_mock.did",
+      "package": "siwe_signer_mock",
+      "type": "rust"
     }
   },
   "defaults": {

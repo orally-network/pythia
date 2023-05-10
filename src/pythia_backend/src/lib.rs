@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use types::{chains::Chain, errors::PythiaError, subs::Sub, users::User, U256};
+use types::{chains::Chain, errors::PythiaError, subs::{Sub, CandidSub}, users::User, U256};
 
 use ic_cdk::{
     api::management_canister::http_request::{HttpResponse, TransformArgs},
@@ -15,13 +15,14 @@ use ic_cdk::{
 };
 use ic_cdk_macros::init;
 use ic_cdk_timers::set_timer;
+use ic_web3::types::H160;
 
 thread_local! {
     pub static CONTROLLERS: RefCell<Vec<Principal>> = RefCell::default();
     pub static CHAINS: RefCell<HashMap<U256, Chain>> = RefCell::default();
     pub static TX_FEE: RefCell<U256> = RefCell::default();
     pub static KEY_NAME: RefCell<String> = RefCell::default();
-    pub static USERS: RefCell<HashMap<Principal, User>> = RefCell::default();
+    pub static USERS: RefCell<HashMap<H160, User>> = RefCell::default();
     pub static SIWE_CANISTER: RefCell<Option<Principal>> = RefCell::default();
 }
 
