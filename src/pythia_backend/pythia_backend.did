@@ -1,12 +1,12 @@
-type Sub record {
-    id : nat,
-    chain_id : nat,
-    contract_addr : text,
-    method_name : text,
-    method_abi : text,
-    frequency : nat,
-    is_random : bool,
-}
+type Sub = record {
+    id : nat;
+    chain_id : nat;
+    contract_addr : text;
+    method_name : text;
+    method_abi : text;
+    frequency : nat;
+    is_random : bool;
+};
 
 type Result = variant { Ok : text; Err : text };
 type Error = variant { Ok : null; Err : text };
