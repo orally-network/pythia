@@ -1,34 +1,21 @@
+pub mod chains;
 pub mod errors;
-
-use std::str::FromStr;
-
-use anyhow::{Result, Context};
-use url::Url;
+pub mod subs;
+pub mod users;
 
 use ic_cdk::export::candid::Nat;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Copy)]
-pub struct U256(primitive_types::U256);
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Copy, Default, PartialOrd, Ord)]
+pub struct U256(pub ic_web3::types::U256);
 
-impl From<&Nat> for U256 {
-    fn from(nat: &Nat) -> Self {
-        U256(primitive_types::U256::from_str(&nat.0.to_string()).unwrap())
+impl From<Nat> for U256 {
+    fn from(nat: Nat) -> Self {
+        U256(ic_web3::types::U256::from_big_endian(&nat.0.to_bytes_be()))
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct Chain {
-    pub chain_id: U256,
-    pub rpc: Url
-}
-
-impl Chain {
-    pub fn new(chain_id: &Nat, rpc: &str) -> Result<Self> {
-        let rpc = rpc.parse()
-            .context("Failed to parse RPC URL")?;
-
-        let chain_id = U256::from(chain_id);
-
-        Ok(Self { chain_id, rpc })
+impl From<u64> for U256 {
+    fn from(value: u64) -> Self {
+        U256(ic_web3::types::U256::from(value))
     }
 }

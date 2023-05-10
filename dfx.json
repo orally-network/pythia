@@ -4,6 +4,11 @@
       "candid": "src/pythia_backend/pythia_backend.did",
       "package": "pythia_backend",
       "type": "rust"
+    },
+    "siwe_signer": {
+      "candid": "src/siwe_signer/siwe_signer.did",
+      "package": "siwe_signer",
+      "type": "rust"
     }
   },
   "defaults": {
