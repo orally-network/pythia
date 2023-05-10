@@ -21,19 +21,13 @@ fn update_tx_fee(tx_fee: Nat) -> Result<(), String> {
 
 #[update]
 pub async fn get_controllers() -> Vec<Principal> {
-    let controllers = CONTROLLERS.with(|controllers| controllers.borrow().clone());
-
-    if !controllers.is_empty() {
-        return controllers;
-    }
-
     let canister_id_record = CanisterIdRecord {
         canister_id: ic_cdk::id(),
     };
 
     let (canister_status,) = canister_status(canister_id_record)
         .await
-        .expect("should get canister status");
+        .expect("should execute in the IC environment");
 
     CONTROLLERS.with(|controllers| {
         *controllers.borrow_mut() = canister_status.settings.controllers;

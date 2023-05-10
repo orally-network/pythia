@@ -130,7 +130,12 @@ fn validate_params(func: &Function) -> Result<ParamType> {
         )));
     }
 
-    let kind = func.inputs.first().expect("should exists").kind.clone();
+    let kind = func
+        .inputs
+        .first()
+        .expect("a value should exists")
+        .kind
+        .clone();
 
     match kind {
         ParamType::Bytes => Ok(kind),

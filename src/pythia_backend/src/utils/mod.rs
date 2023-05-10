@@ -14,14 +14,16 @@ use ic_web3::{
 
 use crate::{types::errors::PythiaError, Chain, User, CONTROLLERS, SIWE_CANISTER, TX_FEE, U256};
 
-pub fn validate_caller() -> Result<()> {
+const ETH_TRANSFER_GAS_LIMIT: u64 = 21000;
+
+pub fn validate_caller() -> Result<(), PythiaError> {
     let controllers = CONTROLLERS.with(|controllers| controllers.borrow().clone());
 
     if controllers.contains(&ic_cdk::caller()) {
         return Ok(());
     }
 
-    Err(anyhow!(PythiaError::NotAController))
+    Err(PythiaError::NotAController)
 }
 
 pub async fn rec_eth_addr(msg: &str, sig: &str) -> Result<H160> {
@@ -62,6 +64,7 @@ pub async fn get_balance(address: &H160, rpc: &Url) -> Result<U256> {
     Ok(U256(balance))
 }
 
+#[inline]
 pub fn add_brackets(data: &str) -> String {
     format!("[{}]", data)
 }
@@ -104,7 +107,7 @@ pub async fn collect_fee(user: &User, chain: &Chain) -> Result<()> {
         .send_transaction(TransactionRequest {
             from: user.exec_addr,
             to: Some(chain.treasurer),
-            gas: Some(21000.into()),
+            gas: Some(ETH_TRANSFER_GAS_LIMIT.into()),
             gas_price: Some(gas_price),
             value: Some(fee.0),
             data: None,

@@ -19,25 +19,27 @@ pub async fn subscribe(
     frequency: Nat,
     is_random: bool,
 ) -> Result<(), String> {
+    _subscribe(chain_id, contract_addr, method_abi, frequency, is_random)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+async fn _subscribe(
+    chain_id: Nat,
+    contract_addr: String,
+    method_abi: String,
+    frequency: Nat,
+    is_random: bool,
+) -> Result<()> {
     let caller = ic_cdk::caller();
-    let frequency = frequency
-        .0
-        .to_string()
-        .parse::<u64>()
-        .expect("valid number");
-
+    let frequency = *frequency
+        .0.to_u64_digits().last().expect("frequency should be u64");
     let chain_id = U256::from(chain_id);
-    let chain = get_chain(&chain_id).map_err(|e| format!("{}", e))?;
+    let chain = get_chain(&chain_id)?;
+    let user = get_user(&caller)?;
 
-    let user = get_user(&caller).map_err(|e| format!("{}", e))?;
-
-    check_balance(&user, &chain)
-        .await
-        .map_err(|e| format!("{}", e))?;
-
-    collect_fee(&user, &chain)
-        .await
-        .map_err(|e| format!("{}", e))?;
+    check_balance(&user, &chain).await?;
+    collect_fee(&user, &chain).await?;
 
     let sub = Sub::instance(
         &chain,
@@ -47,10 +49,7 @@ pub async fn subscribe(
         &user,
         &caller,
         is_random,
-    )
-    .await
-    .map_err(|e| format!("{}", e))?;
-
+    ).await?;
     add_sub(&sub, &caller);
 
     Ok(())
@@ -58,15 +57,18 @@ pub async fn subscribe(
 
 #[update]
 pub async fn refresh_subs(chain_id: Nat) -> Result<(), String> {
+    _refresh_subs(chain_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+async fn _refresh_subs(chain_id: Nat) -> Result<()> {
     let caller = ic_cdk::caller();
     let chain_id = U256::from(chain_id);
-    let chain = get_chain(&chain_id).map_err(|e| format!("{}", e))?;
+    let chain = get_chain(&chain_id)?;
+    let user = get_user(&caller)?;
 
-    let user = get_user(&caller).map_err(|e| format!("{}", e))?;
-
-    check_balance(&user, &chain)
-        .await
-        .map_err(|e| format!("{}", e))?;
+    check_balance(&user, &chain).await?;
 
     USERS.with(|users| {
         let mut users = users.borrow_mut();
