@@ -1474,6 +1474,7 @@ dependencies = [
  "ic-cdk-macros",
  "ic-cdk-timers",
  "ic-web3",
+ "num-bigint",
  "rand",
  "serde_json",
  "thiserror",

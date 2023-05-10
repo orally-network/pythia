@@ -2,6 +2,7 @@ use std::{str::FromStr, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
 
+use ic_cdk::export::candid::{CandidType, Nat};
 use ic_cdk_timers::{set_timer_interval, TimerId};
 use ic_web3::{
     contract::{Contract, Options},
@@ -142,5 +143,30 @@ fn validate_params(func: &Function) -> Result<ParamType> {
         _ => Err(anyhow!(PythiaError::InvalidABIFunction(
             "input should be supported".to_string()
         ))),
+    }
+}
+
+#[derive(Clone, Debug, CandidType)]
+pub struct CandidSub {
+    pub id: Nat,
+    pub chain_id: Nat,
+    pub contract_addr: String,
+    pub method_name: String,
+    pub method_abi: String,
+    pub frequency: Nat,
+    pub is_random: bool,
+}
+
+impl From<Sub> for CandidSub {
+    fn from(sub: Sub) -> Self {
+        Self {
+            id: Nat(sub.id.into()),
+            chain_id: Nat::from(sub.chain_id),
+            contract_addr: sub.contract_addr.to_string(),
+            method_name: sub.method.name,
+            method_abi: sub.method.abi,
+            frequency: Nat(sub.frequency.into()),
+            is_random: sub.is_random,
+        }
     }
 }

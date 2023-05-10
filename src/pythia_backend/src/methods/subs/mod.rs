@@ -1,15 +1,15 @@
-use std::time::Duration;
+use std::{time::Duration, str::FromStr};
 
 use anyhow::Result;
 
 use ic_cdk::export::candid::Nat;
-use ic_cdk_macros::update;
+use ic_cdk_macros::{update, query};
 use ic_cdk_timers::set_timer_interval;
 use ic_web3::types::H160;
 
 use crate::{
     utils::{check_balance, collect_fee, publish::publish, rec_eth_addr},
-    Chain, PythiaError, Sub, User, CHAINS, U256, USERS,
+    Chain, PythiaError, Sub, User, CHAINS, U256, USERS, CandidSub,
 };
 
 #[update]
@@ -76,6 +76,25 @@ pub async fn refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<(),
     _refresh_subs(chain_id, msg, sig)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[query]
+pub fn get_subs(pub_key: String) -> Result<Vec<CandidSub>, String> {
+    _get_subs(pub_key).map_err(|e| e.to_string())
+}
+
+fn _get_subs(pub_key: String) -> Result<Vec<CandidSub>> {
+    let pub_key = H160::from_str(&pub_key)?;
+
+    let subs = USERS.with(|users|
+        users
+            .borrow()
+            .get(&pub_key)
+            .ok_or(PythiaError::UserNotFound)
+            .map(|user| user.subs.clone())
+    )?;
+
+    Ok(subs.into_iter().map(|sub| sub.into()).collect())
 }
 
 async fn _refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<()> {
