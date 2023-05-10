@@ -1,5 +1,5 @@
 [package]
-name = "pythia_backend"
+name = "siwe_signer"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,14 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 hex = "0.4.3"
-url = "2.3.1"
-rand = "0.8.5"
-candid = "0.8.2"
 ic-cdk = "0.6.0"
-ic-web3 = "0.1.7"
-anyhow = "1.0.71"
-thiserror = "1.0.40"
-serde_json = "1.0.96"
 ic-cdk-macros = "0.6.0"
-ic-cdk-timers = "0.1.2"
-ic-utils = { package = "canistergeek_ic_rust", version = "0.3.1" }
+siwe = { git = "https://github.com/domwoe/siwe-rs" }
+time = { version = "0.3.20", default-features = false}
