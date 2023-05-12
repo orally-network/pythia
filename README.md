@@ -15,7 +15,7 @@ dfx canister install -m reinstall --wasm target/wasm32-unknown-unknown/release/p
 # init the canister controllers in the canister storage
 dfx canister call pythia_backend get_controllers
 # add a new supported chain
-dfx canister call pythia_backend add_chain '(11155111:nat, "http://some.rpc.net", 10000000000000000:nat)'
+dfx canister call pythia_backend add_chain '(11155111:nat, "http://some.rpc.net", 10000000000000000:nat, "0000000000000000000000000000000000000000")'
 # add a new user
 dfx canister call pythia_backend add_user '("service.org wants you to sign in with your Ethereum account:
 0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9
