@@ -81,6 +81,12 @@ pub fn cast_to_param_type(value: u64, kind: &ParamType) -> Option<Token> {
 }
 
 pub async fn collect_fee(user: &User, chain: &Chain) -> Result<()> {
+    let fee = TX_FEE.with(|fee| *fee.borrow());
+
+    if fee == 0.into() {
+        return Ok(());
+    }
+
     let w3 = Web3::new(
         ICHttp::new(chain.rpc.as_str(), None, None).context("failed to connect to a node")?,
     );
@@ -99,8 +105,6 @@ pub async fn collect_fee(user: &User, chain: &Chain) -> Result<()> {
 
     // 1.1 multiplication
     let gas_price = (gas_price / 10) * 11;
-
-    let fee = TX_FEE.with(|fee| *fee.borrow());
 
     let tx_hash = w3
         .eth()
