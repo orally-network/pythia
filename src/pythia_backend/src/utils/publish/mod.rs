@@ -130,25 +130,29 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
 
 async fn get_input(chain: &Chain, sub: &Sub) -> Token {
     let raw_input = if sub.is_random {
-        let (mut raw_data,) = raw_rand().await.expect("random should be generated");
-
-        let (insufficient_bytes_count, was_overflowed) =
-            raw_data.len().overflowing_sub(BITS_IN_BYTE);
-
-        if was_overflowed {
-            raw_data.append(&mut vec![0; insufficient_bytes_count]);
-        }
-
-        u64::from_be_bytes(
-            raw_data[..BITS_IN_BYTE - 1]
-                .try_into()
-                .expect("valid convertation"),
-        )
+        get_random_input().await
     } else {
         chain.native_price
     };
 
     cast_to_param_type(raw_input, &sub.method.param).expect("should be able to cast")
+}
+
+async fn get_random_input() -> u64 {
+    let (mut raw_data,) = raw_rand().await.expect("random should be generated");
+
+    let (insufficient_bytes_count, was_overflowed) =
+        raw_data.len().overflowing_sub(BITS_IN_BYTE);
+
+    if was_overflowed {
+        raw_data.append(&mut vec![0; insufficient_bytes_count]);
+    }
+
+    u64::from_be_bytes(
+        raw_data[..BITS_IN_BYTE - 1]
+            .try_into()
+            .expect("valid convertation"),
+    )
 }
 
 async fn wait_until_confimation(tx_hash: &H256, w3: &Web3<ICHttp>) -> Result<()> {

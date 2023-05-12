@@ -11,7 +11,6 @@ pub struct Chain {
     pub chain_id: U256,
     pub rpc: Url,
     pub min_balance: U256,
-    pub native_price: u64,
     pub treasurer: H160,
 }
 
@@ -27,7 +26,6 @@ impl Chain {
             chain_id,
             rpc,
             min_balance,
-            native_price: 0,
             treasurer: *treasurer,
         })
     }
