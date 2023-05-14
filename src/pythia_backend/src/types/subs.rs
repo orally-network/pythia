@@ -2,8 +2,11 @@ use std::{str::FromStr, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
 
-use ic_cdk::export::candid::{CandidType, Nat, Deserialize};
-use ic_cdk_timers::{set_timer_interval, TimerId};
+use ic_cdk::export::{
+    serde::{Deserialize, Serialize},
+    candid::{CandidType, Nat},
+};
+use ic_cdk_timers::{set_timer_interval};
 use ic_web3::{
     contract::{Contract, Options},
     ethabi::Contract as EthabiContract,
@@ -18,21 +21,21 @@ use crate::{
     Chain, PythiaError, User, U256, USERS,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Sub {
     pub id: u64,
     pub chain_id: U256,
     pub contract_addr: H160,
     pub method: Method,
     pub frequency: u64,
-    pub timer_id: TimerId,
+    pub timer_id: String,
     pub is_random: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Method {
     pub name: String,
-    pub param: ParamType,
+    pub param: String,
     pub abi: String,
     pub gas_limit: U256,
 }
@@ -63,19 +66,21 @@ impl Sub {
             publish(id, owner);
         });
 
+        let timer_id = serde_json::to_string(&timer_id)?;
+
         let func: Function =
             serde_json::from_str(method_abi).context("failed to parse method abi")?;
 
         let param = validate_params(&func)?;
 
         let gas_limit =
-            calculate_gas_limit(chain, &func.name, &param, method_abi, &contract_addr, user)
+            calculate_gas_limit(chain, &func.name, &param.to_string(), method_abi, &contract_addr, user)
                 .await
                 .context("failed to calculate gas limit")?;
 
         let method = Method {
             name: func.name,
-            param,
+            param: param.to_string(),
             gas_limit,
             abi: method_abi.to_string(),
         };
@@ -95,7 +100,7 @@ impl Sub {
 async fn calculate_gas_limit(
     chain: &Chain,
     method_name: &str,
-    param: &ParamType,
+    param: &str,
     method_abi: &str,
     contract_addr: &H160,
     user: &User,
