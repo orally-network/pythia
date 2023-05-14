@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 
 use ic_cdk::{api::management_canister::main::raw_rand, api::time};
-use ic_cdk_timers::clear_timer;
+use ic_cdk_timers::{clear_timer, TimerId};
 use ic_utils::logger::log_message;
 use ic_web3::{
     contract::{Contract, Options},
@@ -63,7 +63,10 @@ fn stop_sub(sub: &Sub, user: &User) {
         user.pub_key, user.exec_addr, sub.chain_id.0,
     ));
 
-    clear_timer(sub.timer_id)
+    let timer_id: TimerId = serde_json::from_str(&sub.timer_id)
+        .expect("should be valid timer id");
+
+    clear_timer(timer_id)
 }
 
 async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
