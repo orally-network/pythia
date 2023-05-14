@@ -15,7 +15,7 @@ dfx canister install -m reinstall --wasm target/wasm32-unknown-unknown/release/p
 # init the canister controllers in the canister storage
 dfx canister call pythia_backend get_controllers
 # add a new supported chain
-dfx canister call pythia_backend add_chain '(11155111:nat, "http://some.rpc.net", 10000000000000000:nat, "0000000000000000000000000000000000000000")'
+dfx canister call pythia_backend add_chain '(11155111:nat, "https://sepolia.infura.io/v3/d20be327500c45819a1a3b850daec0e2", 10000000000000000:nat, "0000000000000000000000000000000000000000")'
 # add a new user
 dfx canister call pythia_backend add_user '("service.org wants you to sign in with your Ethereum account:
 0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9
@@ -27,9 +27,9 @@ Chain ID: 11155111
 Nonce: 00000000
 Issued At: 2023-05-04T18:39:24Z", "fa7b336d271b7ed539b6db3034d57be294ef889b42534fa95689afd0989ab6d27878c837a14ed1b4c3ab6b7052180ce87198934cb7712a81ea413fd8ebb29e8c1c")'
 # init a new sub
-dfx canister call pythia_backend subscribe '(11155111:nat, "a59BCe2A90e8Ee71bE0EfdA6Ee361B3f308aE50A", "{ \"inputs\": [ { \"internalType\": \"string\", \"name\": \"_price\", \"type\": \"string\" } ], \"name\": \"set_price\", \"outputs\": [], \"stateMutability\": \"nonpayable\", \"type\": \"function\" }", 60:nat, "service.org wants you to sign in with your Ethereum account:
+dfx canister call pythia_backend subscribe '(11155111:nat, "a59BCe2A90e8Ee71bE0EfdA6Ee361B3f308aE50A", "{ \"inputs\": [ { \"internalType\": \"string\", \"name\": \"_price\", \"type\": \"string\" } ], \"name\": \"set_price\", \"outputs\": [], \"stateMutability\": \"nonpayable\", \"type\": \"function\" }", 60:nat, false, "service.org wants you to sign in with your Ethereum account:
 0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9
-
+    
 
 URI: https://service.org/login
 Version: 1

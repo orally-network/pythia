@@ -3,16 +3,16 @@ pub mod publish;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
-use url::Url;
 
 use ic_web3::{
-    ethabi::{ParamType, Token},
+    ethabi::Token,
     transports::ICHttp,
-    types::{TransactionRequest, H160},
+    types::{H160, TransactionParameters},
+    ic::KeyInfo,
     Web3,
 };
 
-use crate::{types::errors::PythiaError, Chain, User, CONTROLLERS, SIWE_CANISTER, TX_FEE, U256};
+use crate::{types::errors::PythiaError, Chain, User, CONTROLLERS, SIWE_CANISTER, TX_FEE, U256, KEY_NAME};
 
 const ETH_TRANSFER_GAS_LIMIT: u64 = 21000;
 
@@ -51,9 +51,9 @@ pub async fn check_balance(user: &User, chain: &Chain) -> Result<()> {
     Ok(())
 }
 
-pub async fn get_balance(address: &H160, rpc: &Url) -> Result<U256> {
+pub async fn get_balance(address: &H160, rpc: &str) -> Result<U256> {
     let w3 =
-        Web3::new(ICHttp::new(rpc.as_str(), None, None).context("failed to connect to a node")?);
+        Web3::new(ICHttp::new(rpc, None, None).context("failed to connect to a node")?);
 
     let balance = w3
         .eth()
@@ -69,21 +69,31 @@ pub fn add_brackets(data: &str) -> String {
     format!("[{}]", data)
 }
 
-pub fn cast_to_param_type(value: u64, kind: &ParamType) -> Option<Token> {
-    match kind {
-        ParamType::Bytes => Some(Token::Bytes(value.to_le_bytes().to_vec())),
-        ParamType::FixedBytes(_) => Some(Token::FixedBytes(value.to_le_bytes().to_vec())),
-        ParamType::Uint(_) => Some(Token::Uint(value.into())),
-        ParamType::Int(_) => Some(Token::Int(value.into())),
-        ParamType::String => Some(Token::String(value.to_string())),
-        _ => None,
-    }
+pub fn cast_to_param_type(value: u64, kind: &str) -> Option<Token> {
+    if kind == "bytes" { return Some(Token::Bytes(value.to_le_bytes().to_vec())) }
+    if kind.contains("bytes") { return Some(Token::FixedBytes(value.to_le_bytes().to_vec()))}
+    if kind.contains("uint") { return Some(Token::Uint(value.into())) }
+    if kind.contains("int") { return Some(Token::Int(value.into())) }
+    if kind.contains("string") { return Some(Token::String(value.to_string())) }
+
+    None
 }
 
 pub async fn collect_fee(user: &User, chain: &Chain) -> Result<()> {
+    let fee = TX_FEE.with(|fee| *fee.borrow());
+
+    if fee == U256::from(0) {
+        return Ok(());
+    }
+
     let w3 = Web3::new(
         ICHttp::new(chain.rpc.as_str(), None, None).context("failed to connect to a node")?,
     );
+
+    let key_info = KeyInfo {
+        derivation_path: vec![user.pub_key.as_bytes().to_vec()],
+        key_name: KEY_NAME.with(|key_name| key_name.borrow().clone()),
+    };
 
     let nonce = w3
         .eth()
@@ -100,24 +110,23 @@ pub async fn collect_fee(user: &User, chain: &Chain) -> Result<()> {
     // 1.1 multiplication
     let gas_price = (gas_price / 10) * 11;
 
-    let fee = TX_FEE.with(|fee| *fee.borrow());
+    let tx = TransactionParameters {
+        to: Some(chain.treasurer),
+        nonce: Some(nonce),
+        value: fee.0,
+        gas_price: Some(gas_price),
+        gas: ETH_TRANSFER_GAS_LIMIT.into(),
+        ..Default::default()
+    };
 
-    let tx_hash = w3
+    let signed_tx = w3.accounts()
+        .sign_transaction(tx, user.exec_addr.to_string(), key_info, chain.chain_id.0.as_u64())
+        .await?;
+
+    w3
         .eth()
-        .send_transaction(TransactionRequest {
-            from: user.exec_addr,
-            to: Some(chain.treasurer),
-            gas: Some(ETH_TRANSFER_GAS_LIMIT.into()),
-            gas_price: Some(gas_price),
-            value: Some(fee.0),
-            data: None,
-            nonce: Some(nonce),
-            ..Default::default()
-        })
-        .await
-        .context("failed to send transaction")?;
-
-    ic_cdk::println!("Fee tx_hash: {:?}", hex::encode(tx_hash.as_bytes()));
+        .send_raw_transaction(signed_tx.raw_transaction)
+        .await?;
 
     Ok(())
 }

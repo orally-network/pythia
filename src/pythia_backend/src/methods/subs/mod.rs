@@ -71,13 +71,6 @@ async fn _subscribe(
     Ok(())
 }
 
-#[update]
-pub async fn refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<(), String> {
-    _refresh_subs(chain_id, msg, sig)
-        .await
-        .map_err(|e| e.to_string())
-}
-
 #[query]
 pub fn get_subs(pub_key: String) -> Result<Vec<CandidSub>, String> {
     _get_subs(pub_key).map_err(|e| e.to_string())
@@ -97,6 +90,13 @@ fn _get_subs(pub_key: String) -> Result<Vec<CandidSub>> {
     Ok(subs.into_iter().map(|sub| sub.into()).collect())
 }
 
+#[update]
+pub async fn refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<(), String> {
+    _refresh_subs(chain_id, msg, sig)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 async fn _refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<()> {
     let chain_id = U256::from(chain_id);
     let chain = get_chain(&chain_id)?;
@@ -112,9 +112,12 @@ async fn _refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<()> {
         for sub in user.subs.iter_mut() {
             let id = sub.id;
 
-            sub.timer_id = set_timer_interval(Duration::from_secs(sub.frequency), move || {
+            let timer_id = set_timer_interval(Duration::from_secs(sub.frequency), move || {
                 publish(id, pub_key);
             });
+
+            sub.timer_id = serde_json::to_string(&timer_id)
+                .expect("should be valid timer id");
         }
 
         Ok(())

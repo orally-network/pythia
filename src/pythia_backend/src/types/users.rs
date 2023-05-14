@@ -1,10 +1,11 @@
 use anyhow::Result;
 
+use ic_cdk::export::serde::{Serialize, Deserialize};
 use ic_web3::{ic::get_eth_addr, types::H160};
 
 use crate::{types::subs::Sub, PythiaError, KEY_NAME};
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct User {
     pub pub_key: H160,
     pub exec_addr: H160,
