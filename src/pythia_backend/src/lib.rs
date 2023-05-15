@@ -1,6 +1,7 @@
 mod methods;
 mod types;
 mod utils;
+mod migrations;
 
 use std::cell::RefCell;
 use std::collections::HashMap;

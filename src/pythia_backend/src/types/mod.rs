@@ -3,10 +3,13 @@ pub mod errors;
 pub mod subs;
 pub mod users;
 
-use ic_cdk::export::candid::Nat;
+use ic_cdk::export::{
+    serde::{Deserialize, Serialize},
+    candid::Nat,
+};
 use num_bigint::BigUint;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Copy, Default, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Copy, Default, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct U256(pub ic_web3::types::U256);
 
 impl From<Nat> for U256 {
