@@ -1,20 +1,21 @@
-use std::{time::Duration, str::FromStr};
+use std::{str::FromStr, time::Duration};
 
 use anyhow::Result;
 
 use ic_cdk::export::candid::Nat;
-use ic_cdk_macros::{update, query};
+use ic_cdk_macros::{query, update};
 use ic_cdk_timers::set_timer_interval;
 use ic_web3::types::H160;
 
 use crate::{
     utils::{check_balance, collect_fee, publish::publish, rec_eth_addr},
-    Chain, PythiaError, Sub, User, CHAINS, U256, USERS, CandidSub,
+    CandidSub, Chain, PythiaError, Sub, User, CHAINS, U256, USERS,
 };
 
 #[update]
 pub async fn subscribe(
     chain_id: Nat,
+    pair_id: String,
     contract_addr: String,
     method_abi: String,
     frequency: Nat,
@@ -24,6 +25,7 @@ pub async fn subscribe(
 ) -> Result<(), String> {
     _subscribe(
         chain_id,
+        pair_id,
         contract_addr,
         method_abi,
         frequency,
@@ -37,6 +39,7 @@ pub async fn subscribe(
 
 async fn _subscribe(
     chain_id: Nat,
+    pair_id: String,
     contract_addr: String,
     method_abi: String,
     frequency: Nat,
@@ -59,6 +62,7 @@ async fn _subscribe(
 
     let sub = Sub::instance(
         &chain,
+        &pair_id,
         &contract_addr,
         &method_abi,
         &frequency,
@@ -79,13 +83,13 @@ pub fn get_subs(pub_key: String) -> Result<Vec<CandidSub>, String> {
 fn _get_subs(pub_key: String) -> Result<Vec<CandidSub>> {
     let pub_key = H160::from_str(&pub_key)?;
 
-    let subs = USERS.with(|users|
+    let subs = USERS.with(|users| {
         users
             .borrow()
             .get(&pub_key)
             .ok_or(PythiaError::UserNotFound)
             .map(|user| user.subs.clone())
-    )?;
+    })?;
 
     Ok(subs.into_iter().map(|sub| sub.into()).collect())
 }
@@ -116,8 +120,7 @@ async fn _refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<()> {
                 publish(id, pub_key);
             });
 
-            sub.timer_id = serde_json::to_string(&timer_id)
-                .expect("should be valid timer id");
+            sub.timer_id = serde_json::to_string(&timer_id).expect("should be valid timer id");
         }
 
         Ok(())

@@ -3,10 +3,10 @@ use std::{str::FromStr, time::Duration};
 use anyhow::{anyhow, Context, Result};
 
 use ic_cdk::export::{
-    serde::{Deserialize, Serialize},
     candid::{CandidType, Nat},
+    serde::{Deserialize, Serialize},
 };
-use ic_cdk_timers::{set_timer_interval};
+use ic_cdk_timers::set_timer_interval;
 use ic_web3::{
     contract::{Contract, Options},
     ethabi::Contract as EthabiContract,
@@ -17,13 +17,14 @@ use ic_web3::{
 };
 
 use crate::{
-    utils::{add_brackets, cast_to_param_type, publish::publish},
+    utils::{add_brackets, cast_to_param_type, publish::publish, sybil::is_pair_exists},
     Chain, PythiaError, User, U256, USERS,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Sub {
     pub id: u64,
+    pub pair_id: String,
     pub chain_id: U256,
     pub contract_addr: H160,
     pub method: Method,
@@ -43,12 +44,17 @@ pub struct Method {
 impl Sub {
     pub async fn instance(
         chain: &Chain,
+        pair_id: &str,
         contract_addr: &str,
         method_abi: &str,
         frequency: &u64,
         user: &User,
         is_random: bool,
     ) -> Result<Self> {
+        if !is_pair_exists(pair_id).await? {
+            return Err(anyhow!("pair id does not exist"));
+        }
+
         let id = USERS.with(|users| {
             users
                 .borrow()
@@ -73,10 +79,16 @@ impl Sub {
 
         let param = validate_params(&func)?;
 
-        let gas_limit =
-            calculate_gas_limit(chain, &func.name, &param.to_string(), method_abi, &contract_addr, user)
-                .await
-                .context("failed to calculate gas limit")?;
+        let gas_limit = calculate_gas_limit(
+            chain,
+            &func.name,
+            &param.to_string(),
+            method_abi,
+            &contract_addr,
+            user,
+        )
+        .await
+        .context("failed to calculate gas limit")?;
 
         let method = Method {
             name: func.name,
@@ -87,6 +99,7 @@ impl Sub {
 
         Ok(Self {
             id,
+            pair_id: pair_id.to_string(),
             chain_id: chain.chain_id,
             contract_addr,
             method,

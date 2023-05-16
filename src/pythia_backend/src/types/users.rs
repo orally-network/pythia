@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use ic_cdk::export::serde::{Serialize, Deserialize};
+use ic_cdk::export::serde::{Deserialize, Serialize};
 use ic_web3::{ic::get_eth_addr, types::H160};
 
 use crate::{types::subs::Sub, PythiaError, KEY_NAME};

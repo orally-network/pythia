@@ -2,8 +2,8 @@ use anyhow::{Context, Result};
 use url::Url;
 
 use ic_cdk::export::{
-    serde::{Deserialize, Serialize},
     candid::Nat,
+    serde::{Deserialize, Serialize},
 };
 use ic_web3::types::H160;
 

@@ -13,7 +13,7 @@ use ic_web3::{
 };
 
 use crate::{
-    utils::{add_brackets, cast_to_param_type, check_balance},
+    utils::{add_brackets, cast_to_param_type, check_balance, sybil::get_asset_data_with_proof},
     Chain, PythiaError, Sub, User, CHAINS, KEY_NAME, USERS,
 };
 
@@ -63,8 +63,7 @@ fn stop_sub(sub: &Sub, user: &User) {
         user.pub_key, user.exec_addr, sub.chain_id.0,
     ));
 
-    let timer_id: TimerId = serde_json::from_str(&sub.timer_id)
-        .expect("should be valid timer id");
+    let timer_id: TimerId = serde_json::from_str(&sub.timer_id).expect("should be valid timer id");
 
     clear_timer(timer_id)
 }
@@ -85,7 +84,7 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
 
     let contract = Contract::new(w3.eth(), sub.contract_addr, abi);
 
-    let input = get_input(chain, sub).await;
+    let input = get_input(sub).await?;
 
     let key_info = KeyInfo {
         derivation_path: vec![user.pub_key.as_bytes().to_vec()],
@@ -131,21 +130,20 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
     Ok(())
 }
 
-async fn get_input(chain: &Chain, sub: &Sub) -> Token {
+async fn get_input(sub: &Sub) -> Result<Token> {
     let raw_input = if sub.is_random {
         get_random_input().await
     } else {
-        chain.native_price
+        get_sybil_input(sub).await?
     };
 
-    cast_to_param_type(raw_input, &sub.method.param).expect("should be able to cast")
+    Ok(cast_to_param_type(raw_input, &sub.method.param).expect("should be able to cast"))
 }
 
 async fn get_random_input() -> u64 {
     let (mut raw_data,) = raw_rand().await.expect("random should be generated");
 
-    let (insufficient_bytes_count, was_overflowed) =
-        raw_data.len().overflowing_sub(BITS_IN_BYTE);
+    let (insufficient_bytes_count, was_overflowed) = raw_data.len().overflowing_sub(BITS_IN_BYTE);
 
     if was_overflowed {
         raw_data.append(&mut vec![0; insufficient_bytes_count]);
@@ -156,6 +154,12 @@ async fn get_random_input() -> u64 {
             .try_into()
             .expect("valid convertation"),
     )
+}
+
+async fn get_sybil_input(sub: &Sub) -> Result<u64> {
+    let rate = get_asset_data_with_proof(&sub.pair_id).await?;
+
+    Ok(rate.data.rate)
 }
 
 async fn wait_until_confimation(tx_hash: &H256, w3: &Web3<ICHttp>) -> Result<()> {

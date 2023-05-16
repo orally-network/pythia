@@ -1,13 +1,19 @@
 mod methods;
+mod migrations;
 mod types;
 mod utils;
-mod migrations;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use types::{chains::Chain, errors::PythiaError, subs::{Sub, CandidSub}, users::User, U256};
+use types::{
+    chains::Chain,
+    errors::PythiaError,
+    subs::{CandidSub, Sub},
+    users::User,
+    U256,
+};
 
 use ic_cdk::{
     api::management_canister::http_request::{HttpResponse, TransformArgs},
