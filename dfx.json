@@ -1,8 +1,8 @@
 {
   "canisters": {
-    "pythia_backend": {
-      "candid": "src/pythia_backend/pythia_backend.did",
-      "package": "pythia_backend",
+    "pythia": {
+      "candid": "src/pythia/pythia.did",
+      "package": "pythia",
       "type": "rust"
     },
     "siwe_signer": {
