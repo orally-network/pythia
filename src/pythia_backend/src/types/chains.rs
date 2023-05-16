@@ -2,8 +2,8 @@ use anyhow::{Context, Result};
 use url::Url;
 
 use ic_cdk::export::{
-    serde::{Deserialize, Serialize},
     candid::Nat,
+    serde::{Deserialize, Serialize},
 };
 use ic_web3::types::H160;
 
@@ -14,7 +14,6 @@ pub struct Chain {
     pub chain_id: U256,
     pub rpc: String,
     pub min_balance: U256,
-    pub native_price: u64,
     pub treasurer: H160,
 }
 
@@ -30,7 +29,6 @@ impl Chain {
             chain_id,
             rpc: rpc.to_string(),
             min_balance,
-            native_price: 0,
             treasurer: *treasurer,
         })
     }

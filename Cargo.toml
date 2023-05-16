@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "src/pythia_backend",
+    "src/pythia",
     "src/siwe_signer",
     "src/siwe_signer_mock",
 ]

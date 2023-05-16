@@ -1,4 +1,5 @@
 pub mod publish;
+pub mod sybil;
 
 use std::str::FromStr;
 
@@ -6,13 +7,15 @@ use anyhow::{anyhow, Context, Result};
 
 use ic_web3::{
     ethabi::Token,
-    transports::ICHttp,
-    types::{H160, TransactionParameters},
     ic::KeyInfo,
+    transports::ICHttp,
+    types::{TransactionParameters, H160},
     Web3,
 };
 
-use crate::{types::errors::PythiaError, Chain, User, CONTROLLERS, SIWE_CANISTER, TX_FEE, U256, KEY_NAME};
+use crate::{
+    types::errors::PythiaError, Chain, User, CONTROLLERS, KEY_NAME, SIWE_CANISTER, TX_FEE, U256,
+};
 
 const ETH_TRANSFER_GAS_LIMIT: u64 = 21000;
 
@@ -52,8 +55,7 @@ pub async fn check_balance(user: &User, chain: &Chain) -> Result<()> {
 }
 
 pub async fn get_balance(address: &H160, rpc: &str) -> Result<U256> {
-    let w3 =
-        Web3::new(ICHttp::new(rpc, None, None).context("failed to connect to a node")?);
+    let w3 = Web3::new(ICHttp::new(rpc, None, None).context("failed to connect to a node")?);
 
     let balance = w3
         .eth()
@@ -70,11 +72,21 @@ pub fn add_brackets(data: &str) -> String {
 }
 
 pub fn cast_to_param_type(value: u64, kind: &str) -> Option<Token> {
-    if kind == "bytes" { return Some(Token::Bytes(value.to_le_bytes().to_vec())) }
-    if kind.contains("bytes") { return Some(Token::FixedBytes(value.to_le_bytes().to_vec()))}
-    if kind.contains("uint") { return Some(Token::Uint(value.into())) }
-    if kind.contains("int") { return Some(Token::Int(value.into())) }
-    if kind.contains("string") { return Some(Token::String(value.to_string())) }
+    if kind == "bytes" {
+        return Some(Token::Bytes(value.to_le_bytes().to_vec()));
+    }
+    if kind.contains("bytes") {
+        return Some(Token::FixedBytes(value.to_le_bytes().to_vec()));
+    }
+    if kind.contains("uint") {
+        return Some(Token::Uint(value.into()));
+    }
+    if kind.contains("int") {
+        return Some(Token::Int(value.into()));
+    }
+    if kind.contains("string") {
+        return Some(Token::String(value.to_string()));
+    }
 
     None
 }
@@ -119,12 +131,17 @@ pub async fn collect_fee(user: &User, chain: &Chain) -> Result<()> {
         ..Default::default()
     };
 
-    let signed_tx = w3.accounts()
-        .sign_transaction(tx, user.exec_addr.to_string(), key_info, chain.chain_id.0.as_u64())
+    let signed_tx = w3
+        .accounts()
+        .sign_transaction(
+            tx,
+            user.exec_addr.to_string(),
+            key_info,
+            chain.chain_id.0.as_u64(),
+        )
         .await?;
 
-    w3
-        .eth()
+    w3.eth()
         .send_raw_transaction(signed_tx.raw_transaction)
         .await?;
 

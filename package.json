@@ -8,7 +8,7 @@
     "prebuild": "npm run generate",
     "start": "webpack serve --mode development --env development",
     "prestart": "npm run generate",
-    "generate": "dfx generate pythia_backend"
+    "generate": "dfx generate pythia"
   },
   "devDependencies": {
     "@dfinity/agent": "0.15.6",

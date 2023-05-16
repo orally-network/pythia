@@ -1,14 +1,11 @@
 use std::collections::HashMap;
 
-use ic_cdk_macros::{pre_upgrade, post_upgrade};
-use ic_cdk::{
-    storage,
-    export::Principal,
-};
-use ic_web3::types::H160;
+use ic_cdk::{export::Principal, storage};
+use ic_cdk_macros::{post_upgrade, pre_upgrade};
 use ic_utils::logger;
+use ic_web3::types::H160;
 
-use crate::{CONTROLLERS, CHAINS, TX_FEE, KEY_NAME, USERS, SIWE_CANISTER, U256, Chain, User};
+use crate::{Chain, User, CHAINS, CONTROLLERS, KEY_NAME, SIWE_CANISTER, TX_FEE, U256, USERS};
 
 #[pre_upgrade]
 fn pre_upgrade() {
@@ -32,20 +29,13 @@ fn pre_upgrade() {
         key_name,
         siwe_canister,
         log_data,
-    )).expect("should be valid canister data");
+    ))
+    .expect("should be valid canister data");
 }
 
 #[post_upgrade]
 fn post_upgrade() {
-    let (
-        controllers,
-        chains,
-        users,
-        tx_fee,
-        key_name,
-        siwe_canister,
-        log_data,
-    ): (
+    let (controllers, chains, users, tx_fee, key_name, siwe_canister, log_data): (
         Vec<Principal>,
         String,
         String,
@@ -55,14 +45,13 @@ fn post_upgrade() {
         logger::PostUpgradeStableData,
     ) = storage::stable_restore().expect("should be valid canister data");
 
-    let chains: HashMap<U256, Chain> = serde_json::from_str(&chains)
-        .expect("should be valid chains data");
+    let chains: HashMap<U256, Chain> =
+        serde_json::from_str(&chains).expect("should be valid chains data");
 
-    let users: HashMap<H160, User> = serde_json::from_str(&users)
-        .expect("should be valid users data");
+    let users: HashMap<H160, User> =
+        serde_json::from_str(&users).expect("should be valid users data");
 
-    let tx_fee: U256 = serde_json::from_str(&tx_fee)
-        .expect("should be valid tx fee");
+    let tx_fee: U256 = serde_json::from_str(&tx_fee).expect("should be valid tx fee");
 
     logger::post_upgrade_stable_data(log_data);
 

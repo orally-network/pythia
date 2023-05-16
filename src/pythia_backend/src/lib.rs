@@ -1,13 +1,19 @@
 mod methods;
+mod migrations;
 mod types;
 mod utils;
-mod migrations;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use types::{chains::Chain, errors::PythiaError, subs::{Sub, CandidSub}, users::User, U256};
+use types::{
+    chains::Chain,
+    errors::PythiaError,
+    subs::{CandidSub, Sub},
+    users::User,
+    U256,
+};
 
 use ic_cdk::{
     api::management_canister::http_request::{HttpResponse, TransformArgs},
@@ -25,6 +31,7 @@ thread_local! {
     pub static KEY_NAME: RefCell<String> = RefCell::default();
     pub static USERS: RefCell<HashMap<H160, User>> = RefCell::default();
     pub static SIWE_CANISTER: RefCell<Option<Principal>> = RefCell::default();
+    pub static SYBIL_CANISTER: RefCell<Option<Principal>> = RefCell::default();
 }
 
 #[ic_cdk_macros::query]
@@ -33,7 +40,7 @@ fn transform(response: TransformArgs) -> HttpResponse {
 }
 
 #[init]
-fn init(tx_fee: Nat, key_name: String, siwe_canister: Principal) {
+fn init(tx_fee: Nat, key_name: String, siwe_canister: Principal, sybil_canister: Principal) {
     set_timer(Duration::ZERO, || {
         spawn(async {
             methods::controllers::get_controllers().await;
@@ -50,5 +57,9 @@ fn init(tx_fee: Nat, key_name: String, siwe_canister: Principal) {
 
     SIWE_CANISTER.with(|siwe_canister_state| {
         *siwe_canister_state.borrow_mut() = Some(siwe_canister);
+    });
+
+    SYBIL_CANISTER.with(|sybil_canister_state| {
+        *sybil_canister_state.borrow_mut() = Some(sybil_canister);
     });
 }

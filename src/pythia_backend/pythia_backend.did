@@ -53,13 +53,6 @@ service : {
     //
     // @return Error
     update_chain_min_balance : (chain_id: nat, min_balance: nat) -> (Error);
-    // Update a supported chain native price
-    //
-    // @param chain_id The chain id, e.g 1
-    // @param native_price The native price, e.g 100000000000
-    //
-    // @return Error
-    update_chain_native_price : (chain_id: nat, native_price: nat) -> (Error);
     // Get a chain rpc
     //
     // @param chain_id The chain id, e.g 1
@@ -72,6 +65,7 @@ service : {
     // Create a new subscription
     //
     // @param chain_id The chain id, e.g 1
+    // @param pair_id The pair id from Sybil, e.g sample
     // @param contract_addr The smart contract address, e,g 0000000000000000000000000000000000000000
     // @param method_abi The method abi, e,g [{"inputs": [], "name": "get", "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"}]
     // @param frequency The frequency in seconds, e,g 60
@@ -82,6 +76,7 @@ service : {
     // @return Error
     subscribe : (
         chain_id: nat,
+        pair_id: text,
         contract_addr: text,
         method_abi: text,
         frequency: nat,

@@ -1,5 +1,5 @@
 [package]
-name = "pythia_backend"
+name = "pythia"
 version = "0.1.0"
 edition = "2021"
 
@@ -14,7 +14,6 @@ url = "2.3.1"
 rand = "0.8.5"
 candid = "0.8.2"
 ic-cdk = "0.6.0"
-slotmap = { version = "1.0.6", features = ["serde"] }
 serde = "1.0.162"
 ic-web3 = "0.1.7"
 anyhow = "1.0.71"
@@ -23,4 +22,5 @@ thiserror = "1.0.40"
 serde_json = "1.0.96"
 ic-cdk-macros = "0.6.0"
 ic-cdk-timers = "0.1.2"
+slotmap = { version = "1.0.6", features = ["serde"] }
 ic-utils = { package = "canistergeek_ic_rust", version = "0.3.1" }

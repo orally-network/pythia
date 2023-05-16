@@ -95,30 +95,6 @@ fn _update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<()> {
     })
 }
 
-#[update]
-pub fn update_chain_native_price(chain_id: Nat, native_price: Nat) -> Result<(), String> {
-    _update_chain_native_price(chain_id, native_price).map_err(|e| e.to_string())
-}
-
-fn _update_chain_native_price(chain_id: Nat, native_price: Nat) -> Result<()> {
-    validate_caller()?;
-
-    CHAINS.with(|chains| {
-        let mut chains = chains.borrow_mut();
-        let chain = chains
-            .get_mut(&U256::from(chain_id))
-            .ok_or(PythiaError::ChainDoesNotExist)?;
-
-        chain.native_price = *native_price
-            .0
-            .to_u64_digits()
-            .first()
-            .expect("should have at least one digit");
-
-        Ok(())
-    })
-}
-
 #[query]
 pub fn get_chain_rpc(chain_id: Nat) -> Result<String, String> {
     _get_chain_rpc(chain_id).map_err(|e| e.to_string())
