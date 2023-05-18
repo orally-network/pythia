@@ -5,8 +5,8 @@ use anyhow::Result;
 use ic_cdk::export::candid::Nat;
 use ic_cdk_macros::{query, update};
 use ic_cdk_timers::set_timer_interval;
-use ic_web3::types::H160;
 use ic_utils::logger::log_message;
+use ic_web3::types::H160;
 
 use crate::{
     utils::{check_balance, collect_fee, publish::publish, rec_eth_addr},
@@ -73,7 +73,10 @@ async fn _subscribe(
     .await?;
     add_sub(&sub, &pub_key);
 
-    log_message(format!("[USER: {}] sub creation; sub id: {}", user.pub_key, sub.id));
+    log_message(format!(
+        "[USER: {}] sub creation; sub id: {}",
+        user.pub_key, sub.id
+    ));
 
     Ok(())
 }
@@ -124,10 +127,12 @@ async fn _refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<()> {
             });
 
             sub.timer_id = serde_json::to_string(&timer_id).expect("should be valid timer id");
-
         }
 
-        log_message(format!("[USER: {}] subs refresh; chain id: {}", pub_key, chain_id.0));
+        log_message(format!(
+            "[USER: {}] subs refresh; chain id: {}",
+            pub_key, chain_id.0
+        ));
 
         Ok(())
     })

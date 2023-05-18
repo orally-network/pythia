@@ -53,6 +53,7 @@ async fn _publish(sub_id: u64, owner: H160) {
     }
 
     if let Err(e) = notify(sub, &user, &chain).await {
+        ic_cdk::println!("[{}] Notify error: {}", owner, e);
         log_message(format!("[{}] {}", owner, e));
     }
 }

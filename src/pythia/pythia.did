@@ -87,7 +87,7 @@ service : {
     // @return Error
     subscribe : (
         chain_id: nat,
-        pair_id: text,
+        pair_id: opt text,
         contract_addr: text,
         method_abi: text,
         frequency: nat,

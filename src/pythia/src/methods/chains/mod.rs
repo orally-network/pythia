@@ -4,8 +4,8 @@ use anyhow::{anyhow, Result};
 
 use ic_cdk::export::candid::Nat;
 use ic_cdk_macros::{query, update};
-use ic_web3::types::H160;
 use ic_utils::logger::log_message;
+use ic_web3::types::H160;
 
 use crate::{
     types::chains::CandidTypeChain, utils::validate_caller, Chain, PythiaError, CHAINS, U256,
@@ -58,7 +58,7 @@ fn _remove_chain(chain_id: Nat) -> Result<()> {
             .remove(&chain_id)
             .ok_or(anyhow!(PythiaError::ChainDoesNotExist))?;
 
-            log_message(format!("[CHAIN ID: {}] removing", chain_id.0));
+        log_message(format!("[CHAIN ID: {}] removing", chain_id.0));
 
         Ok(())
     })
@@ -106,7 +106,10 @@ fn _update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<()> {
 
         chain.min_balance = U256::from(min_balance);
 
-        log_message(format!("[CHAIN ID: {}] updating min balance: {}", chain_id.0, chain.min_balance.0));
+        log_message(format!(
+            "[CHAIN ID: {}] updating min balance: {}",
+            chain_id.0, chain.min_balance.0
+        ));
 
         Ok(())
     })

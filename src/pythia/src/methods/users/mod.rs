@@ -19,7 +19,9 @@ async fn _add_user(msg: String, sig: String) -> Result<String> {
         users_state.borrow_mut().insert(pub_key, user);
     });
 
-    log_message(format!("[USER: {pub_key}] creation, exec_addr: {exec_addr}"));
+    log_message(format!(
+        "[USER: {pub_key}] creation, exec_addr: {exec_addr}"
+    ));
 
     Ok(exec_addr)
 }
