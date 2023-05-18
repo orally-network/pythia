@@ -1,6 +1,7 @@
 use std::{str::FromStr, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
+use serde_json::json;
 
 use ic_cdk::export::{
     candid::{CandidType, Nat},
@@ -24,7 +25,7 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Sub {
     pub id: u64,
-    pub pair_id: String,
+    pub pair_id: Option<String>,
     pub chain_id: U256,
     pub contract_addr: H160,
     pub method: Method,
@@ -44,15 +45,19 @@ pub struct Method {
 impl Sub {
     pub async fn instance(
         chain: &Chain,
-        pair_id: &str,
+        pair_id: Option<String>,
         contract_addr: &str,
         method_abi: &str,
         frequency: &u64,
         user: &User,
         is_random: bool,
     ) -> Result<Self> {
-        if !is_pair_exists(pair_id).await? {
-            return Err(anyhow!("pair id does not exist"));
+        let method_abi = resolve_abi(method_abi.into())?;
+
+        if let Some(pair_id) = pair_id.clone() {
+            if !is_pair_exists(&pair_id).await? {
+                return Err(anyhow!("pair id does not exist"));
+            }
         }
 
         let id = USERS.with(|users| {
@@ -75,7 +80,7 @@ impl Sub {
         let timer_id = serde_json::to_string(&timer_id)?;
 
         let func: Function =
-            serde_json::from_str(method_abi).context("failed to parse method abi")?;
+            serde_json::from_str(&method_abi).context("failed to parse method abi")?;
 
         let param = validate_params(&func)?;
 
@@ -83,7 +88,7 @@ impl Sub {
             chain,
             &func.name,
             &param.to_string(),
-            method_abi,
+            &method_abi,
             &contract_addr,
             user,
         )
@@ -99,7 +104,7 @@ impl Sub {
 
         Ok(Self {
             id,
-            pair_id: pair_id.to_string(),
+            pair_id,
             chain_id: chain.chain_id,
             contract_addr,
             method,
@@ -108,6 +113,40 @@ impl Sub {
             is_random,
         })
     }
+}
+
+fn resolve_abi(method_abi: String) -> Result<String> {
+    let splitted_method_abi: Vec<&str> = method_abi.split_terminator(&['(', ')', ',']).collect();
+
+    if splitted_method_abi.len() != 2 {
+        return Err(anyhow!("invalid method abi"));
+    }
+
+    let func_name = splitted_method_abi
+        .first()
+        .ok_or(anyhow!("invalid method abi"))?
+        .to_string();
+
+    let param_type = splitted_method_abi
+        .get(1)
+        .ok_or(anyhow!("invalid method abi"))?
+        .to_string();
+
+    let data = json!({
+        "inputs": [
+            {
+                "internalType": param_type,
+                "name": "template",
+                "type": param_type,
+            }
+        ],
+        "name": func_name,
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    });
+
+    Ok(data.to_string())
 }
 
 async fn calculate_gas_limit(
@@ -180,7 +219,7 @@ impl From<Sub> for CandidSub {
         Self {
             id: Nat::from(sub.id),
             chain_id: Nat::from(sub.chain_id),
-            contract_addr: sub.contract_addr.to_string(),
+            contract_addr: hex::encode(sub.contract_addr.as_bytes()),
             method_name: sub.method.name,
             method_abi: sub.method.abi,
             frequency: Nat::from(sub.frequency),

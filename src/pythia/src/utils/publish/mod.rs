@@ -13,7 +13,7 @@ use ic_web3::{
 };
 
 use crate::{
-    utils::{add_brackets, cast_to_param_type, check_balance, sybil::get_asset_data_with_proof},
+    utils::{add_brackets, cast_to_param_type, check_balance, sybil::get_asset_data},
     Chain, PythiaError, Sub, User, CHAINS, KEY_NAME, USERS,
 };
 
@@ -133,8 +133,10 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
 async fn get_input(sub: &Sub) -> Result<Token> {
     let raw_input = if sub.is_random {
         get_random_input().await
-    } else {
+    } else if sub.pair_id.is_some() {
         get_sybil_input(sub).await?
+    } else {
+        0
     };
 
     Ok(cast_to_param_type(raw_input, &sub.method.param).expect("should be able to cast"))
@@ -157,9 +159,14 @@ async fn get_random_input() -> u64 {
 }
 
 async fn get_sybil_input(sub: &Sub) -> Result<u64> {
-    let rate = get_asset_data_with_proof(&sub.pair_id).await?;
+    let pair_id = sub
+        .pair_id
+        .clone()
+        .ok_or(anyhow!("Pair id does not exists"))?;
 
-    Ok(rate.data.rate)
+    let rate = get_asset_data(&pair_id).await?;
+
+    Ok(rate.rate)
 }
 
 async fn wait_until_confimation(tx_hash: &H256, w3: &Web3<ICHttp>) -> Result<()> {

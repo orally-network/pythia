@@ -10,9 +10,3 @@ pub struct RateDataLight {
     pub timestamp: u64,
     pub decimals: u32,
 }
-
-#[derive(Clone, Debug, Default, CandidType, Serialize, Deserialize)]
-pub struct CustomPairData {
-    pub data: RateDataLight,
-    pub signature: String,
-}

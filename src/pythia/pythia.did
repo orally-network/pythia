@@ -1,4 +1,4 @@
-type Sub = record {
+type CandidSub = record {
     id : nat;
     chain_id : nat;
     contract_addr : text;
@@ -8,9 +8,18 @@ type Sub = record {
     is_random : bool;
 };
 
+type CandidTypeChain = record {
+    chain_id : nat;
+    rpc : text;
+    min_balance : nat;
+    treasurer : text;
+};
+
+
 type Result = variant { Ok : text; Err : text };
 type Error = variant { Ok : null; Err : text };
-type GetSubsResult = variant { Ok : vec Sub; Err : text };
+type GetSubsResult = variant { Ok : vec CandidSub; Err : text };
+type GetChainsResponse = variant { Ok : vec CandidTypeChain; Err : text};
 
 service : {
     // Will init controllers
@@ -59,6 +68,8 @@ service : {
     //
     // @return Result
     get_chain_rpc : (chain_id: nat) -> (Result);
+
+    get_chains : () -> (GetChainsResponse);
 
     // Subscriptions methods
 

@@ -1,6 +1,7 @@
 use anyhow::Result;
 
 use ic_cdk_macros::update;
+use ic_utils::logger::log_message;
 
 use crate::{utils::rec_eth_addr, User, USERS};
 
@@ -17,6 +18,8 @@ async fn _add_user(msg: String, sig: String) -> Result<String> {
     USERS.with(|users_state| {
         users_state.borrow_mut().insert(pub_key, user);
     });
+
+    log_message(format!("[USER: {pub_key}] creation, exec_addr: {exec_addr}"));
 
     Ok(exec_addr)
 }

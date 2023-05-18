@@ -5,11 +5,11 @@ use ic_cdk::export::{
     serde::{Deserialize, Serialize},
 };
 
-use crate::{types::rate_data::CustomPairData, SYBIL_CANISTER};
+use crate::{types::rate_data::RateDataLight, SYBIL_CANISTER};
 
 #[derive(Clone, Debug, CandidType, Serialize, Deserialize)]
-enum CustomPairDataResponse {
-    Ok(CustomPairData),
+enum PairDataResponse {
+    Ok(RateDataLight),
     Err(String),
 }
 
@@ -28,7 +28,7 @@ pub async fn is_pair_exists(pair_id: &str) -> Result<bool> {
     Ok(is_exist)
 }
 
-pub async fn get_asset_data_with_proof(pair_id: &str) -> Result<CustomPairData> {
+pub async fn get_asset_data(pair_id: &str) -> Result<RateDataLight> {
     let sybil_canister = SYBIL_CANISTER.with(|sybil_canister| {
         sybil_canister
             .borrow()
@@ -36,13 +36,13 @@ pub async fn get_asset_data_with_proof(pair_id: &str) -> Result<CustomPairData> 
     });
 
     let pair_id = pair_id.to_string();
-    let (custom_pair_data,): (CustomPairDataResponse,) =
-        ic_cdk::call(sybil_canister, "get_asset_data_with_proof", (pair_id,))
+    let (pair_data,): (PairDataResponse,) =
+        ic_cdk::call(sybil_canister, "get_asset_data", (pair_id,))
             .await
             .map_err(|(code, msg)| anyhow!("{:?}: {}", code, msg))?;
 
-    match custom_pair_data {
-        CustomPairDataResponse::Ok(data) => Ok(data),
-        CustomPairDataResponse::Err(err) => Err(anyhow!(err)),
+    match pair_data {
+        PairDataResponse::Ok(data) => Ok(data),
+        PairDataResponse::Err(err) => Err(anyhow!(err)),
     }
 }

@@ -11,16 +11,16 @@ pub enum PythiaError {
     #[allow(dead_code)]
     #[error("Not implemented")]
     NotImplemented,
-    #[error("failed to get eth address: {0}")]
+    #[error("Failed to get eth address: {0}")]
     FailedToGetEthAddress(String),
-    #[error("user not found")]
+    #[error("User not found")]
     UserNotFound,
-    #[error("not enoght funds on an execution addr")]
+    #[error("Not enoght funds on an execution addr")]
     InsufficientBalance,
-    #[error("invalid a abi function")]
+    #[error("Invalid an abi function")]
     InvalidABIFunction(String),
-    #[error("tx failed")]
+    #[error("Tx failed")]
     TxFailed,
-    #[error("tx reached timeout")]
+    #[error("Tx reached timeout")]
     TxTimeout,
 }

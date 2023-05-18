@@ -6,6 +6,7 @@ use ic_cdk::export::candid::Nat;
 use ic_cdk_macros::{query, update};
 use ic_cdk_timers::set_timer_interval;
 use ic_web3::types::H160;
+use ic_utils::logger::log_message;
 
 use crate::{
     utils::{check_balance, collect_fee, publish::publish, rec_eth_addr},
@@ -15,7 +16,7 @@ use crate::{
 #[update]
 pub async fn subscribe(
     chain_id: Nat,
-    pair_id: String,
+    pair_id: Option<String>,
     contract_addr: String,
     method_abi: String,
     frequency: Nat,
@@ -39,7 +40,7 @@ pub async fn subscribe(
 
 async fn _subscribe(
     chain_id: Nat,
-    pair_id: String,
+    pair_id: Option<String>,
     contract_addr: String,
     method_abi: String,
     frequency: Nat,
@@ -62,7 +63,7 @@ async fn _subscribe(
 
     let sub = Sub::instance(
         &chain,
-        &pair_id,
+        pair_id,
         &contract_addr,
         &method_abi,
         &frequency,
@@ -71,6 +72,8 @@ async fn _subscribe(
     )
     .await?;
     add_sub(&sub, &pub_key);
+
+    log_message(format!("[USER: {}] sub creation; sub id: {}", user.pub_key, sub.id));
 
     Ok(())
 }
@@ -121,7 +124,10 @@ async fn _refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<()> {
             });
 
             sub.timer_id = serde_json::to_string(&timer_id).expect("should be valid timer id");
+
         }
+
+        log_message(format!("[USER: {}] subs refresh; chain id: {}", pub_key, chain_id.0));
 
         Ok(())
     })

@@ -5,8 +5,11 @@ use anyhow::{anyhow, Result};
 use ic_cdk::export::candid::Nat;
 use ic_cdk_macros::{query, update};
 use ic_web3::types::H160;
+use ic_utils::logger::log_message;
 
-use crate::{utils::validate_caller, Chain, PythiaError, CHAINS, U256};
+use crate::{
+    types::chains::CandidTypeChain, utils::validate_caller, Chain, PythiaError, CHAINS, U256,
+};
 
 #[update]
 pub fn add_chain(
@@ -33,6 +36,8 @@ fn _add_chain(chain_id: Nat, rpc: String, min_balance: Nat, treasurer: String) -
 
         chains.insert(chain.chain_id, chain);
 
+        log_message(format!("[CHAIN ID: {}] creation", chain_id.0));
+
         Ok(())
     })
 }
@@ -46,10 +51,14 @@ fn _remove_chain(chain_id: Nat) -> Result<()> {
     validate_caller()?;
 
     CHAINS.with(|chains| {
+        let chain_id = U256::from(chain_id);
+
         let mut chains = chains.borrow_mut();
         chains
-            .remove(&U256::from(chain_id))
+            .remove(&chain_id)
             .ok_or(anyhow!(PythiaError::ChainDoesNotExist))?;
+
+            log_message(format!("[CHAIN ID: {}] removing", chain_id.0));
 
         Ok(())
     })
@@ -64,12 +73,16 @@ fn _update_chain_rpc(chain_id: Nat, rpc: String) -> Result<()> {
     validate_caller()?;
 
     CHAINS.with(|chains| {
+        let chain_id = U256::from(chain_id);
+
         let mut chains = chains.borrow_mut();
         let chain = chains
-            .get_mut(&U256::from(chain_id))
+            .get_mut(&chain_id)
             .ok_or(PythiaError::ChainDoesNotExist)?;
 
         chain.rpc = rpc.parse()?;
+
+        log_message(format!("[CHAIN ID: {}] updating rpc: {}", chain_id.0, rpc));
 
         Ok(())
     })
@@ -84,12 +97,16 @@ fn _update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<()> {
     validate_caller()?;
 
     CHAINS.with(|chains| {
+        let chain_id = U256::from(chain_id);
+
         let mut chains = chains.borrow_mut();
         let chain = chains
-            .get_mut(&U256::from(chain_id))
+            .get_mut(&chain_id)
             .ok_or(PythiaError::ChainDoesNotExist)?;
 
         chain.min_balance = U256::from(min_balance);
+
+        log_message(format!("[CHAIN ID: {}] updating min balance: {}", chain_id.0, chain.min_balance.0));
 
         Ok(())
     })
@@ -111,4 +128,21 @@ fn _get_chain_rpc(chain_id: Nat) -> Result<String> {
 
         Ok(chain.rpc.to_string())
     })
+}
+
+#[query]
+pub fn get_chains() -> Result<Vec<CandidTypeChain>, String> {
+    Ok(CHAINS.with(|chains| {
+        chains
+            .borrow()
+            .values()
+            .cloned()
+            .map(|e| CandidTypeChain {
+                chain_id: e.chain_id.into(),
+                rpc: e.rpc,
+                min_balance: e.min_balance.into(),
+                treasurer: hex::encode(e.treasurer.as_bytes()),
+            })
+            .collect()
+    }))
 }

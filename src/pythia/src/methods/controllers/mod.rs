@@ -5,6 +5,7 @@ use ic_cdk::{
     export::{candid::Nat, Principal},
 };
 use ic_cdk_macros::update;
+use ic_utils::logger::log_message;
 
 use crate::{utils::validate_caller, CONTROLLERS, TX_FEE, U256};
 
@@ -13,7 +14,11 @@ fn update_tx_fee(tx_fee: Nat) -> Result<(), String> {
     validate_caller().map_err(|e| format!("{}", e))?;
 
     TX_FEE.with(|tx_fee_state| {
-        *tx_fee_state.borrow_mut() = U256::from(tx_fee);
+        let tx_fee = U256::from(tx_fee);
+
+        *tx_fee_state.borrow_mut() = tx_fee;
+
+        log_message(format!("[TX FEE] updating: {}", tx_fee.0));
     });
 
     Ok(())
