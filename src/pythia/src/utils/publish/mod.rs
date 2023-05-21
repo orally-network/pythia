@@ -86,8 +86,7 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
         key_name: KEY_NAME.with(|key_name| key_name.borrow().clone()),
     };
 
-    for i in 1..=MAX_RETRY_ATTEMPTS {
-        ic_cdk::println!("Attempt: {i}");
+    for _ in 1..=MAX_RETRY_ATTEMPTS {
         let gas_price = w3
             .eth()
             .gas_price()
