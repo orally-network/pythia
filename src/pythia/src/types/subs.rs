@@ -7,7 +7,7 @@ use ic_cdk::export::{
     candid::{CandidType, Nat},
     serde::{Deserialize, Serialize},
 };
-use ic_cdk_timers::set_timer_interval;
+use ic_cdk_timers::{set_timer_interval, set_timer};
 use ic_web3::{
     contract::{Contract, Options},
     ethabi::Contract as EthabiContract,
@@ -73,6 +73,11 @@ impl Sub {
             H160::from_str(contract_addr).context("failed to parse contract address")?;
 
         let owner = user.pub_key;
+
+        set_timer(Duration::from_secs(5), move || {
+            publish(id, owner);
+        });
+
         let timer_id = set_timer_interval(Duration::from_secs(*frequency), move || {
             publish(id, owner);
         });

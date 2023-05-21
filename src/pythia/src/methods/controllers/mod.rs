@@ -25,7 +25,7 @@ fn update_tx_fee(tx_fee: Nat) -> Result<(), String> {
 }
 
 #[update]
-pub async fn get_controllers() -> Vec<Principal> {
+pub async fn update_controllers() -> Vec<Principal> {
     let canister_id_record = CanisterIdRecord {
         canister_id: ic_cdk::id(),
     };

@@ -14,7 +14,7 @@ dfx canister install -m reinstall --wasm target/wasm32-unknown-unknown/release/p
 ## Usage
 ```sh
 # init the canister controllers in the canister storage
-dfx canister call pythia get_controllers
+dfx canister call pythia update_controllers
 # add a new supported chain
 dfx canister call pythia add_chain '(11155111:nat, "https://sepolia.infura.io/v3/d20be327500c45819a1a3b850daec0e2", 10000000000000000:nat, "0000000000000000000000000000000000000000")'
 # add a new user

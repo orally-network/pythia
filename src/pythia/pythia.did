@@ -23,7 +23,7 @@ type GetChainsResponse = variant { Ok : vec CandidTypeChain; Err : text};
 
 service : {
     // Will init controllers
-    get_controllers : () -> (vec principal);
+    update_controllers : () -> (vec principal);
     // Change the tx fee that takes when a subscription is renewed or created
     // 
     // @param tx_fee The tx fee in cycles, e.g 100000000000

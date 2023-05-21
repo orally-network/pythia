@@ -74,12 +74,6 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
         ICHttp::new(chain.rpc.as_str(), None, None).context("failed to connect to a node")?,
     );
 
-    let nonce = w3
-        .eth()
-        .transaction_count(user.exec_addr, None)
-        .await
-        .context("failed to get nonce")?;
-
     let abi = EthabiContract::load(add_brackets(&sub.method.abi).as_bytes())
         .expect("abi should be valid");
 
@@ -93,18 +87,24 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
     };
 
     for i in 1..=MAX_RETRY_ATTEMPTS {
+        ic_cdk::println!("Attempt: {i}");
         let gas_price = w3
             .eth()
             .gas_price()
             .await
             .context("failed to get gas price")?;
 
-        let gas_price = (gas_price / 10) * (1 + i);
+        let nonce = w3
+            .eth()
+            .transaction_count(user.exec_addr, None)
+            .await
+            .context("failed to get nonce")?;
 
         let tx_otps = Options {
             gas: Some(sub.method.gas_limit.0),
             nonce: Some(nonce),
             gas_price: Some(gas_price),
+            transaction_type: None,
             ..Default::default()
         };
 
@@ -117,15 +117,16 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
                 key_info.clone(),
                 chain.chain_id.0.as_u64(),
             )
-            .await
-            .context("tx failed to execute")?;
+            .await?;
 
         if let Err(err) = wait_until_confimation(&tx_hash, &w3).await {
             match err.root_cause().downcast_ref() {
-                Some(PythiaError::TxTimeout) => continue,
+                Some(PythiaError::TxTimeout) => break,
                 _ => Err(err)?,
             }
         }
+        
+        break;
     }
 
     Ok(())
@@ -153,9 +154,9 @@ async fn get_random_input() -> u64 {
     }
 
     u64::from_be_bytes(
-        raw_data[..BITS_IN_BYTE - 1]
+        raw_data[..BITS_IN_BYTE]
             .try_into()
-            .expect("valid convertation"),
+            .expect("should be valid convertation"),
     )
 }
 
