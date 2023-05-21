@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use url::Url;
 
 use ic_cdk::export::{
-    candid::Nat,
+    candid::{CandidType, Nat},
     serde::{Deserialize, Serialize},
 };
 use ic_web3::types::H160;
@@ -32,4 +32,12 @@ impl Chain {
             treasurer: *treasurer,
         })
     }
+}
+
+#[derive(Clone, Debug, CandidType, Serialize, Deserialize)]
+pub struct CandidTypeChain {
+    pub chain_id: Nat,
+    pub rpc: String,
+    pub min_balance: Nat,
+    pub treasurer: String,
 }

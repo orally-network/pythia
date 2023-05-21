@@ -1,4 +1,4 @@
-type Sub = record {
+type CandidSub = record {
     id : nat;
     chain_id : nat;
     contract_addr : text;
@@ -8,13 +8,22 @@ type Sub = record {
     is_random : bool;
 };
 
+type CandidTypeChain = record {
+    chain_id : nat;
+    rpc : text;
+    min_balance : nat;
+    treasurer : text;
+};
+
+
 type Result = variant { Ok : text; Err : text };
 type Error = variant { Ok : null; Err : text };
-type GetSubsResult = variant { Ok : vec Sub; Err : text };
+type GetSubsResult = variant { Ok : vec CandidSub; Err : text };
+type GetChainsResponse = variant { Ok : vec CandidTypeChain; Err : text};
 
 service : {
     // Will init controllers
-    get_controllers : () -> (vec principal);
+    update_controllers : () -> (vec principal);
     // Change the tx fee that takes when a subscription is renewed or created
     // 
     // @param tx_fee The tx fee in cycles, e.g 100000000000
@@ -60,6 +69,8 @@ service : {
     // @return Result
     get_chain_rpc : (chain_id: nat) -> (Result);
 
+    get_chains : () -> (GetChainsResponse);
+
     // Subscriptions methods
 
     // Create a new subscription
@@ -76,7 +87,7 @@ service : {
     // @return Error
     subscribe : (
         chain_id: nat,
-        pair_id: text,
+        pair_id: opt text,
         contract_addr: text,
         method_abi: text,
         frequency: nat,

@@ -13,7 +13,7 @@ use ic_web3::{
 };
 
 use crate::{
-    utils::{add_brackets, cast_to_param_type, check_balance, sybil::get_asset_data_with_proof},
+    utils::{add_brackets, cast_to_param_type, check_balance, sybil::get_asset_data},
     Chain, PythiaError, Sub, User, CHAINS, KEY_NAME, USERS,
 };
 
@@ -53,6 +53,7 @@ async fn _publish(sub_id: u64, owner: H160) {
     }
 
     if let Err(e) = notify(sub, &user, &chain).await {
+        ic_cdk::println!("[{}] Notify error: {}", owner, e);
         log_message(format!("[{}] {}", owner, e));
     }
 }
@@ -73,12 +74,6 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
         ICHttp::new(chain.rpc.as_str(), None, None).context("failed to connect to a node")?,
     );
 
-    let nonce = w3
-        .eth()
-        .transaction_count(user.exec_addr, None)
-        .await
-        .context("failed to get nonce")?;
-
     let abi = EthabiContract::load(add_brackets(&sub.method.abi).as_bytes())
         .expect("abi should be valid");
 
@@ -92,18 +87,24 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
     };
 
     for i in 1..=MAX_RETRY_ATTEMPTS {
+        ic_cdk::println!("Attempt: {i}");
         let gas_price = w3
             .eth()
             .gas_price()
             .await
             .context("failed to get gas price")?;
 
-        let gas_price = (gas_price / 10) * (1 + i);
+        let nonce = w3
+            .eth()
+            .transaction_count(user.exec_addr, None)
+            .await
+            .context("failed to get nonce")?;
 
         let tx_otps = Options {
             gas: Some(sub.method.gas_limit.0),
             nonce: Some(nonce),
             gas_price: Some(gas_price),
+            transaction_type: None,
             ..Default::default()
         };
 
@@ -116,15 +117,16 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
                 key_info.clone(),
                 chain.chain_id.0.as_u64(),
             )
-            .await
-            .context("tx failed to execute")?;
+            .await?;
 
         if let Err(err) = wait_until_confimation(&tx_hash, &w3).await {
             match err.root_cause().downcast_ref() {
-                Some(PythiaError::TxTimeout) => continue,
+                Some(PythiaError::TxTimeout) => break,
                 _ => Err(err)?,
             }
         }
+        
+        break;
     }
 
     Ok(())
@@ -133,8 +135,10 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
 async fn get_input(sub: &Sub) -> Result<Token> {
     let raw_input = if sub.is_random {
         get_random_input().await
-    } else {
+    } else if sub.pair_id.is_some() {
         get_sybil_input(sub).await?
+    } else {
+        0
     };
 
     Ok(cast_to_param_type(raw_input, &sub.method.param).expect("should be able to cast"))
@@ -150,16 +154,21 @@ async fn get_random_input() -> u64 {
     }
 
     u64::from_be_bytes(
-        raw_data[..BITS_IN_BYTE - 1]
+        raw_data[..BITS_IN_BYTE]
             .try_into()
-            .expect("valid convertation"),
+            .expect("should be valid convertation"),
     )
 }
 
 async fn get_sybil_input(sub: &Sub) -> Result<u64> {
-    let rate = get_asset_data_with_proof(&sub.pair_id).await?;
+    let pair_id = sub
+        .pair_id
+        .clone()
+        .ok_or(anyhow!("Pair id does not exists"))?;
 
-    Ok(rate.data.rate)
+    let rate = get_asset_data(&pair_id).await?;
+
+    Ok(rate.rate)
 }
 
 async fn wait_until_confimation(tx_hash: &H256, w3: &Web3<ICHttp>) -> Result<()> {

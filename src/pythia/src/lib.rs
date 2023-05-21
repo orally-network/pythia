@@ -43,7 +43,7 @@ fn transform(response: TransformArgs) -> HttpResponse {
 fn init(tx_fee: Nat, key_name: String, siwe_canister: Principal, sybil_canister: Principal) {
     set_timer(Duration::ZERO, || {
         spawn(async {
-            methods::controllers::get_controllers().await;
+            methods::controllers::update_controllers().await;
         })
     });
 

@@ -4,6 +4,8 @@ pub mod rate_data;
 pub mod subs;
 pub mod users;
 
+use std::str::FromStr;
+
 use ic_cdk::export::{
     candid::Nat,
     serde::{Deserialize, Serialize},
@@ -29,10 +31,6 @@ impl From<u64> for U256 {
 
 impl From<U256> for Nat {
     fn from(u256: U256) -> Self {
-        let mut buf: Vec<u8> = vec![];
-
-        u256.0.to_big_endian(&mut buf);
-
-        Nat(BigUint::from_bytes_be(&buf))
+        Nat(BigUint::from_str(&u256.0.to_string()).expect("should be valid number"))
     }
 }
