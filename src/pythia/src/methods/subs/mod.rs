@@ -1,10 +1,10 @@
 use std::{str::FromStr, time::Duration};
 
-use anyhow::Result;
+use anyhow::{Result, Ok, Context};
 
 use ic_cdk::export::candid::Nat;
 use ic_cdk_macros::{query, update};
-use ic_cdk_timers::set_timer_interval;
+use ic_cdk_timers::{set_timer_interval, clear_timer, TimerId};
 use ic_utils::logger::log_message;
 use ic_web3::types::H160;
 
@@ -164,4 +164,43 @@ pub fn add_sub(sub: &Sub, pub_key: &H160) {
         let user = users.get_mut(pub_key).expect("user should exist");
         user.subs.push(sub.clone());
     });
+}
+
+#[update]
+pub async fn stop_sub(sub_id: Nat, msg: String, sig: String) -> Result<(), String> {
+    _stop_sub(sub_id, msg, sig)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn _stop_sub(sub_id: Nat, msg: String, sig: String) -> Result<()> {
+    let pub_key = rec_eth_addr(&msg, &sig).await?;
+    
+    let sub_id_digits = sub_id.0.to_u64_digits();
+    let mut sub_id: u64 = 0;
+    if sub_id_digits.len() != 0 {
+        sub_id = *sub_id_digits
+            .last()
+            .expect("sub_id should be a number");
+    }
+
+    USERS.with(|users| {
+        let users = users.borrow();
+        let user = users.get(&pub_key)
+            .context("User does not exists")?;
+
+        let sub = user
+            .subs
+            .iter()
+            .find(|s| s.id == sub_id)
+            .context("Sub with such sub_id does not exist")?;
+
+        let timer_id: TimerId = serde_json::from_str(&sub.timer_id)
+            .expect("should be valid timer id");
+
+        clear_timer(timer_id);
+
+        log_message(format!("[USER: {}] stop sub_id: {}", pub_key, sub_id));
+        Ok(())
+    })
 }

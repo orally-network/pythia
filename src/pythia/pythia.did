@@ -104,6 +104,7 @@ service : {
     //
     // @return Error
     refresh_subs : (chain_id: nat, msg: text, sig: text) -> (Error);
+    stop_sub : (sub_id : nat, msg : text, sig : text) -> (Error);
 
     // users
 
@@ -114,4 +115,5 @@ service : {
     //
     // @return Result
     add_user : (msg: text, sig: text) -> (Result);
+    withdraw : (chain_id: nat, msg: text, sig: text, receiver: text) -> (Error);
 }
