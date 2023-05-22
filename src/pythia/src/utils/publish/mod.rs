@@ -8,13 +8,14 @@ use ic_web3::{
     ethabi::{Contract as EthabiContract, Token},
     ic::KeyInfo,
     transports::ICHttp,
-    types::{H160, H256},
+    types::{H160, H256, U64},
     Web3,
 };
 
 use crate::{
     utils::{add_brackets, cast_to_param_type, check_balance, sybil::get_asset_data},
     Chain, PythiaError, Sub, User, CHAINS, KEY_NAME, USERS,
+    types::subs::MethodType,
 };
 
 const TIMEOUT: u64 = 60 * 60;
@@ -79,7 +80,7 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
 
     let contract = Contract::new(w3.eth(), sub.contract_addr, abi);
 
-    let input = get_input(sub).await?;
+    let input = get_input(&sub.method.method_type, sub.pair_id.clone()).await?;
 
     let key_info = KeyInfo {
         derivation_path: vec![user.pub_key.as_bytes().to_vec()],
@@ -103,7 +104,7 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
             gas: Some(sub.method.gas_limit.0),
             nonce: Some(nonce),
             gas_price: Some(gas_price),
-            transaction_type: None,
+            transaction_type: Some(U64::from(0)),
             ..Default::default()
         };
 
@@ -131,19 +132,17 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
     Ok(())
 }
 
-async fn get_input(sub: &Sub) -> Result<Token> {
-    let raw_input = if sub.is_random {
-        get_random_input().await
-    } else if sub.pair_id.is_some() {
-        get_sybil_input(sub).await?
-    } else {
-        0
+pub async fn get_input(method_type: &MethodType, pair_id: Option<String>) -> Result<Vec<Token>> {
+    let input = match method_type {
+        MethodType::Pair => get_sybil_input(&pair_id.expect("should be provided")).await?,
+        MethodType::Random(abi_type) => vec![get_random_input(&abi_type).await?],
+        MethodType::Empty => vec![],
     };
 
-    Ok(cast_to_param_type(raw_input, &sub.method.param).expect("should be able to cast"))
+    Ok(input)
 }
 
-async fn get_random_input() -> u64 {
+async fn get_random_input(abi_type: &str) -> Result<Token> {
     let (mut raw_data,) = raw_rand().await.expect("random should be generated");
 
     let (insufficient_bytes_count, was_overflowed) = raw_data.len().overflowing_sub(BITS_IN_BYTE);
@@ -152,22 +151,25 @@ async fn get_random_input() -> u64 {
         raw_data.append(&mut vec![0; insufficient_bytes_count]);
     }
 
-    u64::from_be_bytes(
+    let value = u64::from_be_bytes(
         raw_data[..BITS_IN_BYTE]
             .try_into()
             .expect("should be valid convertation"),
-    )
+    );
+
+    cast_to_param_type(value, &abi_type)
+        .ok_or(anyhow!("invalid abi type"))
 }
 
-async fn get_sybil_input(sub: &Sub) -> Result<u64> {
-    let pair_id = sub
-        .pair_id
-        .clone()
-        .ok_or(anyhow!("Pair id does not exists"))?;
-
+async fn get_sybil_input(pair_id: &str) -> Result<Vec<Token>> {
     let rate = get_asset_data(&pair_id).await?;
 
-    Ok(rate.rate)
+    Ok(vec![
+        Token::String(rate.symbol),
+        Token::Uint(rate.rate.into()),
+        Token::Uint(rate.decimals.into()),
+        Token::Uint(rate.timestamp.into()),
+    ])
 }
 
 async fn wait_until_confimation(tx_hash: &H256, w3: &Web3<ICHttp>) -> Result<()> {

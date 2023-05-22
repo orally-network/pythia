@@ -15,7 +15,7 @@ rand = "0.8.5"
 candid = "0.8.2"
 ic-cdk = "0.6.0"
 serde = "1.0.162"
-ic-web3 = "0.1.7"
+ic-web3 = { git = "https://github.com/ivanlele/ic-web3", branch="dev" }
 anyhow = "1.0.71"
 num-bigint = "0.4.3"
 thiserror = "1.0.40"

@@ -5,7 +5,7 @@ use ic_cdk_macros::{post_upgrade, pre_upgrade};
 use ic_utils::logger;
 use ic_web3::types::H160;
 
-use crate::{Chain, User, CHAINS, CONTROLLERS, KEY_NAME, SIWE_CANISTER, TX_FEE, U256, USERS};
+use crate::{Chain, User, CHAINS, CONTROLLERS, KEY_NAME, SIWE_CANISTER, SYBIL_CANISTER, TX_FEE, U256, USERS};
 
 #[pre_upgrade]
 fn pre_upgrade() {
@@ -18,6 +18,7 @@ fn pre_upgrade() {
         .expect("should be valid tx fee");
     let key_name = KEY_NAME.with(|key_name| key_name.take());
     let siwe_canister = SIWE_CANISTER.with(|siwe_canister| siwe_canister.take());
+    let sybil_canister = SYBIL_CANISTER.with(|sybil_canister| sybil_canister.take());
 
     let log_data = logger::pre_upgrade_stable_data();
 
@@ -28,6 +29,7 @@ fn pre_upgrade() {
         tx_fee,
         key_name,
         siwe_canister,
+        sybil_canister,
         log_data,
     ))
     .expect("should be valid canister data");
@@ -35,12 +37,13 @@ fn pre_upgrade() {
 
 #[post_upgrade]
 fn post_upgrade() {
-    let (controllers, chains, users, tx_fee, key_name, siwe_canister, log_data): (
+    let (controllers, chains, users, tx_fee, key_name, siwe_canister, sybil_canister, log_data): (
         Vec<Principal>,
         String,
         String,
         String,
         String,
+        Option<Principal>,
         Option<Principal>,
         logger::PostUpgradeStableData,
     ) = storage::stable_restore().expect("should be valid canister data");
@@ -61,4 +64,5 @@ fn post_upgrade() {
     TX_FEE.with(|t| t.replace(tx_fee));
     KEY_NAME.with(|k| k.replace(key_name));
     SIWE_CANISTER.with(|s| s.replace(siwe_canister));
+    SYBIL_CANISTER.with(|s| s.replace(sybil_canister));
 }

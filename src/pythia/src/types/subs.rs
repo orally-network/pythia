@@ -11,15 +11,15 @@ use ic_cdk_timers::{set_timer_interval, set_timer};
 use ic_web3::{
     contract::{Contract, Options},
     ethabi::Contract as EthabiContract,
-    ethabi::{Function, ParamType},
+    ethabi::Function,
     transports::ICHttp,
     types::H160,
     Web3,
 };
 
 use crate::{
-    utils::{add_brackets, cast_to_param_type, publish::publish, sybil::is_pair_exists},
-    Chain, PythiaError, User, U256, USERS,
+    utils::{add_brackets, publish::{publish, get_input}, sybil::is_pair_exists},
+    Chain, User, U256, USERS,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -31,15 +31,21 @@ pub struct Sub {
     pub method: Method,
     pub frequency: u64,
     pub timer_id: String,
-    pub is_random: bool,
+}
+
+#[derive(Clone, Debug, CandidType, Serialize, Deserialize)]
+pub enum MethodType {
+    Pair,
+    Random(String),
+    Empty,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Method {
     pub name: String,
-    pub param: String,
     pub abi: String,
     pub gas_limit: U256,
+    pub method_type: MethodType
 }
 
 impl Sub {
@@ -52,7 +58,11 @@ impl Sub {
         user: &User,
         is_random: bool,
     ) -> Result<Self> {
-        let method_abi = resolve_abi(method_abi.into())?;
+        let (method_abi, method_type) = resolve_abi(
+            method_abi.into(),
+            pair_id.clone(),
+            is_random,
+        )?;
 
         if let Some(pair_id) = pair_id.clone() {
             if !is_pair_exists(&pair_id).await? {
@@ -74,6 +84,27 @@ impl Sub {
 
         let owner = user.pub_key;
 
+        let func: Function =
+            serde_json::from_str(&method_abi).context("failed to parse method abi")?;
+
+        let gas_limit = calculate_gas_limit(
+            chain,
+            &func.name,
+            &method_type,
+            &method_abi,
+            &contract_addr,
+            user,
+            pair_id.clone(),
+        )
+        .await?;
+
+        let method = Method {
+            name: func.name,
+            gas_limit,
+            abi: method_abi.to_string(),
+            method_type,
+        };
+
         set_timer(Duration::from_secs(5), move || {
             publish(id, owner);
         });
@@ -84,29 +115,6 @@ impl Sub {
 
         let timer_id = serde_json::to_string(&timer_id)?;
 
-        let func: Function =
-            serde_json::from_str(&method_abi).context("failed to parse method abi")?;
-
-        let param = validate_params(&func)?;
-
-        let gas_limit = calculate_gas_limit(
-            chain,
-            &func.name,
-            &param.to_string(),
-            &method_abi,
-            &contract_addr,
-            user,
-        )
-        .await
-        .context("failed to calculate gas limit")?;
-
-        let method = Method {
-            name: func.name,
-            param: param.to_string(),
-            gas_limit,
-            abi: method_abi.to_string(),
-        };
-
         Ok(Self {
             id,
             pair_id,
@@ -115,27 +123,86 @@ impl Sub {
             method,
             frequency: *frequency,
             timer_id,
-            is_random,
         })
     }
 }
 
-fn resolve_abi(method_abi: String) -> Result<String> {
-    let splitted_method_abi: Vec<&str> = method_abi.split_terminator(&['(', ')', ',']).collect();
+fn resolve_abi(method_abi: String, pair_id: Option<String>, is_random: bool) -> Result<(String, MethodType)> {
+    let raw_abi: Vec<&str> = method_abi.split_terminator(&['(', ')', ',',]).collect();
 
-    if splitted_method_abi.len() != 2 {
-        return Err(anyhow!("invalid method abi"));
+    if pair_id.is_some() {
+        get_pair_abi(&raw_abi)
+    } else if is_random {
+        get_random_abi(&raw_abi)
+    } else {
+        get_empty_abi(&raw_abi)
+    }
+}
+
+fn get_pair_abi(raw_abi: &[&str]) -> Result<(String, MethodType)> {
+    let func_name = raw_abi
+        .first()
+        .ok_or(anyhow!("invalid method abi: a function name"))?
+        .to_string();
+
+    if raw_abi.len() != 5
+        || raw_abi[1] != "string"
+        || raw_abi[2] != " uint256"
+        || raw_abi[3] != " uint256"
+        || raw_abi[4] != " uint256" {
+            return Err(anyhow!("invalid method abi: parameter types"));
     }
 
-    let func_name = splitted_method_abi
+    let data = json!({
+        "inputs": [
+            {
+                "internalType": "string",
+                "name": "pair_id",
+                "type": "string",
+            },
+            {
+                "internalType": "uint256",
+                "name": "price",
+                "type": "uint256",
+            },
+            {
+                "internalType": "uint256",
+                "name": "decimals",
+                "type": "uint256",
+            },
+            {
+                "internalType": "uint256",
+                "name": "timestamp",
+                "type": "uint256",
+            }
+        ],
+        "name": func_name,
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    });
+
+    Ok((data.to_string(), MethodType::Pair))
+}
+
+fn get_random_abi(raw_abi: &[&str]) -> Result<(String, MethodType)> {
+    if raw_abi.len() != 2 {
+        return Err(anyhow!("invalid method abi: random should have one parameter"));
+    }
+
+    let func_name = raw_abi
         .first()
-        .ok_or(anyhow!("invalid method abi"))?
+        .ok_or(anyhow!("invalid method abi: random, function name"))?
         .to_string();
 
-    let param_type = splitted_method_abi
+    let param_type = raw_abi
         .get(1)
-        .ok_or(anyhow!("invalid method abi"))?
+        .ok_or(anyhow!("invalid method abi: random, param type"))?
         .to_string();
+
+    if !is_valid_func_param(&param_type) {
+        return Err(anyhow!("invalid method abi, format"));
+    }
 
     let data = json!({
         "inputs": [
@@ -151,16 +218,38 @@ fn resolve_abi(method_abi: String) -> Result<String> {
         "type": "function"
     });
 
-    Ok(data.to_string())
+    Ok((data.to_string(), MethodType::Random(param_type)))
+}
+
+fn get_empty_abi(raw_abi: &[&str]) -> Result<(String, MethodType)> {
+    if raw_abi.len() != 2 && raw_abi[1] != "" {
+        return Err(anyhow!("invalid method abi: empty"));
+    }
+
+    let func_name = raw_abi
+        .first()
+        .ok_or(anyhow!("invalid method abi: empty, function name"))?
+        .to_string();
+
+    let data = json!({
+        "inputs": [],
+        "name": func_name,
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    });
+
+    Ok((data.to_string(), MethodType::Empty))
 }
 
 async fn calculate_gas_limit(
     chain: &Chain,
     method_name: &str,
-    param: &str,
+    method_type: &MethodType,
     method_abi: &str,
     contract_addr: &H160,
     user: &User,
+    pair_id: Option<String>,
 ) -> Result<U256> {
     let w3 = Web3::new(
         ICHttp::new(chain.rpc.as_str(), None, None).context("failed to connect to a node")?,
@@ -171,40 +260,24 @@ async fn calculate_gas_limit(
 
     let contract = Contract::new(w3.eth(), *contract_addr, abi);
 
-    let input = cast_to_param_type(0, param).expect("should be able to cast");
+    let input = get_input(method_type, pair_id)
+        .await?;
 
     let gas_limit = contract
         .estimate_gas(method_name, input, user.exec_addr, Options::default())
-        .await
-        .context("failed to get gas_limit")?;
+        .await?;
 
     // 1.2 multiplication
     Ok(U256((gas_limit / 5) * 6))
 }
 
-fn validate_params(func: &Function) -> Result<ParamType> {
-    if func.inputs.len() != 1 {
-        return Err(anyhow!(PythiaError::InvalidABIFunction(
-            "inputs length should be 1".to_string()
-        )));
-    }
-
-    let kind = func
-        .inputs
-        .first()
-        .expect("a value should exists")
-        .kind
-        .clone();
-
-    match kind {
-        ParamType::Bytes => Ok(kind),
-        ParamType::FixedBytes(_) => Ok(kind),
-        ParamType::Uint(_) => Ok(kind),
-        ParamType::Int(_) => Ok(kind),
-        ParamType::String => Ok(kind),
-        _ => Err(anyhow!(PythiaError::InvalidABIFunction(
-            "input should be supported".to_string()
-        ))),
+fn is_valid_func_param(func: &str) -> bool {
+    match func {
+        f if f.starts_with("string") 
+            || f.starts_with("bytes") 
+            || f.starts_with("uint") 
+            || f.starts_with("int") => true,
+        _ => false
     }
 }
 
@@ -216,7 +289,6 @@ pub struct CandidSub {
     pub method_name: String,
     pub method_abi: String,
     pub frequency: Nat,
-    pub is_random: bool,
 }
 
 impl From<Sub> for CandidSub {
@@ -228,7 +300,6 @@ impl From<Sub> for CandidSub {
             method_name: sub.method.name,
             method_abi: sub.method.abi,
             frequency: Nat::from(sub.frequency),
-            is_random: sub.is_random,
         }
     }
 }

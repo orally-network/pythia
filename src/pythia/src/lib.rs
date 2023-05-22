@@ -41,7 +41,7 @@ fn transform(response: TransformArgs) -> HttpResponse {
 
 #[init]
 fn init(tx_fee: Nat, key_name: String, siwe_canister: Principal, sybil_canister: Principal) {
-    set_timer(Duration::ZERO, || {
+    set_timer(Duration::from_secs(5), || {
         spawn(async {
             methods::controllers::update_controllers().await;
         })
