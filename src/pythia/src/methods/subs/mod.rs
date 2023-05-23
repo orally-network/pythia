@@ -48,7 +48,6 @@ async fn _subscribe(
     msg: String,
     sig: String,
 ) -> Result<()> {
-    check_subs_limit_total()?;
     let frequency = *frequency
         .0
         .to_u64_digits()
@@ -58,6 +57,8 @@ async fn _subscribe(
     let chain = get_chain(&chain_id)?;
     let pub_key = rec_eth_addr(&msg, &sig).await?;
     let user = get_user(&pub_key)?;
+
+    check_subs_limit_total(&pub_key)?;
 
     check_balance(&user, &chain).await?;
     collect_fee(&user, &chain).await?;
@@ -82,26 +83,30 @@ async fn _subscribe(
     Ok(())
 }
 
-fn check_subs_limit_total() -> Result<()> {
-    let mut counter = 0;
-
+fn check_subs_limit_total(pub_key: &H160) -> Result<()> {
     USERS.with(|users| {
+        let mut counter = 0;
         let mut users = users.borrow_mut();
 
-        for (_, user) in users.iter_mut() {
+        for (user_pub_key, user) in users.iter_mut() {
+            if user_pub_key == pub_key {
+                if user.subs.len() > SUBS_LIMIT_WALLET.with(|s| *s.borrow()) as usize {
+                    return Err(anyhow!("user subs limit reached"));
+                }
+            }
             for sub in user.subs.iter_mut() {
                 if sub.is_active {
                     counter += 1;
                 }
             }      
         }        
-    });
 
-    if counter > SUBS_LIMIT_TOTAL.with(|s| *s.borrow()) {
-        return Err(anyhow!("subs limit total reached"));
-    }
-
-    Ok(())
+        if counter > SUBS_LIMIT_TOTAL.with(|s| *s.borrow()) {
+            return Err(anyhow!("subs limit total reached"));
+        }
+    
+        Ok(())
+    })
 }
 
 #[query]
@@ -186,9 +191,6 @@ pub fn add_sub(sub: &Sub, pub_key: &H160) -> Result<()> {
     USERS.with(|users| {
         let mut users = users.borrow_mut();
         let user = users.get_mut(pub_key).expect("user should exist");
-        if user.subs.len() > SUBS_LIMIT_WALLET.with(|s| *s.borrow()) as usize {
-            return Err(anyhow!("user subs limit reached"));
-        }
         
         user.subs.push(sub.clone());
         Ok(())
