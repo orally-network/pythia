@@ -5,7 +5,6 @@ type CandidSub = record {
     method_name : text;
     method_abi : text;
     frequency : nat;
-    is_random : bool;
 };
 
 type CandidTypeChain = record {
