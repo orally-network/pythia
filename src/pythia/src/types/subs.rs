@@ -31,6 +31,7 @@ pub struct Sub {
     pub method: Method,
     pub frequency: u64,
     pub timer_id: String,
+    pub is_active: bool,
 }
 
 #[derive(Clone, Debug, CandidType, Serialize, Deserialize)]
@@ -123,6 +124,7 @@ impl Sub {
             method,
             frequency: *frequency,
             timer_id,
+            is_active: true,
         })
     }
 }
@@ -291,6 +293,7 @@ pub struct CandidSub {
     pub method_abi: String,
     pub method_type: MethodType,
     pub frequency: Nat,
+    pub is_active: bool,
 }
 
 impl From<Sub> for CandidSub {
@@ -304,6 +307,7 @@ impl From<Sub> for CandidSub {
             method_abi: sub.method.abi,
             method_type: sub.method.method_type,
             frequency: Nat::from(sub.frequency),
+            is_active: sub.is_active,
         }
     }
 }

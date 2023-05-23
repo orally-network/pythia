@@ -13,6 +13,7 @@ type CandidSub = record {
     method_abi : text;
     method_type : SubType;
     frequency : nat;
+    is_active : bool;
 };
 
 type CandidTypeChain = record {
@@ -122,4 +123,6 @@ service : {
     // @return Result
     add_user : (msg: text, sig: text) -> (Result);
     withdraw : (chain_id: nat, msg: text, sig: text, receiver: text) -> (Error);
+    stop_sub : (sub_id: nat, msg: text, sig: text) -> (Error);
+    start_sub : (sub_id: nat, msg: text, sig: text) -> (Error);
 }

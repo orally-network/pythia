@@ -127,6 +127,7 @@ async fn _refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<()> {
             });
 
             sub.timer_id = serde_json::to_string(&timer_id).expect("should be valid timer id");
+            sub.is_active = true;
         }
 
         log_message(format!(
@@ -185,13 +186,13 @@ pub async fn _stop_sub(sub_id: Nat, msg: String, sig: String) -> Result<()> {
     }
 
     USERS.with(|users| {
-        let users = users.borrow();
-        let user = users.get(&pub_key)
+        let mut users = users.borrow_mut();
+        let user = users.get_mut(&pub_key)
             .context("User does not exists")?;
 
-        let sub = user
+        let mut sub = user
             .subs
-            .iter()
+            .iter_mut()
             .find(|s| s.id == sub_id)
             .context("Sub with such sub_id does not exist")?;
 
@@ -200,7 +201,52 @@ pub async fn _stop_sub(sub_id: Nat, msg: String, sig: String) -> Result<()> {
 
         clear_timer(timer_id);
 
+        sub.is_active = false;
+
         log_message(format!("[USER: {}] stop sub_id: {}", pub_key, sub_id));
+        Ok(())
+    })
+}
+
+#[update]
+pub async fn start_sub(sub_id: Nat, msg: String, sig: String) -> Result<(), String> {
+    _stop_sub(sub_id, msg, sig)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn _start_sub(sub_id: Nat, msg: String, sig: String) -> Result<()> {
+    let pub_key = rec_eth_addr(&msg, &sig).await?;
+    
+    let sub_id_digits = sub_id.0.to_u64_digits();
+    let mut sub_id: u64 = 0;
+    if sub_id_digits.len() != 0 {
+        sub_id = *sub_id_digits
+            .last()
+            .expect("sub_id should be a number");
+    }
+
+    USERS.with(|users| {
+        let mut users = users.borrow_mut();
+        let user = users.get_mut(&pub_key)
+            .context("User does not exists")?;
+
+        let mut sub = user
+            .subs
+            .iter_mut()
+            .find(|s| s.id == sub_id)
+            .context("Sub with such sub_id does not exist")?;
+
+            let id = sub.id;
+
+            let timer_id = set_timer_interval(Duration::from_secs(sub.frequency), move || {
+                publish(id, pub_key);
+            });
+
+            sub.timer_id = serde_json::to_string(&timer_id).expect("should be valid timer id");
+            sub.is_active = true;
+
+        log_message(format!("[USER: {}] start sub_id: {}", pub_key, sub_id));
         Ok(())
     })
 }

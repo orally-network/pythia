@@ -69,6 +69,22 @@ fn stop_sub(sub: &Sub, user: &User) {
 
     let timer_id: TimerId = serde_json::from_str(&sub.timer_id).expect("should be valid timer id");
 
+    USERS.with(|users| {
+        let mut users = users.borrow_mut();
+
+        let user = users
+            .get_mut(&user.pub_key)
+            .expect("user should exists");
+
+        let sub = user
+            .subs
+            .iter_mut()
+            .find(|s| s.id == sub.id)
+            .expect("sub should exists");
+
+        sub.is_active = false;
+    });
+
     clear_timer(timer_id)
 }
 

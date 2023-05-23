@@ -1,11 +1,13 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 use ic_cdk::{export::Principal, storage};
 use ic_cdk_macros::{post_upgrade, pre_upgrade};
+use ic_cdk_timers::set_timer_interval;
 use ic_utils::logger;
 use ic_web3::types::H160;
 
-use crate::{Chain, User, CHAINS, CONTROLLERS, KEY_NAME, SIWE_CANISTER, SYBIL_CANISTER, TX_FEE, U256, USERS};
+use crate::{Chain, User, CHAINS, CONTROLLERS, KEY_NAME, SIWE_CANISTER, SYBIL_CANISTER, TX_FEE, U256, USERS, utils::publish::publish};
 
 #[pre_upgrade]
 fn pre_upgrade() {
@@ -65,4 +67,23 @@ fn post_upgrade() {
     KEY_NAME.with(|k| k.replace(key_name));
     SIWE_CANISTER.with(|s| s.replace(siwe_canister));
     SYBIL_CANISTER.with(|s| s.replace(sybil_canister));
+
+    USERS.with(|users| {
+        let mut users = users.borrow_mut();
+
+        for (pub_key, user) in users.iter_mut() {
+            for sub in user.subs.iter_mut() {
+                if sub.is_active {
+                    let id = sub.id;
+                    let pub_key = pub_key.clone();
+
+                    let timer_id = set_timer_interval(Duration::from_secs(sub.frequency), move || {
+                        publish(id, pub_key);
+                    });
+        
+                    sub.timer_id = serde_json::to_string(&timer_id).expect("should be valid timer id");
+                }
+            }      
+        }        
+    });
 }
