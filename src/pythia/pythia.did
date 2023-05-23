@@ -22,7 +22,6 @@ type CandidTypeChain = record {
     treasurer : text;
 };
 
-
 type Result = variant { Ok : text; Err : text };
 type Error = variant { Ok : null; Err : text };
 type GetSubsResult = variant { Ok : vec CandidSub; Err : text };

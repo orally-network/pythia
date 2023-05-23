@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::{anyhow, Context, Result};
 
 use ic_cdk::{api::management_canister::main::raw_rand, api::time};
@@ -125,7 +127,7 @@ async fn exucute_transaction(
         ..Default::default()
     };
 
-    let tx_hash = contract
+    contract
         .signed_call(
             &sub.method.name,
             input.clone(),
@@ -135,13 +137,6 @@ async fn exucute_transaction(
             chain.chain_id.0.as_u64(),
         )
         .await?;
-
-    if let Err(err) = wait_until_confimation(&tx_hash, &w3).await {
-        match err.root_cause().downcast_ref() {
-            Some(PythiaError::TxTimeout) => return Err(err)?,
-            _ => Err(err)?,
-        }
-    }
 
     Ok(())
 }
@@ -186,8 +181,9 @@ async fn get_sybil_input(pair_id: &str) -> Result<Vec<Token>> {
     ])
 }
 
+#[allow(dead_code)]
 async fn wait_until_confimation(tx_hash: &H256, w3: &Web3<ICHttp>) -> Result<()> {
-    let start = time();
+    let start = Duration::from_nanos(time()).as_secs();
     let mut current_time = start;
 
     while (start - current_time) < TIMEOUT {
@@ -207,7 +203,7 @@ async fn wait_until_confimation(tx_hash: &H256, w3: &Web3<ICHttp>) -> Result<()>
             }
         }
 
-        current_time = time();
+        current_time = Duration::from_nanos(time()).as_secs();
     }
 
     Err(anyhow!(PythiaError::TxTimeout))
