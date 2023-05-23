@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, Context};
 
 use ic_cdk::{
     api::management_canister::main::{canister_status, CanisterIdRecord},
@@ -7,7 +7,7 @@ use ic_cdk::{
 use ic_cdk_macros::update;
 use ic_utils::logger::log_message;
 
-use crate::{utils::validate_caller, CONTROLLERS, TX_FEE, U256};
+use crate::{utils::validate_caller, CONTROLLERS, TX_FEE, U256, SUBS_LIMIT_TOTAL, SUBS_LIMIT_WALLET};
 
 #[update]
 fn update_tx_fee(tx_fee: Nat) -> Result<(), String> {
@@ -21,6 +21,40 @@ fn update_tx_fee(tx_fee: Nat) -> Result<(), String> {
         log_message(format!("[TX FEE] updating: {}", tx_fee.0));
     });
 
+    Ok(())
+}
+
+#[update]
+pub fn update_subs_limit_wallet(limit: Nat) -> Result<(), String> {
+    _update_subs_limit_wallet(limit).map_err(|e| e.to_string())
+}
+
+fn _update_subs_limit_wallet(limit: Nat) -> Result<()> {
+    validate_caller()?;
+    let limit = *limit
+        .0
+        .to_u64_digits()
+        .last()
+        .context("limit should be greater than 1")?;
+
+    SUBS_LIMIT_WALLET.with(|s| *s.borrow_mut() = limit);
+    Ok(())
+}
+
+#[update]
+pub fn update_subs_limit_total(limit: Nat) -> Result<(), String> {
+    _update_subs_limit_total(limit).map_err(|e| e.to_string())
+}
+
+fn _update_subs_limit_total(limit: Nat) -> Result<()> {
+    validate_caller()?;
+    let limit = *limit
+        .0
+        .to_u64_digits()
+        .last()
+        .context("limit should be greater than 1")?;
+
+    SUBS_LIMIT_TOTAL.with(|s| *s.borrow_mut() = limit);
     Ok(())
 }
 

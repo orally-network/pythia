@@ -1,6 +1,6 @@
 use std::{str::FromStr, time::Duration};
 
-use anyhow::{Result, Ok, Context};
+use anyhow::{Result, Context, anyhow};
 
 use ic_cdk::export::candid::Nat;
 use ic_cdk_macros::{query, update};
@@ -10,7 +10,7 @@ use ic_web3::types::H160;
 
 use crate::{
     utils::{check_balance, collect_fee, publish::publish, rec_eth_addr},
-    CandidSub, Chain, PythiaError, Sub, User, CHAINS, U256, USERS,
+    CandidSub, Chain, PythiaError, Sub, User, CHAINS, U256, USERS, SUBS_LIMIT_TOTAL, SUBS_LIMIT_WALLET
 };
 
 #[update]
@@ -48,6 +48,7 @@ async fn _subscribe(
     msg: String,
     sig: String,
 ) -> Result<()> {
+    check_subs_limit_total()?;
     let frequency = *frequency
         .0
         .to_u64_digits()
@@ -71,12 +72,34 @@ async fn _subscribe(
         is_random,
     )
     .await?;
-    add_sub(&sub, &pub_key);
+    add_sub(&sub, &pub_key)?;
 
     log_message(format!(
         "[USER: {}] sub creation; sub id: {}",
         user.pub_key, sub.id
     ));
+
+    Ok(())
+}
+
+fn check_subs_limit_total() -> Result<()> {
+    let mut counter = 0;
+
+    USERS.with(|users| {
+        let mut users = users.borrow_mut();
+
+        for (_, user) in users.iter_mut() {
+            for sub in user.subs.iter_mut() {
+                if sub.is_active {
+                    counter += 1;
+                }
+            }      
+        }        
+    });
+
+    if counter > SUBS_LIMIT_TOTAL.with(|s| *s.borrow()) {
+        return Err(anyhow!("subs limit total reached"));
+    }
 
     Ok(())
 }
@@ -159,12 +182,17 @@ pub fn get_user(pub_key: &H160) -> Result<User> {
     })
 }
 
-pub fn add_sub(sub: &Sub, pub_key: &H160) {
+pub fn add_sub(sub: &Sub, pub_key: &H160) -> Result<()> {
     USERS.with(|users| {
         let mut users = users.borrow_mut();
         let user = users.get_mut(pub_key).expect("user should exist");
+        if user.subs.len() > SUBS_LIMIT_WALLET.with(|s| *s.borrow()) as usize {
+            return Err(anyhow!("user subs limit reached"));
+        }
+        
         user.subs.push(sub.clone());
-    });
+        Ok(())
+    })
 }
 
 #[update]

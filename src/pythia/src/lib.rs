@@ -32,6 +32,8 @@ thread_local! {
     pub static USERS: RefCell<HashMap<H160, User>> = RefCell::default();
     pub static SIWE_CANISTER: RefCell<Option<Principal>> = RefCell::default();
     pub static SYBIL_CANISTER: RefCell<Option<Principal>> = RefCell::default();
+    pub static SUBS_LIMIT_WALLET: RefCell<u64> = RefCell::default();
+    pub static SUBS_LIMIT_TOTAL: RefCell<u64> = RefCell::default();
 }
 
 #[ic_cdk_macros::query]
@@ -61,5 +63,13 @@ fn init(tx_fee: Nat, key_name: String, siwe_canister: Principal, sybil_canister:
 
     SYBIL_CANISTER.with(|sybil_canister_state| {
         *sybil_canister_state.borrow_mut() = Some(sybil_canister);
+    });
+
+    SUBS_LIMIT_WALLET.with(|subs_limit_wallet| {
+        *subs_limit_wallet.borrow_mut() = 5;
+    });
+
+    SUBS_LIMIT_TOTAL.with(|subs_limit_total| {
+        *subs_limit_total.borrow_mut() = 100;
     });
 }

@@ -7,7 +7,7 @@ use ic_cdk_timers::set_timer_interval;
 use ic_utils::logger;
 use ic_web3::types::H160;
 
-use crate::{Chain, User, CHAINS, CONTROLLERS, KEY_NAME, SIWE_CANISTER, SYBIL_CANISTER, TX_FEE, U256, USERS, utils::publish::publish};
+use crate::{Chain, User, CHAINS, CONTROLLERS, KEY_NAME, SIWE_CANISTER, SYBIL_CANISTER, TX_FEE, U256, USERS, utils::publish::publish, SUBS_LIMIT_TOTAL, SUBS_LIMIT_WALLET};
 
 #[pre_upgrade]
 fn pre_upgrade() {
@@ -21,6 +21,8 @@ fn pre_upgrade() {
     let key_name = KEY_NAME.with(|key_name| key_name.take());
     let siwe_canister = SIWE_CANISTER.with(|siwe_canister| siwe_canister.take());
     let sybil_canister = SYBIL_CANISTER.with(|sybil_canister| sybil_canister.take());
+    let subs_limit_wallet = SUBS_LIMIT_WALLET.with(|subs_limit_wallet| subs_limit_wallet.take());
+    let subs_limit_total = SUBS_LIMIT_TOTAL.with(|subs_limit_wallet| subs_limit_wallet.take());
 
     let log_data = logger::pre_upgrade_stable_data();
 
@@ -32,6 +34,8 @@ fn pre_upgrade() {
         key_name,
         siwe_canister,
         sybil_canister,
+        subs_limit_wallet,
+        subs_limit_total,
         log_data,
     ))
     .expect("should be valid canister data");
@@ -39,7 +43,7 @@ fn pre_upgrade() {
 
 #[post_upgrade]
 fn post_upgrade() {
-    let (controllers, chains, users, tx_fee, key_name, siwe_canister, sybil_canister, log_data): (
+    let (controllers, chains, users, tx_fee, key_name, siwe_canister, sybil_canister, subs_limit_wallet, subs_limit_total, log_data): (
         Vec<Principal>,
         String,
         String,
@@ -47,6 +51,8 @@ fn post_upgrade() {
         String,
         Option<Principal>,
         Option<Principal>,
+        u64,
+        u64,
         logger::PostUpgradeStableData,
     ) = storage::stable_restore().expect("should be valid canister data");
 
@@ -67,6 +73,8 @@ fn post_upgrade() {
     KEY_NAME.with(|k| k.replace(key_name));
     SIWE_CANISTER.with(|s| s.replace(siwe_canister));
     SYBIL_CANISTER.with(|s| s.replace(sybil_canister));
+    SUBS_LIMIT_WALLET.with(|s| s.replace(subs_limit_wallet));
+    SUBS_LIMIT_TOTAL.with(|s| s.replace(subs_limit_total));
 
     USERS.with(|users| {
         let mut users = users.borrow_mut();
