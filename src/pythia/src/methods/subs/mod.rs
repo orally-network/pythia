@@ -210,7 +210,7 @@ pub async fn _stop_sub(sub_id: Nat, msg: String, sig: String) -> Result<()> {
 
 #[update]
 pub async fn start_sub(sub_id: Nat, msg: String, sig: String) -> Result<(), String> {
-    _stop_sub(sub_id, msg, sig)
+    _start_sub(sub_id, msg, sig)
         .await
         .map_err(|e| e.to_string())
 }
@@ -237,14 +237,14 @@ pub async fn _start_sub(sub_id: Nat, msg: String, sig: String) -> Result<()> {
             .find(|s| s.id == sub_id)
             .context("Sub with such sub_id does not exist")?;
 
-            let id = sub.id;
+        let id = sub.id;
 
-            let timer_id = set_timer_interval(Duration::from_secs(sub.frequency), move || {
-                publish(id, pub_key);
-            });
+        let timer_id = set_timer_interval(Duration::from_secs(sub.frequency), move || {
+            publish(id, pub_key);
+        });
 
-            sub.timer_id = serde_json::to_string(&timer_id).expect("should be valid timer id");
-            sub.is_active = true;
+        sub.timer_id = serde_json::to_string(&timer_id).expect("should be valid timer id");
+        sub.is_active = true;
 
         log_message(format!("[USER: {}] start sub_id: {}", pub_key, sub_id));
         Ok(())
