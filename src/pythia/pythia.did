@@ -1,9 +1,17 @@
+type SubType = variant {
+    Pair : null;
+    Random : text;
+    Empty : null;
+};
+
 type CandidSub = record {
     id : nat;
+    pair_id : opt text;
     chain_id : nat;
     contract_addr : text;
     method_name : text;
     method_abi : text;
+    method_type : SubType;
     frequency : nat;
 };
 

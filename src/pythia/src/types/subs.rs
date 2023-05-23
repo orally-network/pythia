@@ -284,10 +284,12 @@ fn is_valid_func_param(func: &str) -> bool {
 #[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct CandidSub {
     pub id: Nat,
+    pub pair_id: Option<String>,
     pub chain_id: Nat,
     pub contract_addr: String,
     pub method_name: String,
     pub method_abi: String,
+    pub method_type: MethodType,
     pub frequency: Nat,
 }
 
@@ -295,10 +297,12 @@ impl From<Sub> for CandidSub {
     fn from(sub: Sub) -> Self {
         Self {
             id: Nat::from(sub.id),
+            pair_id: sub.pair_id,
             chain_id: Nat::from(sub.chain_id),
             contract_addr: hex::encode(sub.contract_addr.as_bytes()),
             method_name: sub.method.name,
             method_abi: sub.method.abi,
+            method_type: sub.method.method_type,
             frequency: Nat::from(sub.frequency),
         }
     }

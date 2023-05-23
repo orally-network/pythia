@@ -88,45 +88,59 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
     };
 
     for _ in 1..=MAX_RETRY_ATTEMPTS {
-        let gas_price = w3
+        if let Ok(()) = exucute_transaction(&w3, input.clone(), &contract, sub, &key_info, user, chain).await {
+            return Ok(())
+        }
+    }
+
+    Ok(())
+}
+
+async fn exucute_transaction(
+    w3: &Web3<ICHttp>,
+    input: Vec<Token>,
+    contract: &Contract<ICHttp>,
+    sub: &Sub,
+    key_info: &KeyInfo,
+    user: &User,
+    chain: &Chain,
+) -> Result<()> {
+    let gas_price = w3
             .eth()
             .gas_price()
             .await
             .context("failed to get gas price")?;
 
-        let nonce = w3
-            .eth()
-            .transaction_count(user.exec_addr, None)
-            .await
-            .context("failed to get nonce")?;
+    let nonce = w3
+        .eth()
+        .transaction_count(user.exec_addr, None)
+        .await
+        .context("failed to get nonce")?;
 
-        let tx_otps = Options {
-            gas: Some(sub.method.gas_limit.0),
-            nonce: Some(nonce),
-            gas_price: Some(gas_price),
-            transaction_type: Some(U64::from(0)),
-            ..Default::default()
-        };
+    let tx_otps = Options {
+        gas: Some(sub.method.gas_limit.0),
+        nonce: Some(nonce),
+        gas_price: Some(gas_price),
+        transaction_type: Some(U64::from(0)),
+        ..Default::default()
+    };
 
-        let tx_hash = contract
-            .signed_call(
-                &sub.method.name,
-                input.clone(),
-                tx_otps,
-                user.exec_addr.to_string(),
-                key_info.clone(),
-                chain.chain_id.0.as_u64(),
-            )
-            .await?;
+    let tx_hash = contract
+        .signed_call(
+            &sub.method.name,
+            input.clone(),
+            tx_otps,
+            user.exec_addr.to_string(),
+            key_info.clone(),
+            chain.chain_id.0.as_u64(),
+        )
+        .await?;
 
-        if let Err(err) = wait_until_confimation(&tx_hash, &w3).await {
-            match err.root_cause().downcast_ref() {
-                Some(PythiaError::TxTimeout) => break,
-                _ => Err(err)?,
-            }
+    if let Err(err) = wait_until_confimation(&tx_hash, &w3).await {
+        match err.root_cause().downcast_ref() {
+            Some(PythiaError::TxTimeout) => return Err(err)?,
+            _ => Err(err)?,
         }
-        
-        break;
     }
 
     Ok(())
