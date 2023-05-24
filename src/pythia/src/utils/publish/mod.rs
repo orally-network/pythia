@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context, Result};
 
 use ic_cdk::{api::management_canister::main::raw_rand, api::time};
 use ic_cdk_timers::{clear_timer, TimerId};
-use ic_utils::logger::log_message;
+use ic_utils::{logger::log_message, monitor::collect_metrics,};
 use ic_web3::{
     contract::{Contract, Options},
     ethabi::{Contract as EthabiContract, Token},
@@ -111,6 +111,8 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
         }
     }
 
+    collect_metrics();
+
     Ok(())
 }
 
@@ -153,6 +155,7 @@ async fn exucute_transaction(
             chain.chain_id.0.as_u64(),
         )
         .await?;
+        
 
     Ok(())
 }

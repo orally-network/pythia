@@ -4,7 +4,7 @@ use std::time::Duration;
 use ic_cdk::{export::Principal, storage};
 use ic_cdk_macros::{post_upgrade, pre_upgrade};
 use ic_cdk_timers::set_timer_interval;
-use ic_utils::logger;
+use ic_utils::{logger, monitor};
 use ic_web3::types::H160;
 
 use crate::{Chain, User, CHAINS, CONTROLLERS, KEY_NAME, SIWE_CANISTER, SYBIL_CANISTER, TX_FEE, U256, USERS, utils::publish::publish, SUBS_LIMIT_TOTAL, SUBS_LIMIT_WALLET};
@@ -25,6 +25,7 @@ fn pre_upgrade() {
     let subs_limit_total = SUBS_LIMIT_TOTAL.with(|subs_limit_wallet| subs_limit_wallet.take());
 
     let log_data = logger::pre_upgrade_stable_data();
+    let monitor_data = monitor::pre_upgrade_stable_data();
 
     storage::stable_save((
         controllers,
@@ -37,13 +38,14 @@ fn pre_upgrade() {
         subs_limit_wallet,
         subs_limit_total,
         log_data,
+        monitor_data,
     ))
     .expect("should be valid canister data");
 }
 
 #[post_upgrade]
 fn post_upgrade() {
-    let (controllers, chains, users, tx_fee, key_name, siwe_canister, sybil_canister, subs_limit_wallet, subs_limit_total, log_data): (
+    let (controllers, chains, users, tx_fee, key_name, siwe_canister, sybil_canister, subs_limit_wallet, subs_limit_total, log_data, monitor_data): (
         Vec<Principal>,
         String,
         String,
@@ -54,6 +56,7 @@ fn post_upgrade() {
         u64,
         u64,
         logger::PostUpgradeStableData,
+        monitor::PostUpgradeStableData,
     ) = storage::stable_restore().expect("should be valid canister data");
 
     let chains: HashMap<U256, Chain> =
@@ -65,6 +68,7 @@ fn post_upgrade() {
     let tx_fee: U256 = serde_json::from_str(&tx_fee).expect("should be valid tx fee");
 
     logger::post_upgrade_stable_data(log_data);
+    monitor::post_upgrade_stable_data(monitor_data);
 
     CONTROLLERS.with(|c| c.replace(controllers));
     CHAINS.with(|c| c.replace(chains));
