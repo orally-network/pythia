@@ -23,6 +23,7 @@ use crate::{
 const TIMEOUT: u64 = 60 * 60;
 const MAX_RETRY_ATTEMPTS: u64 = 3;
 const BITS_IN_BYTE: usize = 8;
+const ECDSA_SIGN_CYCLES: u64 = 23_000_000_000;
 
 pub fn publish(sub_id: u64, owner: H160) {
     ic_cdk::spawn(_publish(sub_id, owner));
@@ -90,7 +91,7 @@ fn stop_sub(sub: &Sub, user: &User) {
 
 async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
     let w3 = Web3::new(
-        ICHttp::new(chain.rpc.as_str(), None, None).context("failed to connect to a node")?,
+        ICHttp::new(chain.rpc.as_str(), None).context("failed to connect to a node")?,
     );
 
     let abi = EthabiContract::load(add_brackets(&sub.method.abi).as_bytes())
@@ -103,6 +104,7 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
     let key_info = KeyInfo {
         derivation_path: vec![user.pub_key.as_bytes().to_vec()],
         key_name: KEY_NAME.with(|key_name| key_name.borrow().clone()),
+        ecdsa_sign_cycles: Some(ECDSA_SIGN_CYCLES),
     };
 
     for _ in 1..=MAX_RETRY_ATTEMPTS {

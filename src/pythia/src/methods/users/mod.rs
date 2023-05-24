@@ -15,6 +15,7 @@ use ic_web3::{
 use crate::{utils::rec_eth_addr, User, USERS, PythiaError, CHAINS, U256, KEY_NAME};
 
 const ETH_TRANSFER_GAS_LIMIT: u64 = 21000;
+const ECDSA_SIGN_CYCLES: u64 = 23_000_000_000;
 
 #[update]
 pub async fn add_user(msg: String, sig: String) -> Result<String, String> {
@@ -74,7 +75,7 @@ async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) ->
     let receiver = H160::from_str(&receiver)?;
 
     let w3 = Web3::new(
-        ICHttp::new(chain.rpc.as_str(), None, None).context("failed to connect to a node")?,
+        ICHttp::new(chain.rpc.as_str(), None).context("failed to connect to a node")?,
     );
 
     let value = w3
@@ -115,6 +116,7 @@ async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) ->
     let key_info = KeyInfo {
         derivation_path: vec![user.pub_key.as_bytes().to_vec()],
         key_name: KEY_NAME.with(|key_name| key_name.borrow().clone()),
+        ecdsa_sign_cycles: Some(ECDSA_SIGN_CYCLES),
     };
 
     let signed_tx = w3

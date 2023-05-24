@@ -18,6 +18,8 @@ use crate::{
 };
 
 const ETH_TRANSFER_GAS_LIMIT: u64 = 21000;
+const ECDSA_SIGN_CYCLES: u64 = 23_000_000_000;
+
 
 pub fn validate_caller() -> Result<(), PythiaError> {
     let controllers = CONTROLLERS.with(|controllers| controllers.borrow().clone());
@@ -55,7 +57,7 @@ pub async fn check_balance(user: &User, chain: &Chain) -> Result<()> {
 }
 
 pub async fn get_balance(address: &H160, rpc: &str) -> Result<U256> {
-    let w3 = Web3::new(ICHttp::new(rpc, None, None).context("failed to connect to a node")?);
+    let w3 = Web3::new(ICHttp::new(rpc, None).context("failed to connect to a node")?);
 
     let balance = w3
         .eth()
@@ -99,12 +101,13 @@ pub async fn collect_fee(user: &User, chain: &Chain) -> Result<()> {
     }
 
     let w3 = Web3::new(
-        ICHttp::new(chain.rpc.as_str(), None, None).context("failed to connect to a node")?,
+        ICHttp::new(chain.rpc.as_str(), None).context("failed to connect to a node")?,
     );
 
     let key_info = KeyInfo {
         derivation_path: vec![user.pub_key.as_bytes().to_vec()],
         key_name: KEY_NAME.with(|key_name| key_name.borrow().clone()),
+        ecdsa_sign_cycles: Some(ECDSA_SIGN_CYCLES),
     };
 
     let nonce = w3

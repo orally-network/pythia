@@ -254,7 +254,7 @@ async fn calculate_gas_limit(
     pair_id: Option<String>,
 ) -> Result<U256> {
     let w3 = Web3::new(
-        ICHttp::new(chain.rpc.as_str(), None, None).context("failed to connect to a node")?,
+        ICHttp::new(chain.rpc.as_str(), None).context("failed to connect to a node")?,
     );
 
     let abi =
