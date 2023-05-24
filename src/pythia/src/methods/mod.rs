@@ -3,21 +3,20 @@ pub mod controllers;
 pub mod subs;
 pub mod users;
 
-use ic_cdk::query;
+use ic_cdk::{query, update};
 use ic_utils::{
-    api_type::{GetInformationRequest, GetInformationResponse},
-    get_information,
+    api_type::{GetInformationRequest, GetInformationResponse, UpdateInformationRequest},
+    get_information, update_information,
 };
 
-use crate::utils::validate_caller;
-
-#[query]
+#[query(name = "getCanistergeekInformation")]
 pub async fn get_canistergeek_information(
     request: GetInformationRequest,
 ) -> GetInformationResponse<'static> {
-    if let Err(err) = validate_caller() {
-        ic_cdk::trap(&err.to_string())
-    };
-
     get_information(request)
+}
+
+#[update(name = "updateCanistergeekInformation")]
+pub async fn update_canistergeek_information(request: UpdateInformationRequest) -> () {
+    update_information(request);
 }
