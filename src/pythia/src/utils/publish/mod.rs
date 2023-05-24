@@ -58,7 +58,9 @@ async fn _publish(sub_id: u64, owner: H160) {
 
     if let Err(e) = notify(sub, &user, &chain).await {
         ic_cdk::println!("[{}] Notify error: {}", owner, e);
-        log_message(format!("[{}] {}", owner, e));
+        log_message(
+            format!("[USER: {}, CHAIN ID: {}] publishing, final err: {}", user.pub_key, chain.chain_id.0, e)
+        )
     }
 }
 
@@ -107,13 +109,17 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
         ecdsa_sign_cycles: Some(ECDSA_SIGN_CYCLES),
     };
 
-    for _ in 1..=MAX_RETRY_ATTEMPTS {
-        if let Ok(()) = exucute_transaction(&w3, input.clone(), &contract, sub, &key_info, user, chain).await {
-            return Ok(())
+    for i in 1..=MAX_RETRY_ATTEMPTS {
+        match exucute_transaction(&w3, input.clone(), &contract, sub, &key_info, user, chain).await {
+            Ok(_) => return Ok(()),
+            Err(err) => log_message(
+                format!("[USER: {}, CHAIN ID: {}] publishing: {}, err: {}", user.pub_key, chain.chain_id.0, i, err)
+            ),
         }
     }
 
     collect_metrics();
+    format!("[USER: {}, CHAIN ID: {}, SUB ID: {}] published", user.pub_key, chain.chain_id.0, sub.id);
 
     Ok(())
 }
