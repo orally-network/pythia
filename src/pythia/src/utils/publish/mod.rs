@@ -59,7 +59,7 @@ async fn _publish(sub_id: u64, owner: H160) {
     if let Err(e) = notify(sub, &user, &chain).await {
         ic_cdk::println!("[{}] Notify error: {}", owner, e);
         log_message(
-            format!("[USER: {}, CHAIN ID: {}] publishing, final err: {}", user.pub_key, chain.chain_id.0, e)
+            format!("[USER: {}, CHAIN ID: {}] publishing, final err: {e:?}", user.pub_key, chain.chain_id.0)
         )
     }
 }
@@ -118,7 +118,7 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
                 return Ok(())
             },
             Err(err) => log_message(
-                format!("[USER: {}, CHAIN ID: {}] publishing: {}, err: {}", user.pub_key, chain.chain_id.0, i, err)
+                format!("[USER: {}, CHAIN ID: {}] publishing: {}, err: {err:?}", user.pub_key, chain.chain_id.0, i)
             ),
         }
     }
@@ -157,7 +157,7 @@ async fn exucute_transaction(
         ..Default::default()
     };
 
-    contract
+    let tx_hash = contract
         .signed_call(
             &sub.method.name,
             input.clone(),
@@ -167,7 +167,8 @@ async fn exucute_transaction(
             chain.chain_id.0.as_u64(),
         )
         .await?;
-        
+    
+    wait_until_confimation(&tx_hash, w3).await?;
 
     Ok(())
 }
@@ -212,8 +213,7 @@ async fn get_sybil_input(pair_id: &str) -> Result<Vec<Token>> {
     ])
 }
 
-#[allow(dead_code)]
-async fn wait_until_confimation(tx_hash: &H256, w3: &Web3<ICHttp>) -> Result<()> {
+pub async fn wait_until_confimation(tx_hash: &H256, w3: &Web3<ICHttp>) -> Result<()> {
     let start = Duration::from_nanos(time()).as_secs();
     let mut current_time = start;
 

@@ -37,7 +37,7 @@ pub async fn subscribe(
         sig,
     )
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| format!("{e:?}"))
 }
 
 async fn _subscribe(
@@ -118,7 +118,7 @@ fn check_subs_limit_total(pub_key: &H160) -> Result<()> {
 
 #[query]
 pub fn get_subs(pub_key: String) -> Result<Vec<CandidSub>, String> {
-    _get_subs(pub_key).map_err(|e| e.to_string())
+    _get_subs(pub_key).map_err(|e| format!("{e:?}"))
 }
 
 fn _get_subs(pub_key: String) -> Result<Vec<CandidSub>> {
@@ -139,7 +139,7 @@ fn _get_subs(pub_key: String) -> Result<Vec<CandidSub>> {
 pub async fn refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<(), String> {
     _refresh_subs(chain_id, msg, sig)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| format!("{e:?}"))
 }
 
 async fn _refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<()> {
@@ -208,7 +208,7 @@ pub fn add_sub(sub: &Sub, pub_key: &H160) -> Result<()> {
 pub async fn stop_sub(sub_id: Nat, msg: String, sig: String) -> Result<(), String> {
     _stop_sub(sub_id, msg, sig)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| format!("{e:?}"))
 }
 
 pub async fn _stop_sub(sub_id: Nat, msg: String, sig: String) -> Result<()> {
@@ -249,7 +249,7 @@ pub async fn _stop_sub(sub_id: Nat, msg: String, sig: String) -> Result<()> {
 pub async fn start_sub(sub_id: Nat, msg: String, sig: String) -> Result<(), String> {
     _start_sub(sub_id, msg, sig)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| format!("{e:?}"))
 }
 
 pub async fn _start_sub(sub_id: Nat, msg: String, sig: String) -> Result<()> {

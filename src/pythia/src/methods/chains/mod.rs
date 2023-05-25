@@ -18,7 +18,7 @@ pub fn add_chain(
     min_balance: Nat,
     treasurer: String,
 ) -> Result<(), String> {
-    _add_chain(chain_id, rpc, min_balance, treasurer).map_err(|e| e.to_string())
+    _add_chain(chain_id, rpc, min_balance, treasurer).map_err(|e| format!("{e:?}"))
 }
 
 fn _add_chain(chain_id: Nat, rpc: String, min_balance: Nat, treasurer: String) -> Result<()> {
@@ -44,7 +44,7 @@ fn _add_chain(chain_id: Nat, rpc: String, min_balance: Nat, treasurer: String) -
 
 #[update]
 pub fn remove_chain(chain_id: Nat) -> Result<(), String> {
-    _remove_chain(chain_id).map_err(|e| e.to_string())
+    _remove_chain(chain_id).map_err(|e| format!("{e:?}"))
 }
 
 fn _remove_chain(chain_id: Nat) -> Result<()> {
@@ -66,7 +66,7 @@ fn _remove_chain(chain_id: Nat) -> Result<()> {
 
 #[update]
 pub fn update_chain_rpc(chain_id: Nat, rpc: String) -> Result<(), String> {
-    _update_chain_rpc(chain_id, rpc).map_err(|e| e.to_string())
+    _update_chain_rpc(chain_id, rpc).map_err(|e| format!("{e:?}"))
 }
 
 fn _update_chain_rpc(chain_id: Nat, rpc: String) -> Result<()> {
@@ -90,7 +90,7 @@ fn _update_chain_rpc(chain_id: Nat, rpc: String) -> Result<()> {
 
 #[update]
 pub fn update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<(), String> {
-    _update_chain_min_balance(chain_id, min_balance).map_err(|e| e.to_string())
+    _update_chain_min_balance(chain_id, min_balance).map_err(|e| format!("{e:?}"))
 }
 
 fn _update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<()> {
@@ -117,7 +117,7 @@ fn _update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<()> {
 
 #[query]
 pub fn get_chain_rpc(chain_id: Nat) -> Result<String, String> {
-    _get_chain_rpc(chain_id).map_err(|e| e.to_string())
+    _get_chain_rpc(chain_id).map_err(|e| format!("{e:?}"))
 }
 
 fn _get_chain_rpc(chain_id: Nat) -> Result<String> {

@@ -26,7 +26,7 @@ fn update_tx_fee(tx_fee: Nat) -> Result<(), String> {
 
 #[update]
 pub fn update_subs_limit_wallet(limit: Nat) -> Result<(), String> {
-    _update_subs_limit_wallet(limit).map_err(|e| e.to_string())
+    _update_subs_limit_wallet(limit).map_err(|e| format!("{e:?}"))
 }
 
 fn _update_subs_limit_wallet(limit: Nat) -> Result<()> {
@@ -43,7 +43,7 @@ fn _update_subs_limit_wallet(limit: Nat) -> Result<()> {
 
 #[update]
 pub fn update_subs_limit_total(limit: Nat) -> Result<(), String> {
-    _update_subs_limit_total(limit).map_err(|e| e.to_string())
+    _update_subs_limit_total(limit).map_err(|e| format!("{e:?}"))
 }
 
 fn _update_subs_limit_total(limit: Nat) -> Result<()> {

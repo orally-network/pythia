@@ -9,12 +9,13 @@ use ic_web3::{
     ethabi::Token,
     ic::KeyInfo,
     transports::ICHttp,
-    types::{TransactionParameters, H160},
+    types::{TransactionParameters, H160, Bytes},
     Web3,
 };
 
 use crate::{
     types::errors::PythiaError, Chain, User, CONTROLLERS, KEY_NAME, SIWE_CANISTER, TX_FEE, U256,
+    utils::publish::wait_until_confimation,
 };
 
 const ATTEMPTS_TO_SEND_TX: u64 = 3;
@@ -146,10 +147,19 @@ pub async fn collect_fee(user: &User, chain: &Chain) -> Result<()> {
         .await?;
     
     for _ in 1..ATTEMPTS_TO_SEND_TX {
-        w3.eth()
-            .send_raw_transaction(signed_tx.raw_transaction.clone())
-            .await?;
+        match send_collect_fee_tx(w3.clone(), signed_tx.raw_transaction.clone()).await {
+            Ok(_) => return Ok(()),
+            Err(_) => continue
+        }
     }
 
     Ok(())
+}
+
+async fn send_collect_fee_tx(w3: Web3<ICHttp>, raw_transaction: Bytes) -> Result<()> {
+    let tx_hash = w3.eth()
+        .send_raw_transaction(raw_transaction.clone())
+        .await?;
+
+    wait_until_confimation(&tx_hash, &w3).await
 }

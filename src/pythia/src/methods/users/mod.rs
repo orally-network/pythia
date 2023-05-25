@@ -21,7 +21,7 @@ const ECDSA_SIGN_CYCLES: u64 = 23_000_000_000;
 pub async fn add_user(msg: String, sig: String) -> Result<String, String> {
     _add_user(msg, sig)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| format!("{e:?}"))
 }
 
 async fn _add_user(msg: String, sig: String) -> Result<String> {
@@ -53,7 +53,7 @@ async fn _add_user(msg: String, sig: String) -> Result<String> {
 pub async fn withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) -> Result<(), String> {
     _withdraw(chain_id, msg, sig, receiver)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| format!("{e:?}"))
 }
 
 async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) -> Result<()> {
