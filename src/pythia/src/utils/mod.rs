@@ -17,6 +17,7 @@ use crate::{
     types::errors::PythiaError, Chain, User, CONTROLLERS, KEY_NAME, SIWE_CANISTER, TX_FEE, U256,
 };
 
+const ATTEMPTS_TO_SEND_TX: u64 = 3;
 const ETH_TRANSFER_GAS_LIMIT: u64 = 21000;
 const ECDSA_SIGN_CYCLES: u64 = 23_000_000_000;
 
@@ -143,10 +144,12 @@ pub async fn collect_fee(user: &User, chain: &Chain) -> Result<()> {
             chain.chain_id.0.as_u64(),
         )
         .await?;
-
-    w3.eth()
-        .send_raw_transaction(signed_tx.raw_transaction)
-        .await?;
+    
+    for _ in 1..ATTEMPTS_TO_SEND_TX {
+        w3.eth()
+            .send_raw_transaction(signed_tx.raw_transaction.clone())
+            .await?;
+    }
 
     Ok(())
 }

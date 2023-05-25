@@ -13,6 +13,8 @@ use crate::{
     CandidSub, Chain, PythiaError, Sub, User, CHAINS, U256, USERS, SUBS_LIMIT_TOTAL, SUBS_LIMIT_WALLET
 };
 
+const FREQUENCY_LIMIT: u64 = 5 * 60;
+
 #[update]
 pub async fn subscribe(
     chain_id: Nat,
@@ -53,6 +55,11 @@ async fn _subscribe(
         .to_u64_digits()
         .last()
         .expect("frequency should be u64");
+
+    if frequency < FREQUENCY_LIMIT {
+        return Err(anyhow!("frequency must be greater than 5 minutes"));
+    }
+
     let chain_id = U256::from(chain_id);
     let chain = get_chain(&chain_id)?;
     let pub_key = rec_eth_addr(&msg, &sig).await?;
