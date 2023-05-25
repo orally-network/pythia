@@ -52,7 +52,7 @@ async fn _publish(sub_id: u64, owner: H160) {
             .clone()
     });
 
-    if check_balance(&user, &chain).await.is_err() {
+    if check_balance(&user, &chain).await.expect("should check balance") {
         return stop_sub(sub, &user);
     }
 

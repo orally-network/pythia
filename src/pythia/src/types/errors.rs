@@ -15,8 +15,6 @@ pub enum PythiaError {
     FailedToGetEthAddress(String),
     #[error("User not found")]
     UserNotFound,
-    #[error("Not enoght funds on an execution addr")]
-    InsufficientBalance,
     #[error("Tx failed")]
     TxFailed,
     #[error("Tx reached timeout")]

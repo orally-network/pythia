@@ -48,14 +48,14 @@ pub async fn rec_eth_addr(msg: &str, sig: &str) -> Result<H160> {
     H160::from_str(&signer).context("failed to parse signer address")
 }
 
-pub async fn check_balance(user: &User, chain: &Chain) -> Result<()> {
+pub async fn check_balance(user: &User, chain: &Chain) -> Result<bool> {
     let balance = get_balance(&user.exec_addr, &chain.rpc).await?;
 
     if balance < chain.min_balance {
-        return Err(anyhow!(PythiaError::InsufficientBalance));
+        return Ok(false);
     }
 
-    Ok(())
+    Ok(true)
 }
 
 pub async fn get_balance(address: &H160, rpc: &str) -> Result<U256> {
