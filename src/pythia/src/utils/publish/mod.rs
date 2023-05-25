@@ -111,7 +111,12 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
 
     for i in 1..=MAX_RETRY_ATTEMPTS {
         match exucute_transaction(&w3, input.clone(), &contract, sub, &key_info, user, chain).await {
-            Ok(_) => return Ok(()),
+            Ok(_) => {
+                log_message(
+                    format!("[EXEC ADDR: {}, CHAIN ID: {}, SUB TYPE: {:?}] published", user.exec_addr, chain.chain_id.0, sub.method.method_type)
+                );
+                return Ok(())
+            },
             Err(err) => log_message(
                 format!("[USER: {}, CHAIN ID: {}] publishing: {}, err: {}", user.pub_key, chain.chain_id.0, i, err)
             ),
@@ -119,7 +124,6 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
     }
 
     collect_metrics();
-    format!("[USER: {}, CHAIN ID: {}, SUB ID: {}] published", user.pub_key, chain.chain_id.0, sub.id);
 
     Ok(())
 }
