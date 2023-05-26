@@ -83,8 +83,8 @@ async fn _subscribe(
     add_sub(&sub, &pub_key)?;
 
     log_message(format!(
-        "[USER: {}] sub creation; sub id: {}",
-        user.pub_key, sub.id
+        "[USER: 0x{}] sub creation; sub id: {}",
+        hex::encode(user.pub_key.as_bytes()), sub.id
     ));
 
     Ok(())
@@ -167,7 +167,7 @@ async fn _refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<()> {
 
         log_message(format!(
             "[USER: {}] subs refresh; chain id: {}",
-            pub_key, chain_id.0
+            hex::encode(pub_key.as_bytes()), chain_id.0
         ));
 
         Ok(())
@@ -240,7 +240,7 @@ pub async fn _stop_sub(sub_id: Nat, msg: String, sig: String) -> Result<()> {
 
         sub.is_active = false;
 
-        log_message(format!("[USER: {}] stop sub_id: {}", pub_key, sub_id));
+        log_message(format!("[USER: {}] stop sub_id: {}", hex::encode(pub_key.as_bytes()), sub_id));
         Ok(())
     })
 }
@@ -283,7 +283,8 @@ pub async fn _start_sub(sub_id: Nat, msg: String, sig: String) -> Result<()> {
         sub.timer_id = serde_json::to_string(&timer_id).expect("should be valid timer id");
         sub.is_active = true;
 
-        log_message(format!("[USER: {}] start sub_id: {}", pub_key, sub_id));
+        log_message(format!("[USER: {}] start sub_id: {}", hex::encode(pub_key.as_bytes()), sub_id));
+
         Ok(())
     })
 }

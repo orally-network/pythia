@@ -59,7 +59,7 @@ async fn _publish(sub_id: u64, owner: H160) {
     if let Err(e) = notify(sub, &user, &chain).await {
         ic_cdk::println!("[{}] Notify error: {}", owner, e);
         log_message(
-            format!("[USER: {}, CHAIN ID: {}] publishing, final err: {e:?}", user.pub_key, chain.chain_id.0)
+            format!("[USER: {}, CHAIN ID: {}] publishing, final err: {e:?}", hex::encode(user.pub_key.as_bytes()), chain.chain_id.0)
         )
     }
 }
@@ -67,7 +67,7 @@ async fn _publish(sub_id: u64, owner: H160) {
 fn stop_sub(sub: &Sub, user: &User) {
     log_message(format!(
         "[{}] insufficient funds | exec_addr: {}, chain_id: {}",
-        user.pub_key, user.exec_addr, sub.chain_id.0,
+        hex::encode(user.pub_key.as_bytes()), hex::encode(user.exec_addr.as_bytes()), sub.chain_id.0,
     ));
 
     let timer_id: TimerId = serde_json::from_str(&sub.timer_id).expect("should be valid timer id");
@@ -113,12 +113,18 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
         match exucute_transaction(&w3, input.clone(), &contract, sub, &key_info, user, chain).await {
             Ok(_) => {
                 log_message(
-                    format!("[EXEC ADDR: {}, CHAIN ID: {}, SUB TYPE: {:?}] published", user.exec_addr, chain.chain_id.0, sub.method.method_type)
+                    format!(
+                        "[EXEC ADDR: {}, CHAIN ID: {}, SUB TYPE: {:?}] published",
+                        hex::encode(user.exec_addr.as_bytes()), chain.chain_id.0, sub.method.method_type
+                    )
                 );
                 return Ok(())
             },
             Err(err) => log_message(
-                format!("[USER: {}, CHAIN ID: {}] publishing: {}, err: {err:?}", user.pub_key, chain.chain_id.0, i)
+                format!(
+                    "[USER: {}, CHAIN ID: {}] publishing: {}, err: {err:?}",
+                    hex::encode(user.pub_key.as_bytes()), chain.chain_id.0, i
+                )
             ),
         }
     }

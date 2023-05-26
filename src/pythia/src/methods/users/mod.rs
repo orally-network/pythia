@@ -43,7 +43,7 @@ async fn _add_user(msg: String, sig: String) -> Result<String> {
     });
 
     log_message(format!(
-        "[USER: {pub_key}] creation, exec_addr: {exec_addr}"
+        "[USER: {}] creation, exec_addr: {}", hex::encode(pub_key.as_bytes()), hex::encode(exec_addr.as_bytes())
     ));
 
     Ok(exec_addr)
