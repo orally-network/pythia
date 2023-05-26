@@ -7,8 +7,8 @@ dfx deploy siwe_signer_mock # or siwe_signer, if it's a production
 export SIWE_SIGNER_CANISTER_ID="$(dfx canister id siwe_signer_mock)"
 dfx canister create pythia
 dfx build pythia
-gzip -f -1 ./target/wasm32-unknown-unknown/release/pythia.wasm
-dfx canister install -m upgrade --wasm target/wasm32-unknown-unknown/release/pythia.wasm.gz --argument '(0:nat, "dfx_test_key", principal "bkyz2-fmaaa-aaaaa-qaaaq-cai", principal "by6od-j4aaa-aaaaa-qaadq-cai")' pythia
+gzip -f -1 ./.dfx/local/canisters/pythia/pythia.wasm
+dfx canister install -m upgrade --wasm ./.dfx/local/canisters/pythia/pythia.wasm.gz --network ic pythia
 ```
 
 ## Usage

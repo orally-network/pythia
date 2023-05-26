@@ -10,7 +10,7 @@ use ic_web3::{
     ethabi::{Contract as EthabiContract, Token},
     ic::KeyInfo,
     transports::ICHttp,
-    types::{H160, H256, U64},
+    types::{H160, H256, U64, TransactionCondition},
     Web3,
 };
 
@@ -149,11 +149,18 @@ async fn exucute_transaction(
             .await
             .context("failed to get gas price")?;
 
+    let block_height = w3
+        .eth()
+        .block_number()
+        .await
+        .context("failed to get block height")?;
+
     let tx_otps = Options {
         gas: Some(sub.method.gas_limit.0),
         nonce: Some(nonce),
         gas_price: Some(gas_price),
         transaction_type: Some(U64::from(0)),
+        condition: Some(TransactionCondition::Block(block_height.as_u64())),
         ..Default::default()
     };
 
