@@ -52,7 +52,7 @@ async fn _publish(sub_id: u64, owner: H160) {
             .clone()
     });
 
-    if check_balance(&user, &chain).await.expect("should check balance") {
+    if !check_balance(&user, &chain).await.expect("should check balance") {
         return stop_sub(sub, &user);
     }
 
@@ -137,17 +137,17 @@ async fn exucute_transaction(
     user: &User,
     chain: &Chain,
 ) -> Result<()> {
-    let gas_price = w3
-            .eth()
-            .gas_price()
-            .await
-            .context("failed to get gas price")?;
-
     let nonce = w3
         .eth()
         .transaction_count(user.exec_addr, None)
         .await
         .context("failed to get nonce")?;
+
+    let gas_price = w3
+            .eth()
+            .gas_price()
+            .await
+            .context("failed to get gas price")?;
 
     let tx_otps = Options {
         gas: Some(sub.method.gas_limit.0),
