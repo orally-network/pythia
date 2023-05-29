@@ -11,7 +11,6 @@ use types::{
     chains::Chain,
     errors::PythiaError,
     subs::{CandidSub, Sub},
-    users::User,
     U256,
 };
 
@@ -29,11 +28,12 @@ thread_local! {
     pub static CHAINS: RefCell<HashMap<U256, Chain>> = RefCell::default();
     pub static TX_FEE: RefCell<U256> = RefCell::default();
     pub static KEY_NAME: RefCell<String> = RefCell::default();
-    pub static USERS: RefCell<HashMap<H160, User>> = RefCell::default();
     pub static SIWE_CANISTER: RefCell<Option<Principal>> = RefCell::default();
     pub static SYBIL_CANISTER: RefCell<Option<Principal>> = RefCell::default();
     pub static SUBS_LIMIT_WALLET: RefCell<u64> = RefCell::default();
     pub static SUBS_LIMIT_TOTAL: RefCell<u64> = RefCell::default();
+    pub static SUBS: RefCell<Vec<Sub>> = RefCell::default();
+    pub static EXEC_ADDRS: RefCell<HashMap<H160, H160>> = RefCell::default();
 }
 
 #[ic_cdk_macros::query]

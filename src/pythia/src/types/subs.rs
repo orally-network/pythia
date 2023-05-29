@@ -7,7 +7,7 @@ use ic_cdk::export::{
     candid::{CandidType, Nat},
     serde::{Deserialize, Serialize},
 };
-use ic_cdk_timers::{set_timer_interval, set_timer};
+use ic_cdk_timers::{set_timer, set_timer_interval};
 use ic_web3::{
     contract::{Contract, Options},
     ethabi::Contract as EthabiContract,
@@ -18,13 +18,18 @@ use ic_web3::{
 };
 
 use crate::{
-    utils::{add_brackets, publish::{publish, get_input}, sybil::is_pair_exists},
-    Chain, User, U256, USERS,
+    utils::{
+        add_brackets,
+        publish::{get_input, publish},
+        sybil::is_pair_exists,
+    },
+    Chain, SUBS, U256,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Sub {
     pub id: u64,
+    pub owner: H160,
     pub pair_id: Option<String>,
     pub chain_id: U256,
     pub contract_addr: H160,
@@ -46,24 +51,22 @@ pub struct Method {
     pub name: String,
     pub abi: String,
     pub gas_limit: U256,
-    pub method_type: MethodType
+    pub method_type: MethodType,
 }
 
 impl Sub {
+    #[allow(clippy::too_many_arguments)]
     pub async fn instance(
         chain: &Chain,
         pair_id: Option<String>,
         contract_addr: &str,
         method_abi: &str,
         frequency: &u64,
-        user: &User,
+        pub_key: &H160,
+        exec_addr: &H160,
         is_random: bool,
     ) -> Result<Self> {
-        let (method_abi, method_type) = resolve_abi(
-            method_abi.into(),
-            pair_id.clone(),
-            is_random,
-        )?;
+        let (method_abi, method_type) = resolve_abi(method_abi.into(), pair_id.clone(), is_random)?;
 
         if let Some(pair_id) = pair_id.clone() {
             if !is_pair_exists(&pair_id).await? {
@@ -71,19 +74,12 @@ impl Sub {
             }
         }
 
-        let id = USERS.with(|users| {
-            users
-                .borrow()
-                .get(&user.pub_key)
-                .expect("user should exist")
-                .subs
-                .len() as u64
-        });
+        let id = SUBS.with(|s| s.borrow().len()) as u64;
 
         let contract_addr =
             H160::from_str(contract_addr).context("failed to parse contract address")?;
 
-        let owner = user.pub_key;
+        let owner = *pub_key;
 
         let func: Function =
             serde_json::from_str(&method_abi).context("failed to parse method abi")?;
@@ -94,7 +90,7 @@ impl Sub {
             &method_type,
             &method_abi,
             &contract_addr,
-            user,
+            exec_addr,
             pair_id.clone(),
         )
         .await?;
@@ -118,6 +114,7 @@ impl Sub {
 
         Ok(Self {
             id,
+            owner,
             pair_id,
             chain_id: chain.chain_id,
             contract_addr,
@@ -129,8 +126,12 @@ impl Sub {
     }
 }
 
-fn resolve_abi(method_abi: String, pair_id: Option<String>, is_random: bool) -> Result<(String, MethodType)> {
-    let raw_abi: Vec<&str> = method_abi.split_terminator(&['(', ')', ',',]).collect();
+fn resolve_abi(
+    method_abi: String,
+    pair_id: Option<String>,
+    is_random: bool,
+) -> Result<(String, MethodType)> {
+    let raw_abi: Vec<&str> = method_abi.split_terminator(&['(', ')', ',']).collect();
 
     if pair_id.is_some() {
         get_pair_abi(&raw_abi)
@@ -151,8 +152,9 @@ fn get_pair_abi(raw_abi: &[&str]) -> Result<(String, MethodType)> {
         || raw_abi[1] != "string"
         || raw_abi[2] != " uint256"
         || raw_abi[3] != " uint256"
-        || raw_abi[4] != " uint256" {
-            return Err(anyhow!("invalid method abi: parameter types"));
+        || raw_abi[4] != " uint256"
+    {
+        return Err(anyhow!("invalid method abi: parameter types"));
     }
 
     let data = json!({
@@ -189,7 +191,9 @@ fn get_pair_abi(raw_abi: &[&str]) -> Result<(String, MethodType)> {
 
 fn get_random_abi(raw_abi: &[&str]) -> Result<(String, MethodType)> {
     if raw_abi.len() != 2 {
-        return Err(anyhow!("invalid method abi: random should have one parameter"));
+        return Err(anyhow!(
+            "invalid method abi: random should have one parameter"
+        ));
     }
 
     let func_name = raw_abi
@@ -224,7 +228,7 @@ fn get_random_abi(raw_abi: &[&str]) -> Result<(String, MethodType)> {
 }
 
 fn get_empty_abi(raw_abi: &[&str]) -> Result<(String, MethodType)> {
-    if raw_abi.len() != 2 && raw_abi[1] != "" {
+    if raw_abi.len() != 2 && !raw_abi[1].is_empty() {
         return Err(anyhow!("invalid method abi: empty"));
     }
 
@@ -250,23 +254,21 @@ async fn calculate_gas_limit(
     method_type: &MethodType,
     method_abi: &str,
     contract_addr: &H160,
-    user: &User,
+    exec_addr: &H160,
     pair_id: Option<String>,
 ) -> Result<U256> {
-    let w3 = Web3::new(
-        ICHttp::new(chain.rpc.as_str(), None).context("failed to connect to a node")?,
-    );
+    let w3 =
+        Web3::new(ICHttp::new(chain.rpc.as_str(), None).context("failed to connect to a node")?);
 
     let abi =
         EthabiContract::load(add_brackets(method_abi).as_bytes()).expect("abi should be valid");
 
     let contract = Contract::new(w3.eth(), *contract_addr, abi);
 
-    let input = get_input(method_type, pair_id)
-        .await?;
+    let input = get_input(method_type, pair_id).await?;
 
     let gas_limit = contract
-        .estimate_gas(method_name, input, user.exec_addr, Options::default())
+        .estimate_gas(method_name, input, *exec_addr, Options::default())
         .await?;
 
     // 1.2 multiplication
@@ -274,18 +276,16 @@ async fn calculate_gas_limit(
 }
 
 fn is_valid_func_param(func: &str) -> bool {
-    match func {
-        f if f.starts_with("string") 
+    matches!(func, f if f.starts_with("string") 
             || f.starts_with("bytes") 
             || f.starts_with("uint") 
-            || f.starts_with("int") => true,
-        _ => false
-    }
+            || f.starts_with("int"))
 }
 
 #[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct CandidSub {
     pub id: Nat,
+    pub owner: String,
     pub pair_id: Option<String>,
     pub chain_id: Nat,
     pub contract_addr: String,
@@ -300,6 +300,7 @@ impl From<Sub> for CandidSub {
     fn from(sub: Sub) -> Self {
         Self {
             id: Nat::from(sub.id),
+            owner: hex::encode(sub.owner.as_bytes()),
             pair_id: sub.pair_id,
             chain_id: Nat::from(sub.chain_id),
             contract_addr: hex::encode(sub.contract_addr.as_bytes()),

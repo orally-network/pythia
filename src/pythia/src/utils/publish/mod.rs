@@ -4,20 +4,21 @@ use anyhow::{anyhow, Context, Result};
 
 use ic_cdk::{api::management_canister::main::raw_rand, api::time};
 use ic_cdk_timers::{clear_timer, TimerId};
-use ic_utils::{logger::log_message, monitor::collect_metrics,};
+use ic_utils::{logger::log_message, monitor::collect_metrics};
 use ic_web3::{
     contract::{Contract, Options},
     ethabi::{Contract as EthabiContract, Token},
     ic::KeyInfo,
     transports::ICHttp,
-    types::{H160, H256, U64, TransactionCondition},
+    types::{TransactionCondition, H160, H256, U64},
     Web3,
 };
 
 use crate::{
-    utils::{add_brackets, cast_to_param_type, check_balance, sybil::get_asset_data},
-    Chain, PythiaError, Sub, User, CHAINS, KEY_NAME, USERS,
+    methods::get_exec_addr_from_pub,
     types::subs::MethodType,
+    utils::{add_brackets, cast_to_param_type, check_balance, sybil::get_asset_data},
+    Chain, PythiaError, Sub, CHAINS, KEY_NAME, SUBS,
 };
 
 const TIMEOUT: u64 = 60 * 60;
@@ -30,19 +31,12 @@ pub fn publish(sub_id: u64, owner: H160) {
 }
 
 async fn _publish(sub_id: u64, owner: H160) {
-    let user = USERS.with(|users| {
-        users
-            .borrow()
-            .get(&owner)
-            .expect("User should exist")
+    let sub = SUBS.with(|subs| {
+        subs.borrow()
+            .get(sub_id as usize)
+            .expect("Sub should exist")
             .clone()
     });
-
-    let sub = user
-        .subs
-        .iter()
-        .find(|sub| sub.id == sub_id)
-        .expect("Sub should exist");
 
     let chain = CHAINS.with(|chains| {
         chains
@@ -52,38 +46,39 @@ async fn _publish(sub_id: u64, owner: H160) {
             .clone()
     });
 
-    if !check_balance(&user, &chain).await.expect("should check balance") {
-        return stop_sub(sub, &user);
+    let exec_addr = get_exec_addr_from_pub(&owner)
+        .await
+        .expect("exec addr should be in cache");
+
+    if !check_balance(&exec_addr, &chain)
+        .await
+        .expect("should check balance")
+    {
+        log_message(format!(
+            "[{}] insufficient funds | exec_addr: {}, chain_id: {}",
+            hex::encode(owner.as_bytes()),
+            hex::encode(exec_addr.as_bytes()),
+            sub.chain_id.0,
+        ));
+        return stop_sub(&sub);
     }
 
-    if let Err(e) = notify(sub, &user, &chain).await {
+    if let Err(e) = notify(&sub, &owner, &exec_addr, &chain).await {
         ic_cdk::println!("[{}] Notify error: {}", owner, e);
-        log_message(
-            format!("[USER: {}, CHAIN ID: {}] publishing, final err: {e:?}", hex::encode(user.pub_key.as_bytes()), chain.chain_id.0)
-        )
+        log_message(format!(
+            "[ADDR: {}, CHAIN ID: {}] publishing, final err: {e:?}",
+            hex::encode(owner.as_bytes()),
+            chain.chain_id.0
+        ))
     }
 }
 
-fn stop_sub(sub: &Sub, user: &User) {
-    log_message(format!(
-        "[{}] insufficient funds | exec_addr: {}, chain_id: {}",
-        hex::encode(user.pub_key.as_bytes()), hex::encode(user.exec_addr.as_bytes()), sub.chain_id.0,
-    ));
-
+fn stop_sub(sub: &Sub) {
     let timer_id: TimerId = serde_json::from_str(&sub.timer_id).expect("should be valid timer id");
+    SUBS.with(|subs| {
+        let mut subs = subs.borrow_mut();
 
-    USERS.with(|users| {
-        let mut users = users.borrow_mut();
-
-        let user = users
-            .get_mut(&user.pub_key)
-            .expect("user should exists");
-
-        let sub = user
-            .subs
-            .iter_mut()
-            .find(|s| s.id == sub.id)
-            .expect("sub should exists");
+        let mut sub = subs.get_mut(sub.id as usize).expect("Sub should exist");
 
         sub.is_active = false;
     });
@@ -91,10 +86,9 @@ fn stop_sub(sub: &Sub, user: &User) {
     clear_timer(timer_id)
 }
 
-async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
-    let w3 = Web3::new(
-        ICHttp::new(chain.rpc.as_str(), None).context("failed to connect to a node")?,
-    );
+async fn notify(sub: &Sub, pub_key: &H160, exec_addr: &H160, chain: &Chain) -> Result<()> {
+    let w3 =
+        Web3::new(ICHttp::new(chain.rpc.as_str(), None).context("failed to connect to a node")?);
 
     let abi = EthabiContract::load(add_brackets(&sub.method.abi).as_bytes())
         .expect("abi should be valid");
@@ -104,28 +98,38 @@ async fn notify(sub: &Sub, user: &User, chain: &Chain) -> Result<()> {
     let input = get_input(&sub.method.method_type, sub.pair_id.clone()).await?;
 
     let key_info = KeyInfo {
-        derivation_path: vec![user.pub_key.as_bytes().to_vec()],
+        derivation_path: vec![pub_key.as_bytes().to_vec()],
         key_name: KEY_NAME.with(|key_name| key_name.borrow().clone()),
         ecdsa_sign_cycles: Some(ECDSA_SIGN_CYCLES),
     };
 
     for i in 1..=MAX_RETRY_ATTEMPTS {
-        match exucute_transaction(&w3, input.clone(), &contract, sub, &key_info, user, chain).await {
+        match exucute_transaction(
+            &w3,
+            input.clone(),
+            &contract,
+            sub,
+            &key_info,
+            exec_addr,
+            chain,
+        )
+        .await
+        {
             Ok(_) => {
-                log_message(
-                    format!(
-                        "[EXEC ADDR: {}, CHAIN ID: {}, SUB TYPE: {:?}] published",
-                        hex::encode(user.exec_addr.as_bytes()), chain.chain_id.0, sub.method.method_type
-                    )
-                );
-                return Ok(())
-            },
-            Err(err) => log_message(
-                format!(
-                    "[USER: {}, CHAIN ID: {}] publishing: {}, err: {err:?}",
-                    hex::encode(user.pub_key.as_bytes()), chain.chain_id.0, i
-                )
-            ),
+                log_message(format!(
+                    "[EXEC ADDR: {}, CHAIN ID: {}, SUB TYPE: {:?}] published",
+                    hex::encode(exec_addr.as_bytes()),
+                    chain.chain_id.0,
+                    sub.method.method_type
+                ));
+                return Ok(());
+            }
+            Err(err) => log_message(format!(
+                "[EXEC ADDR: {}, CHAIN ID: {}] publishing: {}, err: {err:?}",
+                hex::encode(exec_addr.as_bytes()),
+                chain.chain_id.0,
+                i
+            )),
         }
     }
 
@@ -140,20 +144,20 @@ async fn exucute_transaction(
     contract: &Contract<ICHttp>,
     sub: &Sub,
     key_info: &KeyInfo,
-    user: &User,
+    exec_addr: &H160,
     chain: &Chain,
 ) -> Result<()> {
     let nonce = w3
         .eth()
-        .transaction_count(user.exec_addr, None)
+        .transaction_count(*exec_addr, None)
         .await
         .context("failed to get nonce")?;
 
     let gas_price = w3
-            .eth()
-            .gas_price()
-            .await
-            .context("failed to get gas price")?;
+        .eth()
+        .gas_price()
+        .await
+        .context("failed to get gas price")?;
 
     let block_height = w3
         .eth()
@@ -175,12 +179,12 @@ async fn exucute_transaction(
             &sub.method.name,
             input.clone(),
             tx_otps,
-            user.exec_addr.to_string(),
+            exec_addr.to_string(),
             key_info.clone(),
             chain.chain_id.0.as_u64(),
         )
         .await?;
-    
+
     wait_until_confimation(&tx_hash, w3).await?;
 
     Ok(())
@@ -189,7 +193,7 @@ async fn exucute_transaction(
 pub async fn get_input(method_type: &MethodType, pair_id: Option<String>) -> Result<Vec<Token>> {
     let input = match method_type {
         MethodType::Pair => get_sybil_input(&pair_id.expect("should be provided")).await?,
-        MethodType::Random(abi_type) => vec![get_random_input(&abi_type).await?],
+        MethodType::Random(abi_type) => vec![get_random_input(abi_type).await?],
         MethodType::Empty => vec![],
     };
 
@@ -211,12 +215,11 @@ async fn get_random_input(abi_type: &str) -> Result<Token> {
             .expect("should be valid convertation"),
     );
 
-    cast_to_param_type(value, &abi_type)
-        .ok_or(anyhow!("invalid abi type"))
+    cast_to_param_type(value, abi_type).ok_or(anyhow!("invalid abi type"))
 }
 
 async fn get_sybil_input(pair_id: &str) -> Result<Vec<Token>> {
-    let rate = get_asset_data(&pair_id).await?;
+    let rate = get_asset_data(pair_id).await?;
 
     Ok(vec![
         Token::String(rate.symbol),

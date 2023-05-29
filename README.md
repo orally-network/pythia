@@ -17,8 +17,8 @@ dfx canister install -m upgrade --wasm ./.dfx/local/canisters/pythia/pythia.wasm
 dfx canister call pythia update_controllers
 # add a new supported chain
 dfx canister call pythia add_chain '(11155111:nat, "https://sepolia.infura.io/v3/d20be327500c45819a1a3b850daec0e2", 10000000000000000:nat, "0000000000000000000000000000000000000000")'
-# add a new user
-dfx canister call pythia add_user '("service.org wants you to sign in with your Ethereum account:
+# get an exec addr
+dfx canister call pythia get_exec_addr '("service.org wants you to sign in with your Ethereum account:
 0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9
 
 

@@ -1,4 +1,4 @@
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 
 use ic_cdk::{
     api::management_canister::main::{canister_status, CanisterIdRecord},
@@ -7,7 +7,9 @@ use ic_cdk::{
 use ic_cdk_macros::update;
 use ic_utils::logger::log_message;
 
-use crate::{utils::validate_caller, CONTROLLERS, TX_FEE, U256, SUBS_LIMIT_TOTAL, SUBS_LIMIT_WALLET};
+use crate::{
+    utils::validate_caller, CONTROLLERS, SUBS_LIMIT_TOTAL, SUBS_LIMIT_WALLET, TX_FEE, U256,
+};
 
 #[update]
 fn update_tx_fee(tx_fee: Nat) -> Result<(), String> {

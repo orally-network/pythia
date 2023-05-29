@@ -13,8 +13,6 @@ pub enum PythiaError {
     NotImplemented,
     #[error("Failed to get eth address: {0}")]
     FailedToGetEthAddress(String),
-    #[error("User not found")]
-    UserNotFound,
     #[error("Tx failed")]
     TxFailed,
     #[error("Tx reached timeout")]

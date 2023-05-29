@@ -116,14 +116,6 @@ service : {
     stop_sub : (sub_id : nat, msg : text, sig : text) -> (Error);
     start_sub : (sub_id: nat, msg: text, sig: text) -> (Error);
 
-    // users
-
-    // Add a new user
-    //
-    // @param msg The message to sign, e,g *an example is very long, see README*
-    // @param sig The signature, e,g *an example is very long, see README*
-    //
-    // @return Result
-    add_user : (msg: text, sig: text) -> (Result);
     withdraw : (chain_id: nat, msg: text, sig: text, receiver: text) -> (Error);
-}
+    get_exec_addr : (msg: text, sig: text) -> (Result);
+ }
