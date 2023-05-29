@@ -92,29 +92,42 @@ async fn notify(sub: &Sub, pub_key: &H160, exec_addr: &H160, chain: &Chain) -> R
 
     let abi = EthabiContract::load(add_brackets(&sub.method.abi).as_bytes())
         .expect("abi should be valid");
-
     let contract = Contract::new(w3.eth(), sub.contract_addr, abi);
 
     let input = get_input(&sub.method.method_type, sub.pair_id.clone()).await?;
-
     let key_info = KeyInfo {
         derivation_path: vec![pub_key.as_bytes().to_vec()],
         key_name: KEY_NAME.with(|key_name| key_name.borrow().clone()),
         ecdsa_sign_cycles: Some(ECDSA_SIGN_CYCLES),
     };
 
+    let nonce = w3.eth().transaction_count(*exec_addr, None).await
+        .context("failed to get nonce")?;
+    let gas_price = w3.eth().gas_price().await
+        .context("failed to get gas price")?;
+    let block_height = w3.eth().block_number().await
+        .context("failed to get block height")?;
+
+    let tx_otps = Options {
+        gas: Some(sub.method.gas_limit.0),
+        nonce: Some(nonce),
+        gas_price: Some(gas_price),
+        transaction_type: Some(U64::from(0)),
+        condition: Some(TransactionCondition::Block(block_height.as_u64())),
+        ..Default::default()
+    };
+
+    let signed_tx = contract.sign(
+        &sub.method.name,
+        input,
+        tx_otps,
+        hex::encode(exec_addr.as_bytes()),
+        key_info,
+        chain.chain_id.0.as_u64(),
+    ).await?;
+
     for i in 1..=MAX_RETRY_ATTEMPTS {
-        match exucute_transaction(
-            &w3,
-            input.clone(),
-            &contract,
-            sub,
-            &key_info,
-            exec_addr,
-            chain,
-        )
-        .await
-        {
+        match w3.eth().send_raw_transaction(signed_tx.raw_transaction.clone()).await {
             Ok(_) => {
                 log_message(format!(
                     "[EXEC ADDR: {}, CHAIN ID: {}, SUB TYPE: {:?}] published",
@@ -134,58 +147,6 @@ async fn notify(sub: &Sub, pub_key: &H160, exec_addr: &H160, chain: &Chain) -> R
     }
 
     collect_metrics();
-
-    Ok(())
-}
-
-async fn exucute_transaction(
-    w3: &Web3<ICHttp>,
-    input: Vec<Token>,
-    contract: &Contract<ICHttp>,
-    sub: &Sub,
-    key_info: &KeyInfo,
-    exec_addr: &H160,
-    chain: &Chain,
-) -> Result<()> {
-    let nonce = w3
-        .eth()
-        .transaction_count(*exec_addr, None)
-        .await
-        .context("failed to get nonce")?;
-
-    let gas_price = w3
-        .eth()
-        .gas_price()
-        .await
-        .context("failed to get gas price")?;
-
-    let block_height = w3
-        .eth()
-        .block_number()
-        .await
-        .context("failed to get block height")?;
-
-    let tx_otps = Options {
-        gas: Some(sub.method.gas_limit.0),
-        nonce: Some(nonce),
-        gas_price: Some(gas_price),
-        transaction_type: Some(U64::from(0)),
-        condition: Some(TransactionCondition::Block(block_height.as_u64())),
-        ..Default::default()
-    };
-
-    let tx_hash = contract
-        .signed_call(
-            &sub.method.name,
-            input.clone(),
-            tx_otps,
-            exec_addr.to_string(),
-            key_info.clone(),
-            chain.chain_id.0.as_u64(),
-        )
-        .await?;
-
-    wait_until_confimation(&tx_hash, w3).await?;
 
     Ok(())
 }
