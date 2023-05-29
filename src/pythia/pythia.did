@@ -105,6 +105,8 @@ service : {
         sig: text,
     ) -> (Error);
     get_subs : (pub_key : text) -> (GetSubsResult);
+    stop_subs : () -> (Error);
+    remove_subs : () -> (Error);
     // Refresh subscriptions
     //
     // @param chain_id The chain id, e,g 1

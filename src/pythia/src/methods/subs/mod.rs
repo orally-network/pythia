@@ -9,7 +9,7 @@ use ic_utils::logger::log_message;
 use ic_web3::types::H160;
 
 use crate::{
-    utils::{check_balance, collect_fee, publish::publish, rec_eth_addr},
+    utils::{check_balance, collect_fee, publish::publish, rec_eth_addr, validate_caller},
     CandidSub, Chain, PythiaError, Sub, CHAINS, SUBS, SUBS_LIMIT_TOTAL, SUBS_LIMIT_WALLET, U256,
 };
 
@@ -271,4 +271,52 @@ pub async fn _start_sub(sub_id: Nat, msg: String, sig: String) -> Result<()> {
 
         Ok(())
     })
+}
+
+#[update]
+pub fn stop_subs() -> Result<(), String> {
+    _stop_subs()
+        .map_err(|e| format!("{e:?}"))
+}
+
+fn _stop_subs() -> Result<()> {
+    validate_caller()?;
+
+    SUBS.with(|subs| {
+        let mut subs = subs.borrow_mut();
+        for mut sub in subs.iter_mut() {
+            let timer_id: TimerId =
+                serde_json::from_str(&sub.timer_id).expect("should be valid timer id");
+
+            clear_timer(timer_id);
+
+            sub.is_active = false;
+        }
+
+        Ok(())
+    })
+}
+
+#[update]
+pub fn remove_subs() -> Result<(), String> {
+    _remove_subs()
+        .map_err(|e| format!("{e:?}"))
+}
+
+pub fn _remove_subs() -> Result<()> {
+    validate_caller()?;
+
+    SUBS.with(|subs| {
+        let subs = subs.borrow();
+        for sub in subs.iter() {
+            let timer_id: TimerId =
+                serde_json::from_str(&sub.timer_id).expect("should be valid timer id");
+
+            clear_timer(timer_id);
+        }
+    });
+
+    SUBS.with(|s| s.replace(vec![]));
+
+    Ok(())
 }
