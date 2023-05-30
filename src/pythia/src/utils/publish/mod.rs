@@ -50,6 +50,13 @@ async fn _publish(sub_id: u64, owner: H160) {
         .await
         .expect("exec addr should be in cache");
 
+    log_message(format!(
+        "[EXEC ADDR: {}, CHAIN ID: {}, SUB TYPE: {:?}] publishing...",
+        hex::encode(exec_addr.as_bytes()),
+        chain.chain_id.0,
+        sub.method.method_type
+    ));
+
     if !check_balance(&exec_addr, &chain)
         .await
         .expect("should check balance")
