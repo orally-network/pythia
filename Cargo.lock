@@ -836,6 +836,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "ic-dl-utils"
+version = "0.1.0"
+source = "git+https://github.com/ivanlele/ic-dl-utils?branch=master#2543e3f471ba90cc94dc23f9ab6cc06d32a988ee"
+dependencies = [
+ "anyhow",
+ "ic-cdk 0.7.4",
+ "ic-web3 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "ic-web3"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1994cb6f77fa824d77d45c78ff1ce27ed74080257470a62ce8cb28c6d541576"
+dependencies = [
+ "arrayvec 0.7.2",
+ "candid",
+ "derive_more",
+ "ethabi",
+ "ethereum-types",
+ "futures",
+ "futures-timer",
+ "getrandom",
+ "hex",
+ "ic-cdk 0.6.10",
+ "ic-cdk-macros",
+ "jsonrpc-core",
+ "libsecp256k1",
+ "parking_lot",
+ "pin-project",
+ "rlp",
+ "serde",
+ "serde_json",
+ "tiny-keccak",
+]
+
+[[package]]
 name = "ic-web3"
 version = "0.1.7"
 source = "git+https://github.com/ivanlele/ic-web3?branch=dev#e07bcce9fcdc8ead57f308162bd1621aab7aa9a9"
@@ -1418,7 +1455,8 @@ dependencies = [
  "ic-cdk 0.6.10",
  "ic-cdk-macros",
  "ic-cdk-timers",
- "ic-web3",
+ "ic-dl-utils",
+ "ic-web3 0.1.7 (git+https://github.com/ivanlele/ic-web3?branch=dev)",
  "num-bigint",
  "rand",
  "serde",

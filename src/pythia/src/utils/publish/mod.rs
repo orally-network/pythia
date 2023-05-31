@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context, Result, Ok};
 
 use ic_cdk::{api::management_canister::main::raw_rand, api::time};
 use ic_cdk_timers::{clear_timer, TimerId};
@@ -13,6 +13,7 @@ use ic_web3::{
     types::{TransactionCondition, H160, H256, U64},
     Web3,
 };
+use ic_dl_utils::retry_until_success;
 
 use crate::{
     methods::get_exec_addr_from_pub,
@@ -22,7 +23,6 @@ use crate::{
 };
 
 const TIMEOUT: u64 = 60 * 60;
-const MAX_RETRY_ATTEMPTS: u64 = 3;
 const BITS_IN_BYTE: usize = 8;
 const ECDSA_SIGN_CYCLES: u64 = 23_000_000_000;
 
@@ -68,16 +68,16 @@ async fn _publish(sub_id: u64, owner: H160) {
     publisher_log!(exec_addr, chain.chain_id.0, sub.method.method_type, "publishing...");
 
 
-    let is_enough_funds = check_balance(&exec_addr, &chain)
-        .await;
+    let is_enough_funds = retry_until_success!(check_balance(&exec_addr, &chain));
 
     match is_enough_funds {
-        Ok(is_enough_funds) if !is_enough_funds => {
+        Result::Ok(is_enough_funds) if !is_enough_funds => {
             publisher_log!(exec_addr, chain.chain_id.0, sub.method.method_type, "insufficient funds");
             return stop_sub(&sub);
         },
         Err(err) => {
             publisher_log!(exec_addr, chain.chain_id.0, sub.method.method_type, format!("check balance error: {err:?}"));
+            return;
         }
         _ => {},
     }
@@ -117,11 +117,11 @@ async fn notify(sub: &Sub, pub_key: &H160, exec_addr: &H160, chain: &Chain) -> R
         ecdsa_sign_cycles: Some(ECDSA_SIGN_CYCLES),
     };
 
-    let nonce = w3.eth().transaction_count(*exec_addr, None).await
+    let nonce = retry_until_success!(w3.eth().transaction_count(*exec_addr, None))
         .context("failed to get nonce")?;
-    let gas_price = w3.eth().gas_price().await
+    let gas_price = retry_until_success!(w3.eth().gas_price())
         .context("failed to get gas price")?;
-    let block_height = w3.eth().block_number().await
+    let block_height = retry_until_success!(w3.eth().block_number())
         .context("failed to get block height")?;
 
     let tx_otps = Options {
@@ -142,16 +142,10 @@ async fn notify(sub: &Sub, pub_key: &H160, exec_addr: &H160, chain: &Chain) -> R
         chain.chain_id.0.as_u64(),
     ).await?;
 
-    for _ in 1..=MAX_RETRY_ATTEMPTS {
-        match w3.eth().send_raw_transaction(signed_tx.raw_transaction.clone()).await {
-            Ok(_) => {
-                publisher_log!(exec_addr, chain.chain_id.0, sub.method.method_type, "published");
-                return Ok(());
-            }
-            Err(err) => publisher_log!(exec_addr, chain.chain_id.0, sub.method.method_type, format!("err: {err:?}")),
-        }
-    }
+    retry_until_success!(w3.eth().send_raw_transaction(signed_tx.raw_transaction.clone()))
+        .context("failed to execute transacrion")?;
 
+    publisher_log!(exec_addr, chain.chain_id.0, sub.method.method_type, "published");
     collect_metrics();
 
     Ok(())
