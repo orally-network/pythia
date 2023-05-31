@@ -838,9 +838,10 @@ dependencies = [
 [[package]]
 name = "ic-dl-utils"
 version = "0.1.0"
-source = "git+https://github.com/ivanlele/ic-dl-utils?branch=master#2543e3f471ba90cc94dc23f9ab6cc06d32a988ee"
+source = "git+https://github.com/ivanlele/ic-dl-utils?branch=master#16a632aa1fbe8e7ed10ab57bdb6f5f04825f63fb"
 dependencies = [
  "anyhow",
+ "canistergeek_ic_rust",
  "ic-cdk 0.7.4",
  "ic-web3 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
