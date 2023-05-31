@@ -6,9 +6,9 @@ Pythia is a canister that provides the SubPub functionality for the Ethereum fam
 dfx deploy siwe_signer_mock # or siwe_signer, if it's a production
 export SIWE_SIGNER_CANISTER_ID="$(dfx canister id siwe_signer_mock)"
 dfx canister create pythia
-dfx build pythia
-gzip -f -1 ./.dfx/local/canisters/pythia/pythia.wasm
-dfx canister install -m upgrade --wasm ./.dfx/local/canisters/pythia/pythia.wasm.gz --network ic pythia
+dfx build pythia --network ic
+gzip -f -1 ./.dfx/ic/canisters/pythia/pythia.wasm
+dfx canister install -m upgrade --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz --network ic pythia
 ```
 
 ## Usage

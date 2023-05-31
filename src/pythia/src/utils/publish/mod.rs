@@ -26,6 +26,21 @@ const MAX_RETRY_ATTEMPTS: u64 = 3;
 const BITS_IN_BYTE: usize = 8;
 const ECDSA_SIGN_CYCLES: u64 = 23_000_000_000;
 
+macro_rules! publisher_log {
+    ($exec_addr:expr, $chain_id:expr, $method_type:expr, $msg:expr) => {
+        {
+            let log_msg = format!(
+                "[EXEC ADDR: {}, CHAIN ID: {}, SUB TYPE: {:?}] Publisher: {}",
+                hex::encode(&$exec_addr.as_bytes()),
+                $chain_id,
+                $method_type,
+                $msg,
+            );
+            log_message(log_msg);
+        }
+    };
+}
+
 pub fn publish(sub_id: u64, owner: H160) {
     ic_cdk::spawn(_publish(sub_id, owner));
 }
@@ -50,33 +65,26 @@ async fn _publish(sub_id: u64, owner: H160) {
         .await
         .expect("exec addr should be in cache");
 
-    log_message(format!(
-        "[EXEC ADDR: {}, CHAIN ID: {}, SUB TYPE: {:?}] publishing...",
-        hex::encode(exec_addr.as_bytes()),
-        chain.chain_id.0,
-        sub.method.method_type
-    ));
+    publisher_log!(exec_addr, chain.chain_id.0, sub.method.method_type, "publishing...");
 
-    if !check_balance(&exec_addr, &chain)
-        .await
-        .expect("should check balance")
-    {
-        log_message(format!(
-            "[{}] insufficient funds | exec_addr: {}, chain_id: {}",
-            hex::encode(owner.as_bytes()),
-            hex::encode(exec_addr.as_bytes()),
-            sub.chain_id.0,
-        ));
-        return stop_sub(&sub);
+
+    let is_enough_funds = check_balance(&exec_addr, &chain)
+        .await;
+
+    match is_enough_funds {
+        Ok(is_enough_funds) if !is_enough_funds => {
+            publisher_log!(exec_addr, chain.chain_id.0, sub.method.method_type, "insufficient funds");
+            return stop_sub(&sub);
+        },
+        Err(err) => {
+            publisher_log!(exec_addr, chain.chain_id.0, sub.method.method_type, format!("check balance error: {err:?}"));
+        }
+        _ => {},
     }
 
     if let Err(e) = notify(&sub, &owner, &exec_addr, &chain).await {
         ic_cdk::println!("[{}] Notify error: {}", owner, e);
-        log_message(format!(
-            "[ADDR: {}, CHAIN ID: {}] publishing, final err: {e:?}",
-            hex::encode(owner.as_bytes()),
-            chain.chain_id.0
-        ))
+        publisher_log!(exec_addr, chain.chain_id.0, sub.method.method_type, format!("final err: {e:?}"));
     }
 }
 
@@ -94,11 +102,12 @@ fn stop_sub(sub: &Sub) {
 }
 
 async fn notify(sub: &Sub, pub_key: &H160, exec_addr: &H160, chain: &Chain) -> Result<()> {
+    publisher_log!(exec_addr, chain.chain_id.0, sub.method.method_type, "notifying...");
     let w3 =
         Web3::new(ICHttp::new(chain.rpc.as_str(), None).context("failed to connect to a node")?);
 
     let abi = EthabiContract::load(add_brackets(&sub.method.abi).as_bytes())
-        .expect("abi should be valid");
+        .context("invalid abi")?;
     let contract = Contract::new(w3.eth(), sub.contract_addr, abi);
 
     let input = get_input(&sub.method.method_type, sub.pair_id.clone()).await?;
@@ -133,23 +142,13 @@ async fn notify(sub: &Sub, pub_key: &H160, exec_addr: &H160, chain: &Chain) -> R
         chain.chain_id.0.as_u64(),
     ).await?;
 
-    for i in 1..=MAX_RETRY_ATTEMPTS {
+    for _ in 1..=MAX_RETRY_ATTEMPTS {
         match w3.eth().send_raw_transaction(signed_tx.raw_transaction.clone()).await {
             Ok(_) => {
-                log_message(format!(
-                    "[EXEC ADDR: {}, CHAIN ID: {}, SUB TYPE: {:?}] published",
-                    hex::encode(exec_addr.as_bytes()),
-                    chain.chain_id.0,
-                    sub.method.method_type
-                ));
+                publisher_log!(exec_addr, chain.chain_id.0, sub.method.method_type, "published");
                 return Ok(());
             }
-            Err(err) => log_message(format!(
-                "[EXEC ADDR: {}, CHAIN ID: {}] publishing: {}, err: {err:?}",
-                hex::encode(exec_addr.as_bytes()),
-                chain.chain_id.0,
-                i
-            )),
+            Err(err) => publisher_log!(exec_addr, chain.chain_id.0, sub.method.method_type, format!("err: {err:?}")),
         }
     }
 
