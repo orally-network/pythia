@@ -8,20 +8,17 @@ use ic_cdk_macros::update;
 use ic_utils::logger::log_message;
 
 use crate::{
-    utils::validate_caller, CONTROLLERS, SUBS_LIMIT_TOTAL, SUBS_LIMIT_WALLET, TX_FEE, U256,
+    utils::validate_caller, U256, STATE,
 };
 
 #[update]
 fn update_tx_fee(tx_fee: Nat) -> Result<(), String> {
     validate_caller().map_err(|e| format!("{}", e))?;
 
-    TX_FEE.with(|tx_fee_state| {
-        let tx_fee = U256::from(tx_fee);
+    let tx_fee = U256::from(tx_fee);
+    STATE.with(|state| state.borrow_mut().tx_fee = tx_fee);
 
-        *tx_fee_state.borrow_mut() = tx_fee;
-
-        log_message(format!("[TX FEE] updating: {}", tx_fee.0));
-    });
+    log_message(format!("[TX FEE] updating: {}", tx_fee.0));
 
     Ok(())
 }
@@ -39,7 +36,7 @@ fn _update_subs_limit_wallet(limit: Nat) -> Result<()> {
         .last()
         .context("limit should be greater than 1")?;
 
-    SUBS_LIMIT_WALLET.with(|s| *s.borrow_mut() = limit);
+    STATE.with(|s| s.borrow_mut().subs_limit_wallet = limit);
     Ok(())
 }
 
@@ -56,7 +53,7 @@ fn _update_subs_limit_total(limit: Nat) -> Result<()> {
         .last()
         .context("limit should be greater than 1")?;
 
-    SUBS_LIMIT_TOTAL.with(|s| *s.borrow_mut() = limit);
+    STATE.with(|s| s.borrow_mut().subs_limit_total = limit);
     Ok(())
 }
 
@@ -70,9 +67,9 @@ pub async fn update_controllers() -> Vec<Principal> {
         .await
         .expect("should execute in the IC environment");
 
-    CONTROLLERS.with(|controllers| {
-        *controllers.borrow_mut() = canister_status.settings.controllers;
+    STATE.with(|state| {
+        state.borrow_mut().controllers = canister_status.settings.controllers.clone();
     });
 
-    CONTROLLERS.with(|controllers| controllers.borrow().clone())
+    canister_status.settings.controllers
 }

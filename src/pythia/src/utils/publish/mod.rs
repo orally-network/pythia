@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{time::Duration, str::FromStr};
 
 use anyhow::{anyhow, Context, Result, Ok};
 
@@ -10,7 +10,7 @@ use ic_web3::{
     ethabi::{Contract as EthabiContract, Token},
     ic::KeyInfo,
     transports::ICHttp,
-    types::{TransactionCondition, H160, H256, U64},
+    types::{H160, H256, U64},
     Web3,
 };
 use ic_dl_utils::retry_until_success;
@@ -19,7 +19,7 @@ use crate::{
     methods::get_exec_addr_from_pub,
     types::subs::MethodType,
     utils::{add_brackets, cast_to_param_type, check_balance, sybil::get_asset_data},
-    Chain, PythiaError, Sub, CHAINS, KEY_NAME, SUBS,
+    Chain, PythiaError, Sub, STATE,
 };
 
 const TIMEOUT: u64 = 60 * 60;
@@ -46,16 +46,19 @@ pub fn publish(sub_id: u64, owner: H160) {
 }
 
 async fn _publish(sub_id: u64, owner: H160) {
-    let sub = SUBS.with(|subs| {
-        subs.borrow()
+    let sub = STATE.with(|state| {
+        state
+            .borrow()
+            .subs
             .get(sub_id as usize)
             .expect("Sub should exist")
             .clone()
     });
 
-    let chain = CHAINS.with(|chains| {
-        chains
+    let chain = STATE.with(|state| {
+        state
             .borrow()
+            .chains
             .get(&sub.chain_id)
             .expect("Chain should exist")
             .clone()
@@ -90,10 +93,10 @@ async fn _publish(sub_id: u64, owner: H160) {
 
 fn stop_sub(sub: &Sub) {
     let timer_id: TimerId = serde_json::from_str(&sub.timer_id).expect("should be valid timer id");
-    SUBS.with(|subs| {
-        let mut subs = subs.borrow_mut();
+    STATE.with(|state| {
+        let mut state = state.borrow_mut();
 
-        let mut sub = subs.get_mut(sub.id as usize).expect("Sub should exist");
+        let mut sub = state.subs.get_mut(sub.id as usize).expect("Sub should exist");
 
         sub.is_active = false;
     });
@@ -108,12 +111,14 @@ async fn notify(sub: &Sub, pub_key: &H160, exec_addr: &H160, chain: &Chain) -> R
 
     let abi = EthabiContract::load(add_brackets(&sub.method.abi).as_bytes())
         .context("invalid abi")?;
-    let contract = Contract::new(w3.eth(), sub.contract_addr, abi);
+    let contract_addr = H160::from_str(&sub.contract_addr)
+        .expect("should be valid constact address");
+    let contract = Contract::new(w3.eth(), contract_addr, abi);
 
     let input = get_input(&sub.method.method_type, sub.pair_id.clone()).await?;
     let key_info = KeyInfo {
         derivation_path: vec![pub_key.as_bytes().to_vec()],
-        key_name: KEY_NAME.with(|key_name| key_name.borrow().clone()),
+        key_name: STATE.with(|s| s.borrow().key_name.clone()),
         ecdsa_sign_cycles: Some(ECDSA_SIGN_CYCLES),
     };
 
@@ -121,15 +126,12 @@ async fn notify(sub: &Sub, pub_key: &H160, exec_addr: &H160, chain: &Chain) -> R
         .context("failed to get nonce")?;
     let gas_price = retry_until_success!(w3.eth().gas_price())
         .context("failed to get gas price")?;
-    let block_height = retry_until_success!(w3.eth().block_number())
-        .context("failed to get block height")?;
 
     let tx_otps = Options {
         gas: Some(sub.method.gas_limit.0),
         nonce: Some(nonce),
         gas_price: Some(gas_price),
         transaction_type: Some(U64::from(0)),
-        condition: Some(TransactionCondition::Block(block_height.as_u64())),
         ..Default::default()
     };
 

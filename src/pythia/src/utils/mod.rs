@@ -1,5 +1,6 @@
 pub mod publish;
 pub mod sybil;
+pub mod multicall;
 
 use std::str::FromStr;
 
@@ -14,8 +15,7 @@ use ic_web3::{
 };
 
 use crate::{
-    types::errors::PythiaError, utils::publish::wait_until_confimation, Chain, CONTROLLERS,
-    KEY_NAME, SIWE_CANISTER, TX_FEE, U256,
+    types::errors::PythiaError, utils::publish::wait_until_confimation, Chain, STATE, U256,
 };
 
 const ATTEMPTS_TO_SEND_TX: u64 = 3;
@@ -23,7 +23,7 @@ const ETH_TRANSFER_GAS_LIMIT: u64 = 21000;
 const ECDSA_SIGN_CYCLES: u64 = 23_000_000_000;
 
 pub fn validate_caller() -> Result<(), PythiaError> {
-    let controllers = CONTROLLERS.with(|controllers| controllers.borrow().clone());
+    let controllers = STATE.with(|s| s.borrow().controllers.clone());
 
     if controllers.contains(&ic_cdk::caller()) {
         return Ok(());
@@ -33,8 +33,8 @@ pub fn validate_caller() -> Result<(), PythiaError> {
 }
 
 pub async fn rec_eth_addr(msg: &str, sig: &str) -> Result<H160> {
-    let siwe_canister = SIWE_CANISTER
-        .with(|siwe_canister| *siwe_canister.borrow())
+    let siwe_canister = STATE
+        .with(|s| s.borrow().siwe_canister)
         .expect("canister should be initialized");
 
     let msg = msg.to_string();
@@ -95,8 +95,7 @@ pub fn cast_to_param_type(value: u64, kind: &str) -> Option<Token> {
 }
 
 pub async fn collect_fee(pub_key: &H160, exec_addr: &H160, chain: &Chain) -> Result<()> {
-    let fee = TX_FEE.with(|fee| *fee.borrow());
-
+    let fee = STATE.with(|s| s.borrow().tx_fee);
     if fee == U256::from(0) {
         return Ok(());
     }
@@ -106,7 +105,7 @@ pub async fn collect_fee(pub_key: &H160, exec_addr: &H160, chain: &Chain) -> Res
 
     let key_info = KeyInfo {
         derivation_path: vec![pub_key.as_bytes().to_vec()],
-        key_name: KEY_NAME.with(|key_name| key_name.borrow().clone()),
+        key_name: STATE.with(|s| s.borrow().key_name.clone()),
         ecdsa_sign_cycles: Some(ECDSA_SIGN_CYCLES),
     };
 
@@ -115,17 +114,18 @@ pub async fn collect_fee(pub_key: &H160, exec_addr: &H160, chain: &Chain) -> Res
         .transaction_count(*exec_addr, None)
         .await
         .context("failed to get nonce")?;
-
     let gas_price = w3
         .eth()
         .gas_price()
         .await
         .context("failed to get gas price")?;
-
     let gas_price = (gas_price / 10) * 13;
 
+    let treasurer = H160::from_str(&chain.treasurer)
+        .expect("should be valid the treasurer eth address");
+
     let tx = TransactionParameters {
-        to: Some(chain.treasurer),
+        to: Some(treasurer),
         nonce: Some(nonce),
         value: fee.0,
         gas_price: Some(gas_price),

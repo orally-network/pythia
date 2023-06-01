@@ -1,4 +1,4 @@
-use std::{str::FromStr, time::Duration};
+use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 
@@ -10,7 +10,7 @@ use ic_web3::types::H160;
 
 use crate::{
     utils::{check_balance, collect_fee, publish::publish, rec_eth_addr, validate_caller},
-    CandidSub, Chain, PythiaError, Sub, CHAINS, SUBS, SUBS_LIMIT_TOTAL, SUBS_LIMIT_WALLET, U256,
+    CandidSub, Chain, PythiaError, Sub, STATE, U256,
 };
 
 use super::get_exec_addr_from_pub;
@@ -96,21 +96,21 @@ async fn _subscribe(
 }
 
 fn check_subs_limit_total(pub_key: &H160) -> Result<()> {
-    SUBS.with(|subs| {
-        let subs = subs.borrow();
+    STATE.with(|state| {
+        let state = state.borrow();
 
-        if subs.len() as u64 >= SUBS_LIMIT_TOTAL.with(|s| *s.borrow()) {
+        if state.subs.len() as u64 >= state.subs_limit_total {
             return Err(anyhow!("Subs total limit reached"));
         }
 
         let mut subs_counter = 0;
-        for sub in subs.iter() {
-            if sub.owner == *pub_key {
+        for sub in state.subs.iter() {
+            if sub.owner == hex::encode(pub_key.as_bytes()) {
                 subs_counter += 1;
             }
         }
 
-        if subs_counter >= SUBS_LIMIT_WALLET.with(|s| *s.borrow()) {
+        if subs_counter >= state.subs_limit_wallet {
             return Err(anyhow!("Subs limit per waller reached"));
         }
 
@@ -124,10 +124,10 @@ pub fn get_subs(pub_key: String) -> Result<Vec<CandidSub>, String> {
 }
 
 fn _get_subs(pub_key: String) -> Result<Vec<CandidSub>> {
-    let pub_key = H160::from_str(&pub_key)?;
-
-    let subs: Vec<CandidSub> = SUBS.with(|subs| {
-        subs.borrow()
+    let subs: Vec<CandidSub> = STATE.with(|state| {
+        state
+            .borrow()
+            .subs
             .iter()
             .filter(|s| s.owner == pub_key)
             .map(|s| s.clone().into())
@@ -152,11 +152,11 @@ async fn _refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<()> {
 
     check_balance(&exec_addr, &chain).await?;
 
-    SUBS.with(|subs| {
-        let mut subs = subs.borrow_mut();
+    STATE.with(|state| {
+        let mut state = state.borrow_mut();
 
-        for sub in subs.iter_mut() {
-            if sub.owner == pub_key {
+        for sub in state.subs.iter_mut() {
+            if sub.owner == hex::encode(pub_key.as_bytes()) {
                 let id = sub.id;
 
                 let timer_id = set_timer_interval(Duration::from_secs(sub.frequency), move || {
@@ -179,9 +179,10 @@ async fn _refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<()> {
 }
 
 pub fn get_chain(chain_id: &U256) -> Result<Chain> {
-    CHAINS.with(|chains| {
-        Ok(chains
+    STATE.with(|state| {
+        Ok(state
             .borrow()
+            .chains
             .get(chain_id)
             .ok_or(PythiaError::ChainDoesNotExist)?
             .clone())
@@ -189,7 +190,7 @@ pub fn get_chain(chain_id: &U256) -> Result<Chain> {
 }
 
 pub fn add_sub(sub: &Sub) {
-    SUBS.with(|subs| subs.borrow_mut().push(sub.clone()))
+    STATE.with(|state: &std::cell::RefCell<crate::types::state::State>| state.borrow_mut().subs.push(sub.clone()))
 }
 
 #[update]
@@ -208,10 +209,10 @@ pub async fn _stop_sub(sub_id: Nat, msg: String, sig: String) -> Result<()> {
         sub_id = *sub_id_digits.last().expect("sub_id should be a number");
     }
 
-    SUBS.with(|subs| {
-        let mut subs = subs.borrow_mut();
+    STATE.with(|state| {
+        let mut state = state.borrow_mut();
 
-        let mut sub = subs
+        let mut sub = state.subs
             .get_mut(sub_id as usize)
             .context("Sub does not exist")?;
 
@@ -247,10 +248,10 @@ pub async fn _start_sub(sub_id: Nat, msg: String, sig: String) -> Result<()> {
         sub_id = *sub_id_digits.last().expect("sub_id should be a number");
     }
 
-    SUBS.with(|subs| {
-        let mut subs = subs.borrow_mut();
+    STATE.with(|state| {
+        let mut state = state.borrow_mut();
 
-        let mut sub = subs
+        let mut sub = state.subs
             .get_mut(sub_id as usize)
             .context("Sub does not exist")?;
 
@@ -282,9 +283,9 @@ pub fn stop_subs() -> Result<(), String> {
 fn _stop_subs() -> Result<()> {
     validate_caller()?;
 
-    SUBS.with(|subs| {
-        let mut subs = subs.borrow_mut();
-        for mut sub in subs.iter_mut() {
+    STATE.with(|state| {
+        let mut state = state.borrow_mut();
+        for mut sub in state.subs.iter_mut() {
             let timer_id: TimerId =
                 serde_json::from_str(&sub.timer_id).expect("should be valid timer id");
 
@@ -306,9 +307,9 @@ pub fn remove_subs() -> Result<(), String> {
 pub fn _remove_subs() -> Result<()> {
     validate_caller()?;
 
-    SUBS.with(|subs| {
-        let subs = subs.borrow();
-        for sub in subs.iter() {
+    STATE.with(|state| {
+        let state = state.borrow();
+        for sub in state.subs.iter() {
             let timer_id: TimerId =
                 serde_json::from_str(&sub.timer_id).expect("should be valid timer id");
 
@@ -316,7 +317,7 @@ pub fn _remove_subs() -> Result<()> {
         }
     });
 
-    SUBS.with(|s| s.replace(vec![]));
+    STATE.with(|s| s.borrow_mut().subs = vec![]);
 
     Ok(())
 }

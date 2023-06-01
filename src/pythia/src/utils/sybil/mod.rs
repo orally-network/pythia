@@ -5,7 +5,7 @@ use ic_cdk::export::{
     serde::{Deserialize, Serialize},
 };
 
-use crate::{types::rate_data::RateDataLight, SYBIL_CANISTER};
+use crate::{types::rate_data::RateDataLight, STATE};
 
 #[derive(Clone, Debug, CandidType, Serialize, Deserialize)]
 enum PairDataResponse {
@@ -14,9 +14,10 @@ enum PairDataResponse {
 }
 
 pub async fn is_pair_exists(pair_id: &str) -> Result<bool> {
-    let sybil_canister = SYBIL_CANISTER.with(|sybil_canister| {
-        sybil_canister
+    let sybil_canister = STATE.with(|state| {
+        state
             .borrow()
+            .sybil_canister
             .expect("SYBIL CANISTER should be initialised")
     });
 
@@ -29,9 +30,10 @@ pub async fn is_pair_exists(pair_id: &str) -> Result<bool> {
 }
 
 pub async fn get_asset_data(pair_id: &str) -> Result<RateDataLight> {
-    let sybil_canister = SYBIL_CANISTER.with(|sybil_canister| {
-        sybil_canister
+    let sybil_canister = STATE.with(|state| {
+        state
             .borrow()
+            .sybil_canister
             .expect("SYBIL CANISTER should be initialised")
     });
 

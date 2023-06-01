@@ -11,7 +11,7 @@ use ic_web3::{
     Web3,
 };
 
-use crate::{utils::rec_eth_addr, PythiaError, CHAINS, KEY_NAME, U256};
+use crate::{utils::rec_eth_addr, PythiaError, STATE, U256};
 
 use super::get_exec_addr_from_pub;
 
@@ -31,9 +31,10 @@ pub async fn withdraw(
 }
 
 async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) -> Result<()> {
-    let chain = CHAINS.with(|chains| {
-        let chains = chains.borrow();
-        chains
+    let chain = STATE.with(|state| {
+        let state = state.borrow();
+        state
+            .chains
             .get(&U256::from(chain_id))
             .ok_or(PythiaError::ChainDoesNotExist)
             .map(|chain| chain.clone())
@@ -79,7 +80,7 @@ async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) ->
 
     let key_info = KeyInfo {
         derivation_path: vec![pub_key.as_bytes().to_vec()],
-        key_name: KEY_NAME.with(|key_name| key_name.borrow().clone()),
+        key_name: STATE.with(|s| s.borrow().key_name.clone()),
         ecdsa_sign_cycles: Some(ECDSA_SIGN_CYCLES),
     };
 

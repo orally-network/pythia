@@ -23,16 +23,16 @@ use crate::{
         publish::{get_input, publish},
         sybil::is_pair_exists,
     },
-    Chain, SUBS, U256,
+    Chain, STATE, U256,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, CandidType)]
 pub struct Sub {
     pub id: u64,
-    pub owner: H160,
+    pub owner: String,
     pub pair_id: Option<String>,
     pub chain_id: U256,
-    pub contract_addr: H160,
+    pub contract_addr: String,
     pub method: Method,
     pub frequency: u64,
     pub timer_id: String,
@@ -46,7 +46,7 @@ pub enum MethodType {
     Empty,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, CandidType)]
 pub struct Method {
     pub name: String,
     pub abi: String,
@@ -74,7 +74,7 @@ impl Sub {
             }
         }
 
-        let id = SUBS.with(|s| s.borrow().len()) as u64;
+        let id = STATE.with(|s| s.borrow().subs.len()) as u64;
 
         let contract_addr =
             H160::from_str(contract_addr).context("failed to parse contract address")?;
@@ -114,10 +114,10 @@ impl Sub {
 
         Ok(Self {
             id,
-            owner,
+            owner: hex::encode(owner.as_bytes()),
             pair_id,
             chain_id: chain.chain_id,
-            contract_addr,
+            contract_addr: hex::encode(contract_addr.as_bytes()),
             method,
             frequency: *frequency,
             timer_id,
