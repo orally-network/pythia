@@ -11,7 +11,6 @@ use types::{
     errors::PythiaError,
     subs::{CandidSub, Sub},
     state::State,
-    U256,
 };
 
 use ic_cdk::{
@@ -41,7 +40,7 @@ fn init(tx_fee: Nat, key_name: String, siwe_canister: Principal, sybil_canister:
 
     STATE.with(|state| {
         let mut state = state.borrow_mut();
-        state.tx_fee = U256::from(tx_fee);
+        state.tx_fee = tx_fee;
         state.key_name = key_name;
         state.siwe_canister = Some(siwe_canister);
         state.sybil_canister = Some(sybil_canister);

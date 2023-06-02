@@ -11,7 +11,7 @@ use ic_web3::{
     Web3,
 };
 
-use crate::{utils::rec_eth_addr, PythiaError, STATE, U256};
+use crate::{utils::{rec_eth_addr, nat_to_u64}, PythiaError, STATE};
 
 use super::get_exec_addr_from_pub;
 
@@ -35,7 +35,7 @@ async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) ->
         let state = state.borrow();
         state
             .chains
-            .get(&U256::from(chain_id))
+            .get(&chain_id)
             .ok_or(PythiaError::ChainDoesNotExist)
             .map(|chain| chain.clone())
     })?;
@@ -90,7 +90,7 @@ async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) ->
             tx,
             exec_addr.to_string(),
             key_info,
-            chain.chain_id.0.as_u64(),
+            nat_to_u64(&chain.chain_id),
         )
         .await?;
 

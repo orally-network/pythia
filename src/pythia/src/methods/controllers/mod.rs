@@ -8,17 +8,16 @@ use ic_cdk_macros::update;
 use ic_utils::logger::log_message;
 
 use crate::{
-    utils::validate_caller, U256, STATE,
+    utils::validate_caller, STATE,
 };
 
 #[update]
 fn update_tx_fee(tx_fee: Nat) -> Result<(), String> {
     validate_caller().map_err(|e| format!("{}", e))?;
 
-    let tx_fee = U256::from(tx_fee);
-    STATE.with(|state| state.borrow_mut().tx_fee = tx_fee);
+    STATE.with(|state| state.borrow_mut().tx_fee = tx_fee.clone());
 
-    log_message(format!("[TX FEE] updating: {}", tx_fee.0));
+    log_message(format!("[TX FEE] updating: {}", tx_fee));
 
     Ok(())
 }

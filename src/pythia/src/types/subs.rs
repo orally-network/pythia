@@ -21,9 +21,9 @@ use crate::{
     utils::{
         add_brackets,
         publish::{get_input, publish},
-        sybil::is_pair_exists,
+        sybil::is_pair_exists, u256_to_nat,
     },
-    Chain, STATE, U256,
+    Chain, STATE,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, CandidType)]
@@ -31,7 +31,7 @@ pub struct Sub {
     pub id: u64,
     pub owner: String,
     pub pair_id: Option<String>,
-    pub chain_id: U256,
+    pub chain_id: Nat,
     pub contract_addr: String,
     pub method: Method,
     pub frequency: u64,
@@ -50,7 +50,7 @@ pub enum MethodType {
 pub struct Method {
     pub name: String,
     pub abi: String,
-    pub gas_limit: U256,
+    pub gas_limit: Nat,
     pub method_type: MethodType,
 }
 
@@ -116,7 +116,7 @@ impl Sub {
             id,
             owner: hex::encode(owner.as_bytes()),
             pair_id,
-            chain_id: chain.chain_id,
+            chain_id: chain.chain_id.clone(),
             contract_addr: hex::encode(contract_addr.as_bytes()),
             method,
             frequency: *frequency,
@@ -256,7 +256,7 @@ async fn calculate_gas_limit(
     contract_addr: &H160,
     exec_addr: &H160,
     pair_id: Option<String>,
-) -> Result<U256> {
+) -> Result<Nat> {
     let w3 =
         Web3::new(ICHttp::new(chain.rpc.as_str(), None).context("failed to connect to a node")?);
 
@@ -272,7 +272,7 @@ async fn calculate_gas_limit(
         .await?;
 
     // 1.2 multiplication
-    Ok(U256((gas_limit / 5) * 6))
+    Ok(u256_to_nat(gas_limit / 5 * 6))
 }
 
 fn is_valid_func_param(func: &str) -> bool {

@@ -6,16 +6,18 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
 
+use candid::Nat;
 use ic_web3::{
     ethabi::Token,
     ic::KeyInfo,
     transports::ICHttp,
-    types::{Bytes, TransactionParameters, H160},
+    types::{Bytes, TransactionParameters, H160, U256},
     Web3,
 };
+use num_bigint::BigUint;
 
 use crate::{
-    types::errors::PythiaError, utils::publish::wait_until_confimation, Chain, STATE, U256,
+    types::errors::PythiaError, utils::publish::wait_until_confimation, Chain, STATE,
 };
 
 const ATTEMPTS_TO_SEND_TX: u64 = 3;
@@ -57,7 +59,7 @@ pub async fn check_balance(exec_addr: &H160, chain: &Chain) -> Result<bool> {
     Ok(true)
 }
 
-pub async fn get_balance(address: &H160, rpc: &str) -> Result<U256> {
+pub async fn get_balance(address: &H160, rpc: &str) -> Result<Nat> {
     let w3 = Web3::new(ICHttp::new(rpc, None).context("failed to connect to a node")?);
 
     let balance = w3
@@ -66,7 +68,7 @@ pub async fn get_balance(address: &H160, rpc: &str) -> Result<U256> {
         .await
         .context("failed to get balance")?;
 
-    Ok(U256(balance))
+    Ok(u256_to_nat(balance))
 }
 
 #[inline]
@@ -95,8 +97,8 @@ pub fn cast_to_param_type(value: u64, kind: &str) -> Option<Token> {
 }
 
 pub async fn collect_fee(pub_key: &H160, exec_addr: &H160, chain: &Chain) -> Result<()> {
-    let fee = STATE.with(|s| s.borrow().tx_fee);
-    if fee == U256::from(0) {
+    let fee = STATE.with(|s| s.borrow().tx_fee.clone());
+    if fee == 0 {
         return Ok(());
     }
 
@@ -127,7 +129,7 @@ pub async fn collect_fee(pub_key: &H160, exec_addr: &H160, chain: &Chain) -> Res
     let tx = TransactionParameters {
         to: Some(treasurer),
         nonce: Some(nonce),
-        value: fee.0,
+        value: nat_to_u256(&fee),
         gas_price: Some(gas_price),
         gas: ETH_TRANSFER_GAS_LIMIT.into(),
         ..Default::default()
@@ -139,7 +141,7 @@ pub async fn collect_fee(pub_key: &H160, exec_addr: &H160, chain: &Chain) -> Res
             tx,
             exec_addr.to_string(),
             key_info,
-            chain.chain_id.0.as_u64(),
+            nat_to_u64(&chain.chain_id),
         )
         .await?;
 
@@ -160,4 +162,25 @@ async fn send_collect_fee_tx(w3: Web3<ICHttp>, raw_transaction: Bytes) -> Result
         .await?;
 
     wait_until_confimation(&tx_hash, &w3).await
+}
+
+pub fn nat_to_u64(nat: &Nat) -> u64 {
+    let nat_digits = nat.0.to_u64_digits();
+    let mut number: u64 = 0;
+    if !nat_digits.is_empty() {
+        number = *nat_digits.last().expect("nat should be a number");
+    }
+    number
+}
+
+pub fn nat_to_u256(nat: &Nat) -> U256 {
+    U256::from_big_endian(&nat.0.to_bytes_be())
+}
+
+pub fn u256_to_nat(u256: U256) -> Nat {
+    let mut buf: Vec<u8> = vec![];
+
+    u256.to_big_endian(&mut buf);
+
+    Nat(BigUint::from_bytes_be(&buf))
 }

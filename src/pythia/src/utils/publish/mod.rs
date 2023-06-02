@@ -18,7 +18,7 @@ use ic_dl_utils::retry_until_success;
 use crate::{
     methods::get_exec_addr_from_pub,
     types::subs::MethodType,
-    utils::{add_brackets, cast_to_param_type, check_balance, sybil::get_asset_data},
+    utils::{add_brackets, cast_to_param_type, check_balance, sybil::get_asset_data, nat_to_u256, nat_to_u64},
     Chain, PythiaError, Sub, STATE,
 };
 
@@ -128,7 +128,7 @@ async fn notify(sub: &Sub, pub_key: &H160, exec_addr: &H160, chain: &Chain) -> R
         .context("failed to get gas price")?;
 
     let tx_otps = Options {
-        gas: Some(sub.method.gas_limit.0),
+        gas: Some(nat_to_u256(&sub.method.gas_limit)),
         nonce: Some(nonce),
         gas_price: Some(gas_price),
         transaction_type: Some(U64::from(0)),
@@ -141,7 +141,7 @@ async fn notify(sub: &Sub, pub_key: &H160, exec_addr: &H160, chain: &Chain) -> R
         tx_otps,
         hex::encode(exec_addr.as_bytes()),
         key_info,
-        chain.chain_id.0.as_u64(),
+        nat_to_u64(&chain.chain_id),
     ).await?;
 
     retry_until_success!(w3.eth().send_raw_transaction(signed_tx.raw_transaction.clone()))

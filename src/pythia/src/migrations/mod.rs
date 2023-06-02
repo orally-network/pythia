@@ -23,7 +23,7 @@ fn pre_upgrade() {
         log_data,
         monitor_data,
     ))
-    .expect("should be valid canister data");
+    .expect("should be valid canister data for pre upgrade");
 }
 
 #[post_upgrade]
@@ -37,7 +37,7 @@ fn post_upgrade() {
         State,
         logger::PostUpgradeStableData,
         monitor::PostUpgradeStableData,
-    ) = storage::stable_restore().expect("should be valid canister data");
+    ) = storage::stable_restore().expect("should be valid canister data for post upgrade");
 
     logger::post_upgrade_stable_data(log_data);
     monitor::post_upgrade_stable_data(monitor_data);

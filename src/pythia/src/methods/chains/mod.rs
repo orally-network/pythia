@@ -8,7 +8,7 @@ use ic_utils::logger::log_message;
 use ic_web3::types::H160;
 
 use crate::{
-    types::chains::CandidTypeChain, utils::validate_caller, Chain, PythiaError, STATE, U256,
+    types::chains::CandidTypeChain, utils::validate_caller, Chain, PythiaError, STATE,
 };
 
 #[update]
@@ -34,7 +34,7 @@ fn _add_chain(chain_id: Nat, rpc: String, min_balance: Nat, treasurer: String) -
             return Err(anyhow!(PythiaError::ChainAlreadyExists));
         };
 
-        state.chains.insert(chain.chain_id, chain);
+        state.chains.insert(chain.chain_id.clone(), chain.clone());
 
         log_message(format!("[CHAIN ID: {}] creation", chain_id.0));
 
@@ -52,7 +52,6 @@ fn _remove_chain(chain_id: Nat) -> Result<()> {
 
     STATE.with(|state| {
         let mut state = state.borrow_mut();
-        let chain_id = U256::from(chain_id);
         state.chains
             .remove(&chain_id)
             .ok_or(anyhow!(PythiaError::ChainDoesNotExist))?;
@@ -73,7 +72,6 @@ fn _update_chain_rpc(chain_id: Nat, rpc: String) -> Result<()> {
 
     STATE.with(|state| {
         let mut state = state.borrow_mut();
-        let chain_id = U256::from(chain_id);
         let chain = state.chains
             .get_mut(&chain_id)
             .ok_or(PythiaError::ChainDoesNotExist)?;
@@ -96,13 +94,11 @@ fn _update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<()> {
 
     STATE.with(|state| {
         let mut state = state.borrow_mut();
-        let chain_id = U256::from(chain_id);
-
         let chain = state.chains
             .get_mut(&chain_id)
             .ok_or(PythiaError::ChainDoesNotExist)?;
 
-        chain.min_balance = U256::from(min_balance);
+        chain.min_balance = min_balance;
 
         log_message(format!(
             "[CHAIN ID: {}] updating min balance: {}",
@@ -124,7 +120,7 @@ fn _get_chain_rpc(chain_id: Nat) -> Result<String> {
     STATE.with(|state| {
         let state = state.borrow_mut();
         let chain = state.chains
-            .get(&U256::from(chain_id))
+            .get(&chain_id)
             .ok_or(PythiaError::ChainDoesNotExist)?;
 
         Ok(chain.rpc.to_string())

@@ -10,7 +10,7 @@ use ic_web3::types::H160;
 
 use crate::{
     utils::{check_balance, collect_fee, publish::publish, rec_eth_addr, validate_caller},
-    CandidSub, Chain, PythiaError, Sub, STATE, U256,
+    CandidSub, Chain, PythiaError, Sub, STATE,
 };
 
 use super::get_exec_addr_from_pub;
@@ -64,7 +64,6 @@ async fn _subscribe(
         return Err(anyhow!("frequency must be greater than 5 minutes"));
     }
 
-    let chain_id = U256::from(chain_id);
     let chain = get_chain(&chain_id)?;
     let pub_key = rec_eth_addr(&msg, &sig).await?;
     check_subs_limit_total(&pub_key)?;
@@ -119,17 +118,23 @@ fn check_subs_limit_total(pub_key: &H160) -> Result<()> {
 }
 
 #[query]
-pub fn get_subs(pub_key: String) -> Result<Vec<CandidSub>, String> {
+pub fn get_subs(pub_key: Option<String>) -> Result<Vec<CandidSub>, String> {
     _get_subs(pub_key).map_err(|e| format!("{e:?}"))
 }
 
-fn _get_subs(pub_key: String) -> Result<Vec<CandidSub>> {
+fn _get_subs(pub_key: Option<String>) -> Result<Vec<CandidSub>> {
     let subs: Vec<CandidSub> = STATE.with(|state| {
         state
             .borrow()
             .subs
             .iter()
-            .filter(|s| s.owner == pub_key)
+            .filter(|s| {
+                if let Some(pub_key) = pub_key.clone() {
+                    s.owner == pub_key
+                } else {
+                    true
+                }
+            })
             .map(|s| s.clone().into())
             .collect()
     });
@@ -145,7 +150,6 @@ pub async fn refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<(),
 }
 
 async fn _refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<()> {
-    let chain_id = U256::from(chain_id);
     let chain = get_chain(&chain_id)?;
     let pub_key = rec_eth_addr(&msg, &sig).await?;
     let exec_addr = get_exec_addr_from_pub(&pub_key).await?;
@@ -178,7 +182,7 @@ async fn _refresh_subs(chain_id: Nat, msg: String, sig: String) -> Result<()> {
     })
 }
 
-pub fn get_chain(chain_id: &U256) -> Result<Chain> {
+pub fn get_chain(chain_id: &Nat) -> Result<Chain> {
     STATE.with(|state| {
         Ok(state
             .borrow()
@@ -190,7 +194,7 @@ pub fn get_chain(chain_id: &U256) -> Result<Chain> {
 }
 
 pub fn add_sub(sub: &Sub) {
-    STATE.with(|state: &std::cell::RefCell<crate::types::state::State>| state.borrow_mut().subs.push(sub.clone()))
+    STATE.with(|state| state.borrow_mut().subs.push(sub.clone()))
 }
 
 #[update]

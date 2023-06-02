@@ -104,7 +104,7 @@ service : {
         msg: text,
         sig: text,
     ) -> (Error);
-    get_subs : (pub_key : text) -> (GetSubsResult);
+    get_subs : (pub_key : opt text) -> (GetSubsResult);
     stop_subs : () -> (Error);
     remove_subs : () -> (Error);
     // Refresh subscriptions
