@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use candid::{Nat, Principal};
 use ic_cdk::export::{candid::CandidType, serde::{Deserialize, Serialize}};
 
-use super::{subs::Sub, chains::Chain};
+use super::{chains::Chain, balance::UserBalance, withdraw::WithdrawRequest, subscription::Subscription};
 
 #[derive(Debug, Clone, Serialize, Deserialize, CandidType, Default)]
 pub struct State {
@@ -15,6 +15,14 @@ pub struct State {
     pub sybil_canister: Option<Principal>,
     pub subs_limit_wallet: u64,
     pub subs_limit_total: u64,
-    pub subs: Vec<Sub>,
-    pub exec_addrs: HashMap<String, String>,
+    pub pma: Option<String>,
+    /// chain id => user's public key => PUB (Pythia User Balance)
+    pub balances: HashMap<Nat, HashMap<String, UserBalance>>,
+    /// chain id => withdraw requests
+    pub withdraw_requests: HashMap<Nat, Vec<WithdrawRequest>>,
+    /// chain id => subscriptions
+    pub subscriptions: HashMap<Nat, Vec<Subscription>>,
+    pub timer_frequency: u64,
+    pub subscriptions_index: u64,
+    pub is_timer_active: bool,
 }

@@ -1,21 +1,3 @@
-type SubType = variant {
-    Pair : null;
-    Random : text;
-    Empty : null;
-};
-
-type CandidSub = record {
-    id : nat;
-    pair_id : opt text;
-    chain_id : nat;
-    contract_addr : text;
-    method_name : text;
-    method_abi : text;
-    method_type : SubType;
-    frequency : nat;
-    is_active : bool;
-};
-
 type CandidTypeChain = record {
     chain_id : nat;
     rpc : text;
@@ -23,12 +5,40 @@ type CandidTypeChain = record {
     treasurer : text;
 };
 
+type MethodType = variant {
+    Pair : text;
+    Random : text;
+    Empty : null;
+};
+
+type Method = record {
+    name : text;
+    abi : text;
+    gas_limit : nat;
+    method_type : MethodType;
+};
+
+type SubscriptionStatus = record {
+    is_active : bool;
+    last_update : nat;
+};
+
+type Subscription = record {
+    id : nat;
+    owner : text;
+    contract_addr : text;
+    frequency : nat;
+    method : Method;
+    status : SubscriptionStatus;
+};
+
 type Result = variant { Ok : text; Err : text };
 type Error = variant { Ok : null; Err : text };
-type GetSubsResult = variant { Ok : vec CandidSub; Err : text };
 type GetChainsResponse = variant { Ok : vec CandidTypeChain; Err : text};
 
 service : {
+    execute_withdraw : () -> ();
+    execute_publisher : () -> ();
     // Will init controllers
     update_controllers : () -> (vec principal);
     // Change the tx fee that takes when a subscription is renewed or created
@@ -39,6 +49,7 @@ service : {
     update_tx_fee : (tx_fee: nat) -> (Error);
     update_subs_limit_wallet : (limit: nat) -> (Error);
     update_subs_limit_total : (limit: nat) -> (Error);
+    update_timer_frequency : (frequency: nat) -> (Error);
 
     // Chains methods
     
@@ -101,23 +112,20 @@ service : {
         method_abi: text,
         frequency: nat,
         is_random: bool,
+        gas_limit: nat,
         msg: text,
         sig: text,
     ) -> (Error);
-    get_subs : (pub_key : opt text) -> (GetSubsResult);
+    get_subscriptions : (pub_key : opt text) -> (vec Subscription);
     stop_subs : () -> (Error);
     remove_subs : () -> (Error);
-    // Refresh subscriptions
-    //
-    // @param chain_id The chain id, e,g 1
-    // @param msg The message to sign, e,g *an example is very long, see README*
-    // @param sig The signature, e,g *an example is very long, see README*
-    //
-    // @return Error
-    refresh_subs : (chain_id: nat, msg: text, sig: text) -> (Error);
-    stop_sub : (sub_id : nat, msg : text, sig : text) -> (Error);
-    start_sub : (sub_id: nat, msg: text, sig: text) -> (Error);
 
+    stop_sub : (chain_id : nat, sub_id : nat, msg : text, sig : text) -> (Error);
+    start_sub : (chain_id : nat, sub_id: nat, msg: text, sig: text) -> (Error);
+    update_sub_gas_limit : (gas_limit : nat, chain_id : nat, sub_id: nat, msg: text, sig: text) -> (Error);
+
+    deposit : (tx_hash : text, chain_id : nat, msg : text, sig : text) -> (Error);
     withdraw : (chain_id: nat, msg: text, sig: text, receiver: text) -> (Error);
     get_exec_addr : (msg: text, sig: text) -> (Result);
+    get_pma : () -> (Result);
  }

@@ -13,22 +13,12 @@ dfx canister install -m upgrade --wasm ./.dfx/local/canisters/pythia/pythia.wasm
 
 ## Usage
 ```sh
-# init the canister controllers in the canister storage
-dfx canister call pythia update_controllers
 # add a new supported chain
 dfx canister call pythia add_chain '(11155111:nat, "https://sepolia.infura.io/v3/d20be327500c45819a1a3b850daec0e2", 10000000000000000:nat, "0000000000000000000000000000000000000000")'
-# get an exec addr
-dfx canister call pythia get_exec_addr '("service.org wants you to sign in with your Ethereum account:
-0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9
-
-
-URI: https://service.org/login
-Version: 1
-Chain ID: 11155111
-Nonce: 00000000
-Issued At: 2023-05-04T18:39:24Z", "fa7b336d271b7ed539b6db3034d57be294ef889b42534fa95689afd0989ab6d27878c837a14ed1b4c3ab6b7052180ce87198934cb7712a81ea413fd8ebb29e8c1c")'
+# get the PMA
+dfx canister call pythia get_pma
 # init a new sub
-dfx canister call pythia subscribe '(11155111:nat, null, "0x5615156085DEC243767B19d9C914d4413b42e2CF", "increment_counter()", 300:nat, false, "service.org wants you to sign in with your Ethereum account:
+dfx canister call pythia deposit '("0x159bd52c60eb348d4efba6b1bbea4fbc2e989bb9d508764a0a53bca9e4d340cb", 11155111:nat, "service.org wants you to sign in with your Ethereum account:
 0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9
     
 
@@ -37,10 +27,9 @@ Version: 1
 Chain ID: 11155111
 Nonce: 00000000
 Issued At: 2023-05-04T18:39:24Z", "fa7b336d271b7ed539b6db3034d57be294ef889b42534fa95689afd0989ab6d27878c837a14ed1b4c3ab6b7052180ce87198934cb7712a81ea413fd8ebb29e8c1c")'
-# refresh subs
-dfx canister call pythia refresh_subs '(11155111:nat, "service.org wants you to sign in with your Ethereum account:
+dfx canister call pythia subscribe '(11155111:nat, null, "0x5615156085DEC243767B19d9C914d4413b42e2CF", "increment_counter()", 300:nat, false, 50000:nat, "service.org wants you to sign in with your Ethereum account:
 0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9
-
+    
 
 URI: https://service.org/login
 Version: 1

@@ -2,6 +2,7 @@ mod methods;
 mod migrations;
 mod types;
 mod utils;
+mod jobs;
 
 use std::cell::RefCell;
 use std::time::Duration;
@@ -9,7 +10,6 @@ use std::time::Duration;
 use types::{
     chains::Chain,
     errors::PythiaError,
-    subs::{CandidSub, Sub},
     state::State,
 };
 
@@ -46,5 +46,6 @@ fn init(tx_fee: Nat, key_name: String, siwe_canister: Principal, sybil_canister:
         state.sybil_canister = Some(sybil_canister);
         state.subs_limit_wallet = 5;
         state.subs_limit_total = 100;
+        state.timer_frequency = 5 * 60;
     })
 }

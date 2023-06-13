@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, collections::HashMap};
 
 use anyhow::{anyhow, Result};
 
@@ -35,6 +35,9 @@ fn _add_chain(chain_id: Nat, rpc: String, min_balance: Nat, treasurer: String) -
         };
 
         state.chains.insert(chain.chain_id.clone(), chain.clone());
+        state.balances.insert(chain.chain_id.clone(), HashMap::new());
+        state.subscriptions.insert(chain.chain_id.clone(), Vec::new());
+        state.withdraw_requests.insert(chain.chain_id.clone(), Vec::new());
 
         log_message(format!("[CHAIN ID: {}] creation", chain_id.0));
 

@@ -8,13 +8,6 @@ pub enum PythiaError {
     ChainAlreadyExists,
     #[error("Chain does not exist")]
     ChainDoesNotExist,
-    #[allow(dead_code)]
-    #[error("Not implemented")]
-    NotImplemented,
-    #[error("Failed to get eth address: {0}")]
-    FailedToGetEthAddress(String),
-    #[error("Tx failed")]
-    TxFailed,
-    #[error("Tx reached timeout")]
-    TxTimeout,
+    #[error("Subscribtion does not exist")]
+    SubDoesNotExist,
 }

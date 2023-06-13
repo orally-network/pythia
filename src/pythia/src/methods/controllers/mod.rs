@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use ic_cdk::{
     api::management_canister::main::{canister_status, CanisterIdRecord},
@@ -8,17 +8,14 @@ use ic_cdk_macros::update;
 use ic_utils::logger::log_message;
 
 use crate::{
-    utils::validate_caller, STATE,
+    utils::{validate_caller, nat_to_u64}, STATE, jobs::{withdraw, publisher},
 };
 
 #[update]
 fn update_tx_fee(tx_fee: Nat) -> Result<(), String> {
     validate_caller().map_err(|e| format!("{}", e))?;
-
     STATE.with(|state| state.borrow_mut().tx_fee = tx_fee.clone());
-
     log_message(format!("[TX FEE] updating: {}", tx_fee));
-
     Ok(())
 }
 
@@ -29,13 +26,8 @@ pub fn update_subs_limit_wallet(limit: Nat) -> Result<(), String> {
 
 fn _update_subs_limit_wallet(limit: Nat) -> Result<()> {
     validate_caller()?;
-    let limit = *limit
-        .0
-        .to_u64_digits()
-        .last()
-        .context("limit should be greater than 1")?;
-
-    STATE.with(|s| s.borrow_mut().subs_limit_wallet = limit);
+    STATE.with(|s| s.borrow_mut().subs_limit_wallet = nat_to_u64(&limit));
+    log_message(format!("[SUBS LIMIT WALLET] updating: {}", limit));
     Ok(())
 }
 
@@ -46,13 +38,8 @@ pub fn update_subs_limit_total(limit: Nat) -> Result<(), String> {
 
 fn _update_subs_limit_total(limit: Nat) -> Result<()> {
     validate_caller()?;
-    let limit = *limit
-        .0
-        .to_u64_digits()
-        .last()
-        .context("limit should be greater than 1")?;
-
-    STATE.with(|s| s.borrow_mut().subs_limit_total = limit);
+    STATE.with(|s| s.borrow_mut().subs_limit_total = nat_to_u64(&limit));
+    log_message(format!("[SUBS LIMIT TOTAL] updating: {}", limit));
     Ok(())
 }
 
@@ -71,4 +58,26 @@ pub async fn update_controllers() -> Vec<Principal> {
     });
 
     canister_status.settings.controllers
+}
+
+#[update]
+pub fn update_timer_frequency(frequency: Nat) -> Result<(), String> {
+    _update_timer_frequency(frequency).map_err(|e| format!("{e:?}"))
+}
+
+fn _update_timer_frequency(frequency: Nat) -> Result<()> {
+    validate_caller()?;
+    STATE.with(|state| state.borrow_mut().timer_frequency = nat_to_u64(&frequency));
+    log_message(format!("[TIMER FREQUENCY] updating: {}", frequency));
+    Ok(())
+}
+
+#[update]
+pub fn execute_withdraw() {
+    withdraw::execute()
+}
+
+#[update]
+pub fn execute_publisher() {
+    publisher::execute()
 }
