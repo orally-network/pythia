@@ -18,7 +18,7 @@ dfx canister call pythia add_chain '(11155111:nat, "https://sepolia.infura.io/v3
 # get the PMA
 dfx canister call pythia get_pma
 # init a new sub
-dfx canister call pythia deposit '("0x159bd52c60eb348d4efba6b1bbea4fbc2e989bb9d508764a0a53bca9e4d340cb", 11155111:nat, "service.org wants you to sign in with your Ethereum account:
+dfx canister call pythia deposit '("0x3cea2779207d192355975f87a8dcd6a1fb25ccffb1169979137d886673dd3df0", 11155111:nat, "service.org wants you to sign in with your Ethereum account:
 0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9
     
 
@@ -36,4 +36,13 @@ Version: 1
 Chain ID: 11155111
 Nonce: 00000000
 Issued At: 2023-05-04T18:39:24Z", "fa7b336d271b7ed539b6db3034d57be294ef889b42534fa95689afd0989ab6d27878c837a14ed1b4c3ab6b7052180ce87198934cb7712a81ea413fd8ebb29e8c1c")'
+dfx canister call pythia withdraw '(11155111:nat, "service.org wants you to sign in with your Ethereum account:
+0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9
+    
+
+URI: https://service.org/login
+Version: 1
+Chain ID: 11155111
+Nonce: 00000000
+Issued At: 2023-05-04T18:39:24Z", "fa7b336d271b7ed539b6db3034d57be294ef889b42534fa95689afd0989ab6d27878c837a14ed1b4c3ab6b7052180ce87198934cb7712a81ea413fd8ebb29e8c1c", "0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9")'
 ```

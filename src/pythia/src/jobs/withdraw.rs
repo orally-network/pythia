@@ -59,7 +59,7 @@ fn remove_requests(chain_id: &Nat) {
         state
             .borrow_mut()
             .withdraw_requests
-            .remove(chain_id);
+            .insert(chain_id.clone(), vec![]);
     })
 }
 

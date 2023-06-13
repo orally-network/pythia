@@ -97,8 +97,12 @@ impl Tokenizable for MulticallResult {
     }
 }
 
-#[allow(dead_code)]
-pub async fn multicall<T: Transport>(w3: &Web3<T>, chain_id: &Nat, calls: Vec<Call>) -> Result<Vec<MulticallResult>> {
+pub async fn multicall<T: Transport>(
+    w3: &Web3<T>,
+    chain_id: &Nat,
+    calls: Vec<Call>,
+    gas_price: U256,
+) -> Result<Vec<MulticallResult>> {
     let contract_addr = H160::from_str(MULTICALL_CONTRACT_ADDRESS)
         .expect("should be valid contract address");
     let contract = Contract::from_json(w3.eth(), contract_addr, MULTICALL_ABI)
@@ -109,7 +113,7 @@ pub async fn multicall<T: Transport>(w3: &Web3<T>, chain_id: &Nat, calls: Vec<Ca
     let key_info = get_key_info();
 
     let options = Options {
-        gas_price: Some(retry_until_success!(w3.eth().gas_price())?),
+        gas_price: Some(gas_price),
         gas: Some(U256::from(calls.iter().fold(U256::from(BASE_GAS+10000), |result, call| result + call.gas_limit))),
         nonce: Some(retry_until_success!(w3.eth().transaction_count(H160::from_str(&from)?, None))?),
         ..Default::default()
@@ -210,8 +214,10 @@ pub async fn multitranfer<T: Transport>(w3: &Web3<T>, chain_id: &Nat, transfers:
         .context("failed to get the PMA")?;
     let key_info = get_key_info();
 
+    let gas_price = retry_until_success!(w3.eth().gas_price())?;
+
     let options = Options {
-        gas_price: Some(retry_until_success!(w3.eth().gas_price())?),
+        gas_price: Some((gas_price/10)*12),
         gas: Some(U256::from(BASE_GAS + (GAS_PER_TRANSFER * transfers.len() as u64))),
         value: Some(transfers.iter().fold(U256::from(0), |sum, t| sum + t.value)),
         nonce: Some(retry_until_success!(w3.eth().transaction_count(H160::from_str(&from)?, None))?),
@@ -231,6 +237,7 @@ pub async fn multitranfer<T: Transport>(w3: &Web3<T>, chain_id: &Nat, transfers:
 
     let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(signed_call.raw_transaction.clone()))
         .context("failed to execute a raw tx")?;
+    ic_cdk::println!("multitransfer tx_hash: {}", hex::encode(&tx_hash.as_bytes()));
     ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
         .await
         .context("failed while waiting for a successful tx execution")?;

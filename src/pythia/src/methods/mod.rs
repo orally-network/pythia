@@ -10,6 +10,8 @@ use ic_utils::{
     get_information, update_information,
 };
 
+use crate::{STATE, types::state::State};
+
 #[query(name = "getCanistergeekInformation")]
 pub async fn get_canistergeek_information(
     request: GetInformationRequest,
@@ -27,4 +29,11 @@ pub async fn get_pma() -> Result<String, String> {
     crate::utils::get_pma()
         .await
         .map_err(|e| format!("{e:?}"))
+}
+
+#[query]
+pub fn get_state() -> State {
+    let state = STATE.with(|state| state.borrow().clone());
+    ic_cdk::println!("{state:?}");
+    state
 }

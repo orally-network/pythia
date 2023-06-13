@@ -37,8 +37,8 @@ type Error = variant { Ok : null; Err : text };
 type GetChainsResponse = variant { Ok : vec CandidTypeChain; Err : text};
 
 service : {
-    execute_withdraw : () -> ();
-    execute_publisher : () -> ();
+    execute_withdraw : () -> (Error);
+    execute_publisher : () -> (Error);
     // Will init controllers
     update_controllers : () -> (vec principal);
     // Change the tx fee that takes when a subscription is renewed or created
@@ -126,6 +126,5 @@ service : {
 
     deposit : (tx_hash : text, chain_id : nat, msg : text, sig : text) -> (Error);
     withdraw : (chain_id: nat, msg: text, sig: text, receiver: text) -> (Error);
-    get_exec_addr : (msg: text, sig: text) -> (Result);
     get_pma : () -> (Result);
  }

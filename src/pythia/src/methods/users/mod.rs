@@ -88,8 +88,8 @@ async fn _deposit(tx_hash: String, chain_id: Nat, msg: String, sig: String) -> R
     if tx.to.context("to should be in tx")? != H160::from_str(&get_pma().await?)? {
         return Err(anyhow!("tx is not sent to the PMA"));
     }
-
-    if is_used_nonce(&chain_id, &pub_key, &u256_to_nat(tx.nonce))? {
+    let nonce = u256_to_nat(tx.nonce);
+    if is_used_nonce(&chain_id, &pub_key, &nonce)? {
         return Err(anyhow!("nonce has already been used for previous deposit"));
     }
 
@@ -99,6 +99,7 @@ async fn _deposit(tx_hash: String, chain_id: Nat, msg: String, sig: String) -> R
     }
 
     add_deposit_amount_to_balance(&deposit_amount, &chain_id, &pub_key);
+    add_nonce_to_balance(&chain_id, &pub_key, &nonce);
 
     if !clone_with_state!(is_timer_active) {
         publisher::execute();
@@ -176,5 +177,19 @@ fn add_deposit_amount_to_balance(deposit_amount: &Nat, chain_id: &Nat, pub_key: 
             .get_mut(&hex::encode(pub_key.as_bytes()))
             .expect("public key should exists in balances")
             .amount += deposit_amount.clone()
+    })
+}
+
+fn add_nonce_to_balance(chain_id: &Nat, pub_key: &H160, nonce: &Nat) {
+    STATE.with(|state| {
+        state
+            .borrow_mut()
+            .balances
+            .get_mut(chain_id)
+            .expect("balances should have the provided chain id")
+            .get_mut(&hex::encode(pub_key.as_bytes()))
+            .expect("public key should exists in balances")
+            .nonces
+            .push(nonce.clone())
     })
 }

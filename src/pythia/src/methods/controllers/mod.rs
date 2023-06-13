@@ -73,11 +73,23 @@ fn _update_timer_frequency(frequency: Nat) -> Result<()> {
 }
 
 #[update]
-pub fn execute_withdraw() {
-    withdraw::execute()
+pub fn execute_withdraw() -> Result<(), String> {
+    _execute_withdraw().map_err(|e| format!("{e:?}"))
+}
+
+fn _execute_withdraw() -> Result<()> {
+    validate_caller()?;
+    withdraw::execute();
+    Ok(())
 }
 
 #[update]
-pub fn execute_publisher() {
-    publisher::execute()
+pub fn execute_publisher() -> Result<(), String> {
+    _execute_publisher().map_err(|e| format!("{e:?}"))
+}
+
+fn _execute_publisher() -> Result<()> {
+    validate_caller()?;
+    publisher::execute();
+    Ok(())
 }

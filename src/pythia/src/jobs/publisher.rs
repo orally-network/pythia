@@ -1,7 +1,7 @@
 use std::{str::FromStr, vec, time::Duration};
 
 use anyhow::{Result, anyhow};
-use ic_dl_utils::evm::time_in_seconds;
+use ic_dl_utils::{evm::time_in_seconds, retry_until_success};
 use ic_utils::logger::log_message;
 use ic_cdk_timers::set_timer;
 use ic_cdk::{export::candid::Nat, api::management_canister::main::raw_rand};
@@ -23,6 +23,9 @@ async fn _execute() {
     log_message("publisher job started".into());
 
     update_state!(is_timer_active, true);
+
+    deactivate_subs_with_insufficient_funds();
+    
     let mut futures = vec![];
 
     for (chain_id, subs) in clone_with_state!(subscriptions) {
@@ -82,8 +85,8 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                 }
             })
         ).await;
-        
-        let results = multicall(&w3, &chain_id, calls)
+        let gas_price = retry_until_success!(w3.eth().gas_price())?;
+        let results = multicall(&w3, &chain_id, calls, gas_price)
             .await?;
 
         let remove_indexes: Vec<Nat> = results
@@ -110,6 +113,8 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             .filter(|sub| {
                 if remove_indexes.contains(&sub.id) {
                     update_last_update(&chain_id, &sub.id);
+                    let amount = u256_to_nat(gas_price) * sub.method.gas_limit.clone();
+                    reduce_balance(&amount, &chain_id, &sub.id);
                     return false;
                 }
 
@@ -120,6 +125,29 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
     }
 
     Ok(())
+}
+
+fn deactivate_subs_with_insufficient_funds() {
+    STATE.with(|state| {
+        let balances = state
+            .borrow()
+            .balances.clone();
+        for (chain_id, subs) in state.borrow_mut().subscriptions.iter_mut() {
+            for sub in subs {
+                let balance = balances
+                    .get(chain_id)
+                    .expect("chain should exist")
+                    .get(&sub.owner)
+                    .expect("user should exist")
+                    .amount.clone();
+
+                if balance < sub.method.gas_limit {
+                    sub.status.is_active = false;
+                }
+            }
+        }
+            
+    });
 }
 
 fn update_last_update(chain_id: &Nat, sub_id: &Nat) {
@@ -134,6 +162,29 @@ fn update_last_update(chain_id: &Nat, sub_id: &Nat) {
             .expect("sub should exist")
             .status
             .last_update = time_in_seconds().into();
+    });
+}
+
+fn reduce_balance(amount: &Nat, chain_id: &Nat, sub_id: &Nat) {
+    STATE.with(|state| {
+        let mut state = state.borrow_mut();
+        let pub_key = state
+            .subscriptions
+            .get_mut(chain_id)
+            .expect("chain should exist")
+            .iter_mut()
+            .find(|sub| sub.id == *sub_id)
+            .expect("sub should exist")
+            .owner
+            .clone();
+
+        state
+            .balances
+            .get_mut(chain_id)
+            .expect("chain should exist")
+            .get_mut(&pub_key)
+            .expect("user should exist")
+            .amount -= amount.clone();
     });
 }
 
