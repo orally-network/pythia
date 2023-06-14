@@ -17,16 +17,28 @@ pub fn add_chain(
     rpc: String,
     min_balance: Nat,
     treasurer: String,
+    block_gas_limit: Nat,
 ) -> Result<(), String> {
-    _add_chain(chain_id, rpc, min_balance, treasurer).map_err(|e| format!("{e:?}"))
+    _add_chain(chain_id, rpc, min_balance, treasurer, block_gas_limit).map_err(|e| format!("{e:?}"))
 }
 
-fn _add_chain(chain_id: Nat, rpc: String, min_balance: Nat, treasurer: String) -> Result<()> {
+fn _add_chain(
+    chain_id: Nat,
+    rpc: String,
+    min_balance: Nat,
+    treasurer: String,
+    block_gas_limit: Nat,
+) -> Result<()> {
     validate_caller()?;
-
     let treasurer = H160::from_str(&treasurer)?;
 
-    let chain = Chain::new(&chain_id, &rpc, &min_balance, &treasurer)?;
+    let chain = Chain::new(
+        &chain_id,
+        &rpc,
+        &min_balance,
+        &treasurer,
+        &block_gas_limit,
+    )?;
 
     STATE.with(|state| {
         let mut state = state.borrow_mut();

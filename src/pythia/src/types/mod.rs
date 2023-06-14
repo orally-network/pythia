@@ -6,3 +6,4 @@ pub mod balance;
 pub mod withdraw;
 pub mod subscription;
 pub mod methods;
+pub mod whitelist;

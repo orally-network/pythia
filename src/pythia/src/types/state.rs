@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use candid::{Nat, Principal};
 use ic_cdk::export::{candid::CandidType, serde::{Deserialize, Serialize}};
 
-use super::{chains::Chain, balance::UserBalance, withdraw::WithdrawRequest, subscription::Subscription};
+use super::{chains::Chain, balance::UserBalance, withdraw::WithdrawRequest, subscription::Subscription, whitelist::Whitelist};
 
 #[derive(Debug, Clone, Serialize, Deserialize, CandidType, Default)]
 pub struct State {
@@ -25,4 +25,5 @@ pub struct State {
     pub timer_frequency: u64,
     pub subscriptions_index: u64,
     pub is_timer_active: bool,
+    pub whitelist: Whitelist,
 }

@@ -12,7 +12,7 @@ use ic_web3::{
     Web3,
 };
 
-use crate::{utils::{rec_eth_addr, u256_to_nat, get_gas_price, get_pma}, STATE, types::{balance::UserBalance, withdraw::WithdrawRequest}, clone_with_state, jobs::{publisher, withdraw}};
+use crate::{utils::{rec_eth_addr, u256_to_nat, get_gas_price, get_pma}, STATE, types::{balance::UserBalance, withdraw::WithdrawRequest, whitelist}, clone_with_state, jobs::{publisher, withdraw}};
 
 #[update]
 pub async fn withdraw(
@@ -82,6 +82,11 @@ pub async fn deposit(tx_hash: String, chain_id: Nat, msg: String, sig: String) -
 async fn _deposit(tx_hash: String, chain_id: Nat, msg: String, sig: String) -> Result<()> {
     let pub_key = rec_eth_addr(&msg, &sig)
         .await?;
+
+    if !whitelist::is_whitelisted(&hex::encode(pub_key.as_bytes())) {
+        return Err(anyhow!("user is not whitelisted"));
+    }
+
     let tx = get_tx(&tx_hash, &chain_id)
         .await?;
 

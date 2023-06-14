@@ -77,7 +77,7 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
     while !subscriptions.is_empty() {
         let calls: Vec<Call> = join_all(subscriptions
             .iter()
-            .map(|sub| async {
+            .map(|sub| async {                
                 Call {
                     target: H160::from_str(&sub.contract_addr).expect("should be valid address"),
                     call_data: get_call_data(&sub.method).await,
@@ -103,7 +103,6 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                 if result.used_gas != 0.into() {
                     return true;
                 }
-
                 false
             })
             .map(|(_, sub)| sub.id.clone())
@@ -146,7 +145,6 @@ fn deactivate_subs_with_insufficient_funds() {
                 }
             }
         }
-            
     });
 }
 

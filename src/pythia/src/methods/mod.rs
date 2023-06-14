@@ -2,6 +2,7 @@ pub mod chains;
 pub mod controllers;
 pub mod users;
 pub mod subscriptions;
+pub mod whitelist;
 
 use anyhow::Result;
 use ic_cdk::{query, update};

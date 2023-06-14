@@ -8,7 +8,7 @@ use ic_utils::logger::log_message;
 
 use crate::{
     utils::{check_balance, rec_eth_addr, validate_caller, check_subs_limit, get_chain},
-    PythiaError, STATE, types::subscription::Subscription, clone_with_state, jobs::publisher,
+    PythiaError, STATE, types::{subscription::Subscription, whitelist}, clone_with_state, jobs::publisher,
 };
 
 #[update]
@@ -132,6 +132,10 @@ pub async fn stop_sub(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> R
 
 pub async fn _stop_sub(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<()> {
     let pub_key = rec_eth_addr(&msg, &sig).await?;
+    let owner = hex::encode(pub_key.as_bytes());
+    if !whitelist::is_whitelisted(&owner) {
+        return Err(anyhow!("not whitelisted"));
+    }
 
     STATE.with(|state| {
         state
@@ -147,7 +151,7 @@ pub async fn _stop_sub(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> 
 
         log_message(format!(
             "[USER: {}] stop sub_id: {}",
-            hex::encode(pub_key.as_bytes()),
+            owner,
             sub_id
         ));
         Ok(())
@@ -163,6 +167,10 @@ pub async fn start_sub(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> 
 
 pub async fn _start_sub(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<()> {
     let pub_key = rec_eth_addr(&msg, &sig).await?;
+    let owner = hex::encode(pub_key.as_bytes());
+    if !whitelist::is_whitelisted(&owner) {
+        return Err(anyhow!("not whitelisted"));
+    }
 
     STATE.with(|state| {
         let mut state = state.borrow_mut();
@@ -178,7 +186,7 @@ pub async fn _start_sub(chain_id: Nat, sub_id: Nat, msg: String, sig: String) ->
 
         log_message(format!(
             "[USER: {}] start sub_id: {}",
-            hex::encode(pub_key.as_bytes()),
+            owner,
             sub_id
         ));
         
@@ -205,6 +213,10 @@ pub async fn update_sub_gas_limit(
 
 pub async fn _update_sub_gas_limit(gas_limit: Nat, chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<()> {
     let pub_key = rec_eth_addr(&msg, &sig).await?;
+    let owner = hex::encode(pub_key.as_bytes());
+    if !whitelist::is_whitelisted(&owner) {
+        return Err(anyhow!("not whitelisted"));
+    }
 
     STATE.with(|state| {
         state
@@ -220,7 +232,7 @@ pub async fn _update_sub_gas_limit(gas_limit: Nat, chain_id: Nat, sub_id: Nat, m
 
         log_message(format!(
             "[USER: {}] update gas_limit, sub_id: {}",
-            hex::encode(pub_key.as_bytes()),
+            owner,
             sub_id
         ));
         Ok(())

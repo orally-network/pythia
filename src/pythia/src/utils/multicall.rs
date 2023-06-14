@@ -6,7 +6,8 @@ use candid::Nat;
 use ic_dl_utils::retry_until_success;
 use ic_web3::{types::{H160, U256, CallRequest, Bytes, BlockId}, contract::{Error, tokens::Tokenizable, Contract, Options}, ethabi::Token, Web3, Transport};
 
-use super::{get_pma, nat_to_u64, get_key_info};
+use super::{get_pma, nat_to_u64, get_key_info, u256_to_nat, get_chain};
+use crate::types::chains::Chain;
 
 const MULTICALL_ABI: &[u8] = include_bytes!("../../assets/MulticallABI.json");
 const MULTICALL_CONTRACT_ADDRESS: &str = "0x26df57f4577dcd7e1deea93299655b14df374b17";
@@ -103,6 +104,9 @@ pub async fn multicall<T: Transport>(
     calls: Vec<Call>,
     gas_price: U256,
 ) -> Result<Vec<MulticallResult>> {
+    let mut calls = calls;
+    let mut result: Vec<MulticallResult> = vec![];
+    let chain = get_chain(chain_id)?;
     let contract_addr = H160::from_str(MULTICALL_CONTRACT_ADDRESS)
         .expect("should be valid contract address");
     let contract = Contract::from_json(w3.eth(), contract_addr, MULTICALL_ABI)
@@ -118,53 +122,73 @@ pub async fn multicall<T: Transport>(
         nonce: Some(retry_until_success!(w3.eth().transaction_count(H160::from_str(&from)?, None))?),
         ..Default::default()
     };
-    let params: Vec<Token> = calls.iter().map(|c| c.clone().into_token()).collect();
-    let signed_call = contract.sign(
-        MULTICALL_CALL_FUNCTION,
-        vec![params.clone()],
-        options,
-        from,
-        key_info,
-        nat_to_u64(chain_id),
-    )
-    .await
-    .context("failed to sign contract call")?;
 
-    let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(signed_call.raw_transaction.clone()))
-        .context("failed to execute a raw tx")?;
-    let tx_receipt = ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
+    #[allow(unused_assignments)]
+    let mut current_calls_batch = vec![];
+    while !calls.is_empty() {
+        (current_calls_batch, calls) = get_current_calls_batch(&calls, &chain);
+        let params: Vec<Token> = current_calls_batch.iter().map(|c| c.clone().into_token()).collect();
+        let signed_call = contract.sign(
+            MULTICALL_CALL_FUNCTION,
+            vec![params.clone()],
+            options.clone(),
+            from.clone(),
+            key_info.clone(),
+            nat_to_u64(chain_id),
+        )
         .await
-        .context("failed while waiting for a successful tx execution")?;
+        .context("failed to sign contract call")?;
 
-    let data = contract
-        .abi()
-        .function(MULTICALL_CALL_FUNCTION)
-        .and_then(|f| f.encode_input(&vec![params.into_token()]))
-        .context("failed to form data of a call")?;
-    let call_request = CallRequest {
-        from: Some(tx_receipt.from),
-        to: tx_receipt.to,
-        data: Some(Bytes::from(data)),
-        ..Default::default()
-    };
-    let block_number = BlockId::from(tx_receipt.block_number.expect("block number should be valid"));
-    let raw_result = retry_until_success!(w3.eth().call(call_request.clone(), Some(block_number)))?;
-    let call_result: Vec<Token> = contract
-        .abi()
-        .function(MULTICALL_CALL_FUNCTION)
-        .and_then(|f| f.decode_output(&raw_result.0))
-        .context("failed to decode outputs")?;
+        let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(signed_call.raw_transaction.clone()))
+            .context("failed to execute a raw tx")?;
+        let tx_receipt = ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
+            .await
+            .context("failed while waiting for a successful tx execution")?;
 
-    let results = call_result
-        .first()
-        .context("should be valid call result")?
-        .clone()
-        .into_array()
-        .context("should be valid call result: array")?;
+        let data = contract
+            .abi()
+            .function(MULTICALL_CALL_FUNCTION)
+            .and_then(|f| f.encode_input(&vec![params.into_token()]))
+            .context("failed to form data of a call")?;
+        let call_request = CallRequest {
+            from: Some(tx_receipt.from),
+            to: tx_receipt.to,
+            data: Some(Bytes::from(data)),
+            ..Default::default()
+        };
+        let block_number = BlockId::from(tx_receipt.block_number.expect("block number should be valid"));
+        let raw_result = retry_until_success!(w3.eth().call(call_request.clone(), Some(block_number)))?;
+        let call_result: Vec<Token> = contract
+            .abi()
+            .function(MULTICALL_CALL_FUNCTION)
+            .and_then(|f| f.decode_output(&raw_result.0))
+            .context("failed to decode outputs")?;
 
-    results.iter().map(|token| {
-        MulticallResult::from_token(token.clone()).context("failed to decode from token")
-    }).collect()
+        let results = call_result
+            .first()
+            .context("should be valid call result")?
+            .clone()
+            .into_array()
+            .context("should be valid call result: array")?;
+
+        result.append(&mut results.iter().map(|token| {
+            MulticallResult::from_token(token.clone()).expect("failed to decode from token")
+        }).collect::<Vec<MulticallResult>>());
+    }
+    
+    Ok(result)
+}
+
+fn get_current_calls_batch(calls: &[Call], chain: &Chain) -> (Vec<Call>, Vec<Call>) {
+    let mut gas_counter = Nat::from(BASE_GAS+1000);
+    for (i, call) in calls.iter().enumerate() {
+        gas_counter = gas_counter + u256_to_nat(call.gas_limit.clone());
+        if gas_counter >= chain.block_gas_limit {
+            return (calls[..i].to_vec(), calls[i..].to_vec());
+        }
+    }
+
+    (calls.to_vec(), vec![])
 }
 
 #[derive(Debug, Clone, Default)]

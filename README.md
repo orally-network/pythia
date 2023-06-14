@@ -14,11 +14,13 @@ dfx canister install -m upgrade --wasm ./.dfx/local/canisters/pythia/pythia.wasm
 ## Usage
 ```sh
 # add a new supported chain
-dfx canister call pythia add_chain '(11155111:nat, "https://sepolia.infura.io/v3/d20be327500c45819a1a3b850daec0e2", 10000000000000000:nat, "0000000000000000000000000000000000000000")'
+dfx canister call pythia add_chain '(11155111:nat, "https://sepolia.infura.io/v3/d20be327500c45819a1a3b850daec0e2", 10000000000000000:nat, "0000000000000000000000000000000000000000", 30000000:nat)'
+# add to whitelist !!! WARNING !!! address should be in lower case with 0x prefix
+dfx canister call pythia add_to_whitelist '("e86c4a45c1da21f8838a1ea26fc852bd66489ce9")'
 # get the PMA
 dfx canister call pythia get_pma
 # init a new sub
-dfx canister call pythia deposit '("0x3cea2779207d192355975f87a8dcd6a1fb25ccffb1169979137d886673dd3df0", 11155111:nat, "service.org wants you to sign in with your Ethereum account:
+dfx canister call pythia deposit '("0x9d0ed357961624c467fa0f1932f550f763ff2e2073541a5e31d903d4985081ad", 11155111:nat, "service.org wants you to sign in with your Ethereum account:
 0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9
     
 

@@ -13,10 +13,17 @@ pub struct Chain {
     pub rpc: String,
     pub min_balance: Nat,
     pub treasurer: String,
+    pub block_gas_limit: Nat,
 }
 
 impl Chain {
-    pub fn new(chain_id: &Nat, rpc: &str, min_balance: &Nat, treasurer: &H160) -> Result<Self> {
+    pub fn new(
+        chain_id: &Nat,
+        rpc: &str,
+        min_balance: &Nat,
+        treasurer: &H160,
+        block_gas_limit: &Nat,
+    ) -> Result<Self> {
         let rpc: Url = rpc.parse().context("Failed to parse RPC URL")?;
 
         Ok(Self {
@@ -24,6 +31,7 @@ impl Chain {
             rpc: rpc.to_string(),
             min_balance: min_balance.clone(),
             treasurer: hex::encode(treasurer.as_bytes()),
+            block_gas_limit: block_gas_limit.clone(),
         })
     }
 }
