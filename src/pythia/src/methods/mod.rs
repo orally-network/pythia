@@ -1,7 +1,7 @@
 pub mod chains;
 pub mod controllers;
-pub mod users;
 pub mod subscriptions;
+pub mod users;
 pub mod whitelist;
 
 use anyhow::Result;
@@ -11,7 +11,7 @@ use ic_utils::{
     get_information, update_information,
 };
 
-use crate::{STATE, types::state::State};
+use crate::{types::state::State, STATE};
 
 #[query(name = "getCanistergeekInformation")]
 pub async fn get_canistergeek_information(
@@ -27,9 +27,7 @@ pub async fn update_canistergeek_information(request: UpdateInformationRequest) 
 
 #[update]
 pub async fn get_pma() -> Result<String, String> {
-    crate::utils::get_pma()
-        .await
-        .map_err(|e| format!("{e:?}"))
+    crate::utils::get_pma().await.map_err(|e| format!("{e:?}"))
 }
 
 #[query]

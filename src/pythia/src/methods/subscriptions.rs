@@ -7,8 +7,11 @@ use ic_cdk_macros::{query, update};
 use ic_utils::logger::log_message;
 
 use crate::{
-    utils::{check_balance, rec_eth_addr, validate_caller, check_subs_limit, get_chain},
-    PythiaError, STATE, types::{subscription::Subscription, whitelist}, clone_with_state, jobs::publisher,
+    clone_with_state,
+    jobs::publisher,
+    types::{subscription::Subscription, whitelist},
+    utils::{check_balance, check_subs_limit, get_chain, rec_eth_addr, validate_caller},
+    PythiaError, STATE,
 };
 
 #[update]
@@ -101,10 +104,9 @@ pub fn get_subscriptions(pub_key: Option<String>) -> Vec<Subscription> {
         state
             .borrow()
             .subscriptions
-            .iter()
-            .map(|(_, subs)| {
-                subs
-                    .iter()
+            .values()
+            .map(|subs| {
+                subs.iter()
                     .filter(|sub| {
                         if let Some(pub_key) = &pub_key {
                             sub.owner == *pub_key
@@ -149,11 +151,7 @@ pub async fn _stop_sub(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> 
             .status
             .is_active = false;
 
-        log_message(format!(
-            "[USER: {}] stop sub_id: {}",
-            owner,
-            sub_id
-        ));
+        log_message(format!("[USER: {}] stop sub_id: {}", owner, sub_id));
         Ok(())
     })
 }
@@ -184,16 +182,12 @@ pub async fn _start_sub(chain_id: Nat, sub_id: Nat, msg: String, sig: String) ->
             .status
             .is_active = true;
 
-        log_message(format!(
-            "[USER: {}] start sub_id: {}",
-            owner,
-            sub_id
-        ));
-        
+        log_message(format!("[USER: {}] start sub_id: {}", owner, sub_id));
+
         if !state.is_timer_active {
             publisher::execute();
         }
-        
+
         Ok(())
     })
 }
@@ -211,7 +205,13 @@ pub async fn update_sub_gas_limit(
         .map_err(|e| format!("{e:?}"))
 }
 
-pub async fn _update_sub_gas_limit(gas_limit: Nat, chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<()> {
+pub async fn _update_sub_gas_limit(
+    gas_limit: Nat,
+    chain_id: Nat,
+    sub_id: Nat,
+    msg: String,
+    sig: String,
+) -> Result<()> {
     let pub_key = rec_eth_addr(&msg, &sig).await?;
     let owner = hex::encode(pub_key.as_bytes());
     if !whitelist::is_whitelisted(&owner) {
@@ -232,8 +232,7 @@ pub async fn _update_sub_gas_limit(gas_limit: Nat, chain_id: Nat, sub_id: Nat, m
 
         log_message(format!(
             "[USER: {}] update gas_limit, sub_id: {}",
-            owner,
-            sub_id
+            owner, sub_id
         ));
         Ok(())
     })
@@ -241,8 +240,7 @@ pub async fn _update_sub_gas_limit(gas_limit: Nat, chain_id: Nat, sub_id: Nat, m
 
 #[update]
 pub fn stop_subs() -> Result<(), String> {
-    _stop_subs()
-        .map_err(|e| format!("{e:?}"))
+    _stop_subs().map_err(|e| format!("{e:?}"))
 }
 
 fn _stop_subs() -> Result<()> {
@@ -250,7 +248,7 @@ fn _stop_subs() -> Result<()> {
 
     log_message("subsctiptions stopped".into());
 
-    STATE.with(|state|{
+    STATE.with(|state| {
         state
             .borrow_mut()
             .subscriptions
@@ -267,8 +265,7 @@ fn _stop_subs() -> Result<()> {
 
 #[update]
 pub fn remove_subs() -> Result<(), String> {
-    _remove_subs()
-        .map_err(|e| format!("{e:?}"))
+    _remove_subs().map_err(|e| format!("{e:?}"))
 }
 
 pub fn _remove_subs() -> Result<()> {

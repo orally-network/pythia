@@ -1,13 +1,19 @@
 use std::str::FromStr;
 
 use candid::Nat;
-use ic_cdk::export::{candid::CandidType, serde::{Deserialize, Serialize}};
+use ic_cdk::export::{
+    candid::CandidType,
+    serde::{Deserialize, Serialize},
+};
 
-use anyhow::{Result, anyhow, Context};
-use ic_web3::{types::H160, ethabi::Function};
+use anyhow::{anyhow, Context, Result};
+use ic_web3::{ethabi::Function, types::H160};
 use serde_json::json;
 
-use crate::{utils::{sybil::is_pair_exists, is_valid_eth_address, check_subs_limit}, STATE};
+use crate::{
+    utils::{check_subs_limit, is_valid_eth_address, sybil::is_pair_exists},
+    STATE,
+};
 
 use super::methods::{Method, MethodType};
 
@@ -74,7 +80,10 @@ impl SubscriptionBuilder {
 
     pub async fn build(&self) -> Result<Subscription> {
         let owner = self.owner.clone().context("owner is not set")?;
-        let contract_addr = self.contract_addr.clone().context("contract address is not set")?;
+        let contract_addr = self
+            .contract_addr
+            .clone()
+            .context("contract address is not set")?;
         let abi = self.abi.clone().context("abi is not set")?;
         let gas_limit = self.gas_limit.clone().context("gas limit is not set")?;
         let is_random = self.is_random.context("is_random is not set")?;
@@ -118,7 +127,6 @@ impl SubscriptionBuilder {
             },
         })
     }
-
 }
 
 fn get_new_subsciption_id() -> Nat {

@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::{Context, Result, anyhow, Error};
+use anyhow::{anyhow, Context, Error, Result};
 
 use ic_cdk::export::candid::Nat;
 use ic_cdk_macros::update;
@@ -8,11 +8,17 @@ use ic_dl_utils::retry_until_success;
 use ic_utils::logger::log_message;
 use ic_web3::{
     transports::ICHttp,
-    types::{H160, H256, TransactionId, Transaction},
+    types::{Transaction, TransactionId, H160, H256},
     Web3,
 };
 
-use crate::{utils::{rec_eth_addr, u256_to_nat, get_gas_price, get_pma}, STATE, types::{balance::UserBalance, withdraw::WithdrawRequest, whitelist}, clone_with_state, jobs::{publisher, withdraw}};
+use crate::{
+    clone_with_state,
+    jobs::{publisher, withdraw},
+    types::{balance::UserBalance, whitelist, withdraw::WithdrawRequest},
+    utils::{get_gas_price, get_pma, rec_eth_addr, u256_to_nat},
+    STATE,
+};
 
 #[update]
 pub async fn withdraw(
@@ -31,7 +37,7 @@ async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) ->
 
     let gas_price = get_gas_price(&chain_id).await?;
 
-    STATE.with(|state|{
+    STATE.with(|state| {
         let mut state = state.borrow_mut();
 
         let amount = state
@@ -52,16 +58,13 @@ async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) ->
                     sub.status.is_active = false;
                 }
             });
-        
+
         state
             .withdraw_requests
             .get_mut(&chain_id)
             .context("chain does not exist")?
-            .push(WithdrawRequest {
-                receiver,
-                amount,
-            });
-        
+            .push(WithdrawRequest { receiver, amount });
+
         Ok::<(), Error>(())
     })?;
 
@@ -73,22 +76,25 @@ async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) ->
 }
 
 #[update]
-pub async fn deposit(tx_hash: String, chain_id: Nat, msg: String, sig: String) -> Result<(), String> {
+pub async fn deposit(
+    tx_hash: String,
+    chain_id: Nat,
+    msg: String,
+    sig: String,
+) -> Result<(), String> {
     _deposit(tx_hash, chain_id, msg, sig)
         .await
         .map_err(|e| format!("{e:?}"))
 }
 
 async fn _deposit(tx_hash: String, chain_id: Nat, msg: String, sig: String) -> Result<()> {
-    let pub_key = rec_eth_addr(&msg, &sig)
-        .await?;
+    let pub_key = rec_eth_addr(&msg, &sig).await?;
 
     if !whitelist::is_whitelisted(&hex::encode(pub_key.as_bytes())) {
         return Err(anyhow!("user is not whitelisted"));
     }
 
-    let tx = get_tx(&tx_hash, &chain_id)
-        .await?;
+    let tx = get_tx(&tx_hash, &chain_id).await?;
 
     if tx.to.context("to should be in tx")? != H160::from_str(&get_pma().await?)? {
         return Err(anyhow!("tx is not sent to the PMA"));
@@ -100,7 +106,7 @@ async fn _deposit(tx_hash: String, chain_id: Nat, msg: String, sig: String) -> R
 
     let deposit_amount = get_deposit_amount_without_fee(&u256_to_nat(tx.value));
     if deposit_amount == 0 {
-        return Ok(())
+        return Ok(());
     }
 
     add_deposit_amount_to_balance(&deposit_amount, &chain_id, &pub_key);
@@ -122,18 +128,15 @@ async fn get_tx(tx_hash: &str, chain_id: &Nat) -> Result<Transaction> {
         state
             .borrow()
             .chains
-            .get(&chain_id)
+            .get(chain_id)
             .cloned()
             .context("chain does not exist")
     })?;
-    let tx_hash = H256::from_str(&tx_hash)?;
+    let tx_hash = H256::from_str(tx_hash)?;
 
     let w3 = Web3::new(ICHttp::new(&chain.rpc, None)?);
-    let tx_receipt = retry_until_success!(
-        w3
-            .eth()
-            .transaction_receipt(tx_hash)
-    )?.context("tx does not exist")?;
+    let tx_receipt = retry_until_success!(w3.eth().transaction_receipt(tx_hash))?
+        .context("tx does not exist")?;
 
     if let Some(status) = tx_receipt.status {
         if status.as_u64() != 1 {
@@ -143,13 +146,8 @@ async fn get_tx(tx_hash: &str, chain_id: &Nat) -> Result<Transaction> {
         return Err(anyhow!("tx is not executed yet"));
     }
 
-    let tx = retry_until_success!(
-        w3
-            .eth()
-            .transaction(TransactionId::from(tx_hash))
-    )?.context("tx does not exist");
-
-    tx
+    retry_until_success!(w3.eth().transaction(TransactionId::from(tx_hash)))?
+        .context("tx does not exist")
 }
 
 fn is_used_nonce(chain_id: &Nat, pub_key: &H160, nonce: &Nat) -> Result<bool> {

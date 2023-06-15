@@ -8,7 +8,9 @@ use ic_cdk_macros::update;
 use ic_utils::logger::log_message;
 
 use crate::{
-    utils::{validate_caller, nat_to_u64}, STATE, jobs::{withdraw, publisher},
+    jobs::{publisher, withdraw},
+    utils::{nat_to_u64, validate_caller},
+    STATE,
 };
 
 #[update]

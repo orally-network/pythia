@@ -1,17 +1,15 @@
 #[macro_export]
 macro_rules! clone_with_state {
-    ($field:ident) => {
-        {
-            crate::STATE.with(|state| state.borrow().$field.clone())
-        }
-    };
+    ($field:ident) => {{
+        $crate::STATE.with(|state| state.borrow().$field.clone())
+    }};
 }
 
 #[macro_export]
 macro_rules! update_state {
-    ($field:ident, $value:expr) => {
-        {
-            crate::STATE.with(|state| {state.borrow_mut().$field = $value;})
-        }
-    };
+    ($field:ident, $value:expr) => {{
+        $crate::STATE.with(|state| {
+            state.borrow_mut().$field = $value;
+        })
+    }};
 }

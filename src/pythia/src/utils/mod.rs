@@ -1,6 +1,6 @@
-pub mod sybil;
-pub mod multicall;
 pub mod macros;
+pub mod multicall;
+pub mod sybil;
 
 use std::str::FromStr;
 
@@ -9,16 +9,14 @@ use anyhow::{anyhow, Context, Result};
 use candid::Nat;
 use ic_web3::{
     ethabi::Token,
-    ic::{KeyInfo, get_eth_addr},
+    ic::{get_eth_addr, KeyInfo},
     transports::ICHttp,
     types::{H160, U256},
     Web3,
 };
 use num_bigint::BigUint;
 
-use crate::{
-    types::errors::PythiaError, Chain, STATE, clone_with_state, update_state,
-};
+use crate::{clone_with_state, types::errors::PythiaError, update_state, Chain, STATE};
 
 const ECDSA_SIGN_CYCLES: u64 = 23_000_000_000;
 
@@ -32,8 +30,7 @@ pub fn validate_caller() -> Result<(), PythiaError> {
 }
 
 pub async fn rec_eth_addr(msg: &str, sig: &str) -> Result<H160> {
-    let siwe_canister = clone_with_state!(siwe_canister)
-        .expect("canister should be initialized");
+    let siwe_canister = clone_with_state!(siwe_canister).expect("canister should be initialized");
 
     let msg = msg.to_string();
     let sig = sig.to_string();
@@ -102,7 +99,7 @@ pub fn nat_to_u256(nat: &Nat) -> U256 {
 pub fn u256_to_nat(u256: U256) -> Nat {
     let mut buf: Vec<u8> = vec![];
 
-    for i in u256.0.iter().rev().map(|e| *e).collect::<Vec<u64>>() {
+    for i in u256.0.iter().rev().copied().collect::<Vec<u64>>() {
         buf.extend(i.to_be_bytes());
     }
 
@@ -118,7 +115,7 @@ pub async fn get_pma() -> Result<String> {
         .await
         .map(|addr| hex::encode(addr.as_bytes()))
         .map_err(|e| anyhow!("failed to get canister eth address: {e}"))?;
-    
+
     update_state!(pma, Some(addr.clone()));
 
     Ok(addr)
@@ -138,16 +135,15 @@ pub fn is_valid_eth_address(address: &str) -> bool {
 
 pub fn check_subs_limit(pub_key: &H160) -> Result<()> {
     let owner = hex::encode(pub_key.as_bytes());
-    
+
     STATE.with(|state| {
         let state = state.borrow();
 
         let owners = state
             .subscriptions
-            .iter()
-            .map(|(_, subs)| {
-                subs
-                    .iter()
+            .values()
+            .map(|subs| {
+                subs.iter()
                     .map(|sub| sub.owner.clone())
                     .collect::<Vec<String>>()
             })
@@ -155,12 +151,17 @@ pub fn check_subs_limit(pub_key: &H160) -> Result<()> {
                 result.extend(owners);
                 result
             });
-        
+
         if owners.len() as u64 > state.subs_limit_total {
             return Err(anyhow!("total subscriptions limit reached"));
         }
 
-        if owners.iter().filter(|&_owner| _owner.clone() == owner).count() as u64 > state.subs_limit_wallet {
+        if owners
+            .iter()
+            .filter(|&_owner| _owner.clone() == owner)
+            .count() as u64
+            > state.subs_limit_wallet
+        {
             return Err(anyhow!("wallet subscriptions limit reached"));
         }
 

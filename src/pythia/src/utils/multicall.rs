@@ -1,12 +1,17 @@
 use std::str::FromStr;
 
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 
 use candid::Nat;
 use ic_dl_utils::retry_until_success;
-use ic_web3::{types::{H160, U256, CallRequest, Bytes, BlockId}, contract::{Error, tokens::Tokenizable, Contract, Options}, ethabi::Token, Web3, Transport};
+use ic_web3::{
+    contract::{tokens::Tokenizable, Contract, Error, Options},
+    ethabi::Token,
+    types::{BlockId, Bytes, CallRequest, H160, U256},
+    Transport, Web3,
+};
 
-use super::{get_pma, nat_to_u64, get_key_info, u256_to_nat, get_chain};
+use super::{get_chain, get_key_info, get_pma, nat_to_u64, u256_to_nat};
 use crate::types::chains::Chain;
 
 const MULTICALL_ABI: &[u8] = include_bytes!("../../assets/MulticallABI.json");
@@ -15,7 +20,7 @@ const MULTICALL_CALL_FUNCTION: &str = "multicall";
 const MULTICALL_TRANSFER_FUNCTION: &str = "multitransfer";
 const BASE_GAS: u64 = 27_000;
 pub const GAS_PER_TRANSFER: u64 = 7_900;
-const TX_TIMEOUT: u64 = 60*5;
+const TX_TIMEOUT: u64 = 60 * 5;
 
 #[derive(Debug, Clone, Default)]
 pub struct Call {
@@ -27,17 +32,16 @@ pub struct Call {
 impl Tokenizable for Call {
     fn from_token(token: Token) -> Result<Self, Error>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         if let Token::Tuple(tokens) = token {
             if tokens.len() != 3 {
                 return Err(Error::InvalidOutputType("invalid tokens number".into()));
             }
 
-            if let (
-                Token::Address(target),
-                Token::Bytes(call_data),
-                Token::Uint(gas_limit),
-            ) = (tokens[0].clone(), tokens[1].clone(), tokens[2].clone()) {
+            if let (Token::Address(target), Token::Bytes(call_data), Token::Uint(gas_limit)) =
+                (tokens[0].clone(), tokens[1].clone(), tokens[2].clone())
+            {
                 return Ok(Self {
                     target,
                     call_data,
@@ -50,7 +54,7 @@ impl Tokenizable for Call {
     }
 
     fn into_token(self) -> Token {
-        return Token::Tuple(vec![
+        Token::Tuple(vec![
             Token::Address(self.target),
             Token::Bytes(self.call_data),
             Token::Uint(self.gas_limit),
@@ -68,30 +72,29 @@ pub struct MulticallResult {
 impl Tokenizable for MulticallResult {
     fn from_token(token: Token) -> Result<Self, Error>
     where
-        Self: Sized {
-            if let Token::Tuple(tokens) = token {
-                if tokens.len() != 3 {
-                    return Err(Error::InvalidOutputType("invalid tokens number".into()));
-                }
-    
-                if let (
-                    Token::Bool(success),
-                    Token::Uint(used_gas),
-                    Token::Bytes(return_data),
-                ) = (tokens[0].clone(), tokens[1].clone(), tokens[2].clone()) {
-                    return Ok(Self {
-                        success,
-                        used_gas,
-                        return_data,
-                    });
-                }
+        Self: Sized,
+    {
+        if let Token::Tuple(tokens) = token {
+            if tokens.len() != 3 {
+                return Err(Error::InvalidOutputType("invalid tokens number".into()));
             }
-    
-            Err(Error::InvalidOutputType("invalid tokens".into()))
+
+            if let (Token::Bool(success), Token::Uint(used_gas), Token::Bytes(return_data)) =
+                (tokens[0].clone(), tokens[1].clone(), tokens[2].clone())
+            {
+                return Ok(Self {
+                    success,
+                    used_gas,
+                    return_data,
+                });
+            }
+        }
+
+        Err(Error::InvalidOutputType("invalid tokens".into()))
     }
 
     fn into_token(self) -> Token {
-        return Token::Tuple(vec![
+        Token::Tuple(vec![
             Token::Bool(self.success),
             Token::Bytes(self.return_data),
         ])
@@ -107,19 +110,25 @@ pub async fn multicall<T: Transport>(
     let mut calls = calls;
     let mut result: Vec<MulticallResult> = vec![];
     let chain = get_chain(chain_id)?;
-    let contract_addr = H160::from_str(MULTICALL_CONTRACT_ADDRESS)
-        .expect("should be valid contract address");
+    let contract_addr =
+        H160::from_str(MULTICALL_CONTRACT_ADDRESS).expect("should be valid contract address");
     let contract = Contract::from_json(w3.eth(), contract_addr, MULTICALL_ABI)
         .expect("should be valid init contract data");
-    let from  = get_pma()
-        .await
-        .context("failed to get the PMA")?;
+    let from = get_pma().await.context("failed to get the PMA")?;
     let key_info = get_key_info();
 
     let options = Options {
         gas_price: Some(gas_price),
-        gas: Some(U256::from(calls.iter().fold(U256::from(BASE_GAS+10000), |result, call| result + call.gas_limit))),
-        nonce: Some(retry_until_success!(w3.eth().transaction_count(H160::from_str(&from)?, None))?),
+        gas: Some(
+            calls
+                .iter()
+                .fold(U256::from(BASE_GAS + 10000), |result, call| {
+                    result + call.gas_limit
+                }),
+        ),
+        nonce: Some(retry_until_success!(w3
+            .eth()
+            .transaction_count(H160::from_str(&from)?, None))?),
         ..Default::default()
     };
 
@@ -127,20 +136,26 @@ pub async fn multicall<T: Transport>(
     let mut current_calls_batch = vec![];
     while !calls.is_empty() {
         (current_calls_batch, calls) = get_current_calls_batch(&calls, &chain);
-        let params: Vec<Token> = current_calls_batch.iter().map(|c| c.clone().into_token()).collect();
-        let signed_call = contract.sign(
-            MULTICALL_CALL_FUNCTION,
-            vec![params.clone()],
-            options.clone(),
-            from.clone(),
-            key_info.clone(),
-            nat_to_u64(chain_id),
-        )
-        .await
-        .context("failed to sign contract call")?;
+        let params: Vec<Token> = current_calls_batch
+            .iter()
+            .map(|c| c.clone().into_token())
+            .collect();
+        let signed_call = contract
+            .sign(
+                MULTICALL_CALL_FUNCTION,
+                vec![params.clone()],
+                options.clone(),
+                from.clone(),
+                key_info.clone(),
+                nat_to_u64(chain_id),
+            )
+            .await
+            .context("failed to sign contract call")?;
 
-        let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(signed_call.raw_transaction.clone()))
-            .context("failed to execute a raw tx")?;
+        let tx_hash = retry_until_success!(w3
+            .eth()
+            .send_raw_transaction(signed_call.raw_transaction.clone()))
+        .context("failed to execute a raw tx")?;
         let tx_receipt = ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
             .await
             .context("failed while waiting for a successful tx execution")?;
@@ -148,7 +163,7 @@ pub async fn multicall<T: Transport>(
         let data = contract
             .abi()
             .function(MULTICALL_CALL_FUNCTION)
-            .and_then(|f| f.encode_input(&vec![params.into_token()]))
+            .and_then(|f| f.encode_input(&[params.into_token()]))
             .context("failed to form data of a call")?;
         let call_request = CallRequest {
             from: Some(tx_receipt.from),
@@ -156,8 +171,13 @@ pub async fn multicall<T: Transport>(
             data: Some(Bytes::from(data)),
             ..Default::default()
         };
-        let block_number = BlockId::from(tx_receipt.block_number.expect("block number should be valid"));
-        let raw_result = retry_until_success!(w3.eth().call(call_request.clone(), Some(block_number)))?;
+        let block_number = BlockId::from(
+            tx_receipt
+                .block_number
+                .expect("block number should be valid"),
+        );
+        let raw_result =
+            retry_until_success!(w3.eth().call(call_request.clone(), Some(block_number)))?;
         let call_result: Vec<Token> = contract
             .abi()
             .function(MULTICALL_CALL_FUNCTION)
@@ -171,18 +191,23 @@ pub async fn multicall<T: Transport>(
             .into_array()
             .context("should be valid call result: array")?;
 
-        result.append(&mut results.iter().map(|token| {
-            MulticallResult::from_token(token.clone()).expect("failed to decode from token")
-        }).collect::<Vec<MulticallResult>>());
+        result.append(
+            &mut results
+                .iter()
+                .map(|token| {
+                    MulticallResult::from_token(token.clone()).expect("failed to decode from token")
+                })
+                .collect::<Vec<MulticallResult>>(),
+        );
     }
-    
+
     Ok(result)
 }
 
 fn get_current_calls_batch(calls: &[Call], chain: &Chain) -> (Vec<Call>, Vec<Call>) {
-    let mut gas_counter = Nat::from(BASE_GAS+1000);
+    let mut gas_counter = Nat::from(BASE_GAS + 1000);
     for (i, call) in calls.iter().enumerate() {
-        gas_counter = gas_counter + u256_to_nat(call.gas_limit.clone());
+        gas_counter += u256_to_nat(call.gas_limit);
         if gas_counter >= chain.block_gas_limit {
             return (calls[..i].to_vec(), calls[i..].to_vec());
         }
@@ -200,20 +225,17 @@ pub struct Transfer {
 impl Tokenizable for Transfer {
     fn from_token(token: Token) -> std::result::Result<Self, Error>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         if let Token::Tuple(tokens) = token {
             if tokens.len() != 2 {
                 return Err(Error::InvalidOutputType("invalid tokens number".into()));
             }
 
-            if let (
-                Token::Address(target),
-                Token::Uint(value),
-            ) = (tokens[0].clone(), tokens[1].clone()) {
-                return Ok(Self {
-                    target,
-                    value,
-                });
+            if let (Token::Address(target), Token::Uint(value)) =
+                (tokens[0].clone(), tokens[1].clone())
+            {
+                return Ok(Self { target, value });
             }
         }
 
@@ -221,47 +243,53 @@ impl Tokenizable for Transfer {
     }
 
     fn into_token(self) -> Token {
-        return Token::Tuple(vec![
-            Token::Address(self.target),
-            Token::Uint(self.value),
-        ])
+        Token::Tuple(vec![Token::Address(self.target), Token::Uint(self.value)])
     }
 }
 
-pub async fn multitranfer<T: Transport>(w3: &Web3<T>, chain_id: &Nat, transfers: Vec<Transfer>) -> Result<()> {
-    let contract_addr = H160::from_str(MULTICALL_CONTRACT_ADDRESS)
-        .expect("should be valid contract address");
+pub async fn multitranfer<T: Transport>(
+    w3: &Web3<T>,
+    chain_id: &Nat,
+    transfers: Vec<Transfer>,
+) -> Result<()> {
+    let contract_addr =
+        H160::from_str(MULTICALL_CONTRACT_ADDRESS).expect("should be valid contract address");
     let contract = Contract::from_json(w3.eth(), contract_addr, MULTICALL_ABI)
         .expect("should be valid init contract data");
-    let from  = get_pma()
-        .await
-        .context("failed to get the PMA")?;
+    let from = get_pma().await.context("failed to get the PMA")?;
     let key_info = get_key_info();
 
     let gas_price = retry_until_success!(w3.eth().gas_price())?;
 
     let options = Options {
-        gas_price: Some((gas_price/10)*12),
-        gas: Some(U256::from(BASE_GAS + (GAS_PER_TRANSFER * transfers.len() as u64))),
+        gas_price: Some((gas_price / 10) * 12),
+        gas: Some(U256::from(
+            BASE_GAS + (GAS_PER_TRANSFER * transfers.len() as u64),
+        )),
         value: Some(transfers.iter().fold(U256::from(0), |sum, t| sum + t.value)),
-        nonce: Some(retry_until_success!(w3.eth().transaction_count(H160::from_str(&from)?, None))?),
+        nonce: Some(retry_until_success!(w3
+            .eth()
+            .transaction_count(H160::from_str(&from)?, None))?),
         ..Default::default()
     };
     let params: Vec<Token> = transfers.iter().map(|c| c.clone().into_token()).collect();
-    let signed_call = contract.sign(
-        MULTICALL_TRANSFER_FUNCTION,
-        vec![params.clone()],
-        options,
-        from,
-        key_info,
-        nat_to_u64(&chain_id),
-    )
-    .await
-    .context("failed to sign contract call")?;
+    let signed_call = contract
+        .sign(
+            MULTICALL_TRANSFER_FUNCTION,
+            vec![params.clone()],
+            options,
+            from,
+            key_info,
+            nat_to_u64(chain_id),
+        )
+        .await
+        .context("failed to sign contract call")?;
 
-    let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(signed_call.raw_transaction.clone()))
-        .context("failed to execute a raw tx")?;
-    ic_cdk::println!("multitransfer tx_hash: {}", hex::encode(&tx_hash.as_bytes()));
+    let tx_hash = retry_until_success!(w3
+        .eth()
+        .send_raw_transaction(signed_call.raw_transaction.clone()))
+    .context("failed to execute a raw tx")?;
+    ic_cdk::println!("multitransfer tx_hash: {}", hex::encode(tx_hash.as_bytes()));
     ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
         .await
         .context("failed while waiting for a successful tx execution")?;

@@ -4,11 +4,11 @@ use ic_cdk::export::{
     serde::{Deserialize, Serialize},
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 
 use crate::utils::multicall::GAS_PER_TRANSFER;
 
-const ETH_TRANSFER_GAS_LIMIT: u64 = 21_000+GAS_PER_TRANSFER;
+const ETH_TRANSFER_GAS_LIMIT: u64 = 21_000 + GAS_PER_TRANSFER;
 
 #[derive(Clone, Debug, Default, CandidType, Serialize, Deserialize)]
 pub struct UserBalance {

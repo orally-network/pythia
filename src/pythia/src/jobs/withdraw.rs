@@ -1,11 +1,19 @@
 use std::str::FromStr;
 
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use candid::Nat;
 use ic_utils::logger::log_message;
-use ic_web3::{Web3, transports::ICHttp, types::H160};
+use ic_web3::{transports::ICHttp, types::H160, Web3};
 
-use crate::{STATE, types::withdraw::WithdrawRequest, clone_with_state, utils::{{multicall::Transfer, nat_to_u256}, multicall}};
+use crate::{
+    clone_with_state,
+    types::withdraw::WithdrawRequest,
+    utils::{
+        multicall,
+        {multicall::Transfer, nat_to_u256},
+    },
+    STATE,
+};
 
 const MAX_TRANSFERS: usize = 100;
 
@@ -29,7 +37,7 @@ pub async fn withdraw() {
 }
 
 async fn send_funds(chain_id: &Nat, reqs: &[WithdrawRequest]) -> Result<()> {
-    if reqs.len() == 0 {
+    if reqs.is_empty() {
         return Ok(());
     }
 
@@ -37,18 +45,20 @@ async fn send_funds(chain_id: &Nat, reqs: &[WithdrawRequest]) -> Result<()> {
 
     let mut transfers: Vec<Transfer> = reqs
         .iter()
-        .map(|req| {
-            Transfer {
-                target: H160::from_str(&req.receiver).expect("should be valid address"),
-                value: nat_to_u256(&req.amount),
-            }
+        .map(|req| Transfer {
+            target: H160::from_str(&req.receiver).expect("should be valid address"),
+            value: nat_to_u256(&req.amount),
         })
         .collect();
 
     while !transfers.is_empty() {
-        multicall::multitranfer(&w3, chain_id, transfers.split_off((transfers.len()-1) % MAX_TRANSFERS))
-            .await
-            .context("failed to transfer funds")?;
+        multicall::multitranfer(
+            &w3,
+            chain_id,
+            transfers.split_off((transfers.len() - 1) % MAX_TRANSFERS),
+        )
+        .await
+        .context("failed to transfer funds")?;
     }
 
     Ok(())

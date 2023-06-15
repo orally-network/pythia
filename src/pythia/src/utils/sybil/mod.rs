@@ -5,7 +5,7 @@ use ic_cdk::export::{
     serde::{Deserialize, Serialize},
 };
 
-use crate::{types::rate_data::RateDataLight, STATE, clone_with_state};
+use crate::{clone_with_state, types::rate_data::RateDataLight, STATE};
 
 #[derive(Clone, Debug, CandidType, Serialize, Deserialize)]
 enum PairDataResponse {
@@ -14,8 +14,8 @@ enum PairDataResponse {
 }
 
 pub async fn is_pair_exists(pair_id: &str) -> Result<bool> {
-    let sybil_canister = clone_with_state!(sybil_canister)
-        .expect("SYBIL CANISTER should be initialised");
+    let sybil_canister =
+        clone_with_state!(sybil_canister).expect("SYBIL CANISTER should be initialised");
 
     let pair_id = pair_id.to_string();
     let (is_exist,): (bool,) = ic_cdk::call(sybil_canister, "is_pair_exists", (pair_id,))

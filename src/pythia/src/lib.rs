@@ -1,17 +1,13 @@
+mod jobs;
 mod methods;
 mod migrations;
 mod types;
 mod utils;
-mod jobs;
 
 use std::cell::RefCell;
 use std::time::Duration;
 
-use types::{
-    chains::Chain,
-    errors::PythiaError,
-    state::State,
-};
+use types::{chains::Chain, errors::PythiaError, state::State};
 
 use ic_cdk::{
     api::management_canister::http_request::{HttpResponse, TransformArgs},

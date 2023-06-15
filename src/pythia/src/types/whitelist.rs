@@ -1,4 +1,7 @@
-use ic_cdk::export::{candid::CandidType, serde::{Deserialize, Serialize}};
+use ic_cdk::export::{
+    candid::CandidType,
+    serde::{Deserialize, Serialize},
+};
 
 use crate::STATE;
 

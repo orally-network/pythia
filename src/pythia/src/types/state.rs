@@ -1,9 +1,15 @@
 use std::collections::HashMap;
 
 use candid::{Nat, Principal};
-use ic_cdk::export::{candid::CandidType, serde::{Deserialize, Serialize}};
+use ic_cdk::export::{
+    candid::CandidType,
+    serde::{Deserialize, Serialize},
+};
 
-use super::{chains::Chain, balance::UserBalance, withdraw::WithdrawRequest, subscription::Subscription, whitelist::Whitelist};
+use super::{
+    balance::UserBalance, chains::Chain, subscription::Subscription, whitelist::Whitelist,
+    withdraw::WithdrawRequest,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, CandidType, Default)]
 pub struct State {

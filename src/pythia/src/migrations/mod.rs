@@ -5,7 +5,7 @@ use ic_cdk_macros::{post_upgrade, pre_upgrade};
 use ic_cdk_timers::set_timer;
 use ic_utils::{logger, monitor};
 
-use crate::{STATE, State, jobs::publisher};
+use crate::{jobs::publisher, State, STATE};
 
 #[pre_upgrade]
 fn pre_upgrade() {
@@ -14,22 +14,14 @@ fn pre_upgrade() {
     let log_data = logger::pre_upgrade_stable_data();
     let monitor_data = monitor::pre_upgrade_stable_data();
 
-    storage::stable_save((
-        state,
-        log_data,
-        monitor_data,
-    ))
-    .expect("should be valid canister data for pre upgrade");
+    storage::stable_save((state, log_data, monitor_data))
+        .expect("should be valid canister data for pre upgrade");
 }
 
 #[post_upgrade]
 fn post_upgrade() {
     #[allow(clippy::type_complexity)]
-    let (
-        state,
-        log_data,
-        monitor_data,
-    ): (
+    let (state, log_data, monitor_data): (
         State,
         logger::PostUpgradeStableData,
         monitor::PostUpgradeStableData,
@@ -38,8 +30,10 @@ fn post_upgrade() {
     logger::post_upgrade_stable_data(log_data);
     monitor::post_upgrade_stable_data(monitor_data);
 
-    set_timer(Duration::from_secs(state.timer_frequency), publisher::execute);
+    set_timer(
+        Duration::from_secs(state.timer_frequency),
+        publisher::execute,
+    );
 
     STATE.with(|s| s.replace(state));
-
 }
