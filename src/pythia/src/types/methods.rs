@@ -16,5 +16,6 @@ pub struct Method {
     pub name: String,
     pub abi: String,
     pub gas_limit: Nat,
+    pub chain_id: Nat,
     pub method_type: MethodType,
 }

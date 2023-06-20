@@ -1,21 +1,25 @@
-use std::str::FromStr;
+use std::collections::HashMap;
 
-use candid::Nat;
-use ic_cdk::export::{
-    candid::CandidType,
-    serde::{Deserialize, Serialize},
-};
+use ic_cdk::export::{candid::{CandidType, Nat}, serde::{Deserialize, Serialize}};
+use ic_web3::ethabi::Function;
 
-use anyhow::{anyhow, Context, Result};
-use ic_web3::{ethabi::Function, types::H160};
-use serde_json::json;
+use anyhow::{Context, Result, Error};
 
-use crate::{
-    utils::{check_subs_limit, is_valid_eth_address, sybil::is_pair_exists},
-    STATE,
-};
+use crate::{STATE, utils::{abi, sybil, address, validator}};
+use super::{methods::Method, errors::PythiaError};
 
-use super::methods::{Method, MethodType};
+#[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
+pub struct SubscriptionsIndexer(Nat);
+
+impl SubscriptionsIndexer {
+    pub fn new_index() -> Nat {
+        STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            state.subscriptions_indexer.0 += 1;
+            state.subscriptions_indexer.0.clone()
+        })
+    }
+}
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct Subscription {
@@ -33,235 +37,388 @@ pub struct SubscriptionStatus {
     pub last_update: Nat,
 }
 
-impl Subscription {
-    pub fn builder() -> SubscriptionBuilder {
-        SubscriptionBuilder::default()
-    }
+#[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
+pub struct SubsribeRequest {
+    pub chain_id: Nat,
+    pub pair_id: Option<String>,
+    pub contract_addr: String,
+    pub method_abi: String,
+    pub frequency: Nat,
+    pub is_random: bool,
+    pub gas_limit: Nat,
+    pub msg: String,
+    pub sig: String,
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct SubscriptionBuilder {
-    owner: Option<String>,
-    contract_addr: Option<String>,
-    pair_id: Option<String>,
-    gas_limit: Option<Nat>,
-    frequency: Option<Nat>,
-    abi: Option<String>,
-    is_random: Option<bool>,
+#[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
+pub struct UpdateSubscriptionRequest {
+    pub chain_id: Nat,
+    pub id: Nat,
+    pub pair_id: Option<String>,
+    pub gas_limit: Option<Nat>,
+    pub method_abi: Option<String>,
+    pub contract_addr: Option<String>,
+    pub frequency: Option<Nat>,
+    pub is_random: Option<bool>,
+    pub msg: String,
+    pub sig: String,
 }
 
-impl SubscriptionBuilder {
-    pub fn owner(mut self, owner: &str) -> Self {
-        self.owner = Some(owner.into());
-        self
-    }
+/// Chain id => Subscriptions
+#[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
+pub struct Subscriptions(pub HashMap<Nat, Vec<Subscription>>);
 
-    pub fn contract(mut self, contract_addr: &str) -> Self {
-        self.contract_addr = Some(contract_addr.into());
-        self
-    }
-
-    pub fn random(mut self, value: bool) -> Self {
-        self.is_random = Some(value);
-        self
-    }
-
-    pub fn pair(mut self, pair_id: Option<String>) -> Self {
-        self.pair_id = pair_id;
-        self
-    }
-
-    pub fn method(mut self, abi: &str, gas_limit: &Nat, frequency: &Nat) -> Self {
-        self.abi = Some(abi.into());
-        self.gas_limit = Some(gas_limit.clone());
-        self.frequency = Some(frequency.clone());
-        self
-    }
-
-    pub async fn build(&self) -> Result<Subscription> {
-        let owner = self.owner.clone().context("owner is not set")?;
-        let contract_addr = self
-            .contract_addr
-            .clone()
-            .context("contract address is not set")?;
-        let abi = self.abi.clone().context("abi is not set")?;
-        let gas_limit = self.gas_limit.clone().context("gas limit is not set")?;
-        let is_random = self.is_random.context("is_random is not set")?;
-        let frequency = self.frequency.clone().context("frequency is not set")?;
-
-        if !is_valid_eth_address(&owner) {
-            return Err(anyhow!("invalid ethereum address"));
-        }
-
-        if !is_valid_eth_address(&contract_addr) {
-            return Err(anyhow!("invalid contract address"));
-        }
-
-        check_subs_limit(&H160::from_str(&owner)?)?;
-
-        let (abi, method_type) = resolve_abi(abi, self.pair_id.clone(), is_random)?;
-        if let Some(pair_id) = self.pair_id.clone() {
-            if !is_pair_exists(&pair_id).await? {
-                return Err(anyhow!("pair id does not exist"));
+impl Subscriptions {
+    pub async fn add(req: &SubsribeRequest, owner: &str) -> Result<Nat> {
+        validator::subscription_frequency(&req.frequency)
+            .context(PythiaError::InvalidSubscriptionFrequency)?;
+        let (abi, method_type) = abi::resolve_abi(
+            req.method_abi.clone(),
+            req.pair_id.clone(),
+            req.is_random
+        )?;
+        if let Some(pair_id) = req.pair_id.clone() {
+            if !sybil::is_pair_exists(&pair_id).await? {
+                return Err(PythiaError::PairDoesNotExist.into());
             }
         }
 
         let name = serde_json::from_str::<Function>(&abi)
-            .context("failed to parse method abi")?
+            .context(PythiaError::InvalidABIFunctionName)?
             .name;
+        let id = SubscriptionsIndexer::new_index();
 
-        Ok(Subscription {
-            id: get_new_subsciption_id(),
-            owner,
-            contract_addr,
-            frequency,
+        let subscription = Subscription {
+            id: id.clone(),
+            owner: owner.into(),
+            contract_addr: req.contract_addr.clone(),
+            frequency: req.frequency.clone(),
             method: Method {
                 name,
                 abi,
-                gas_limit,
+                chain_id: req.chain_id.clone(),
+                gas_limit: req.gas_limit.clone(),
                 method_type,
             },
             status: SubscriptionStatus {
                 is_active: true,
                 ..Default::default()
             },
+        };
+        
+        STATE.with(|state| {
+            state
+                .borrow_mut()
+                .subscriptions
+                .0
+                .get_mut(&req.chain_id)
+                .context(PythiaError::ChainDoesNotExist)?
+                .push(subscription);
+
+            Ok::<(), Error>(())
+        })?;
+
+        Ok(id)
+    }
+
+    pub fn get(chain_id: &Nat, id: &Nat) -> Result<Subscription> {
+        let id = id.clone();
+        STATE.with(|state| {
+            Ok(state
+                .borrow()
+                .subscriptions
+                .0
+                .get(chain_id)
+                .context(PythiaError::ChainDoesNotExist)?
+                .iter()
+                .find(|s| s.id == id)
+                .context(PythiaError::SubscriptionDoesNotExist)?
+                .clone())
         })
     }
-}
 
-fn get_new_subsciption_id() -> Nat {
-    STATE.with(|state| {
-        let mut state = state.borrow_mut();
-        state.subscriptions_index += 1;
-        state.subscriptions_index.into()
-    })
-}
+    pub fn get_all(chain_id: Option<Nat>, ids: Vec<Nat>, owner: Option<String>) -> Vec<Subscription> {
+        STATE.with(|state| {
+            let state = state.borrow();
+            let mut subscriptions = state
+                .subscriptions
+                .0
+                .values()
+                .fold(Vec::<Subscription>::new(), |mut result, subs| {
+                    result.extend(subs.clone());
+                    result
+                });
 
-fn resolve_abi(
-    method_abi: String,
-    pair_id: Option<String>,
-    is_random: bool,
-) -> Result<(String, MethodType)> {
-    let raw_abi: Vec<&str> = method_abi.split_terminator(&['(', ')', ',']).collect();
-
-    if let Some(pair_id) = pair_id {
-        get_pair_abi(&raw_abi, &pair_id)
-    } else if is_random {
-        get_random_abi(&raw_abi)
-    } else {
-        get_empty_abi(&raw_abi)
-    }
-}
-
-fn get_pair_abi(raw_abi: &[&str], pair_id: &str) -> Result<(String, MethodType)> {
-    let func_name = raw_abi
-        .first()
-        .ok_or(anyhow!("invalid method abi: a function name"))?
-        .to_string();
-
-    if raw_abi.len() != 5
-        || raw_abi[1] != "string"
-        || raw_abi[2] != " uint256"
-        || raw_abi[3] != " uint256"
-        || raw_abi[4] != " uint256"
-    {
-        return Err(anyhow!("invalid method abi: parameter types"));
-    }
-
-    let data = json!({
-        "inputs": [
-            {
-                "internalType": "string",
-                "name": "pair_id",
-                "type": "string",
-            },
-            {
-                "internalType": "uint256",
-                "name": "price",
-                "type": "uint256",
-            },
-            {
-                "internalType": "uint256",
-                "name": "decimals",
-                "type": "uint256",
-            },
-            {
-                "internalType": "uint256",
-                "name": "timestamp",
-                "type": "uint256",
+            if let Some(chain_id) = chain_id {
+                subscriptions = subscriptions
+                    .into_iter()
+                    .filter(|sub| sub.method.chain_id == chain_id)
+                    .collect::<Vec<Subscription>>();
             }
-        ],
-        "name": func_name,
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    });
 
-    Ok((data.to_string(), MethodType::Pair(pair_id.into())))
-}
-
-fn get_random_abi(raw_abi: &[&str]) -> Result<(String, MethodType)> {
-    if raw_abi.len() != 2 {
-        return Err(anyhow!(
-            "invalid method abi: random should have one parameter"
-        ));
-    }
-
-    let func_name = raw_abi
-        .first()
-        .ok_or(anyhow!("invalid method abi: random, function name"))?
-        .to_string();
-
-    let param_type = raw_abi
-        .get(1)
-        .ok_or(anyhow!("invalid method abi: random, param type"))?
-        .to_string();
-
-    if !is_valid_func_param(&param_type) {
-        return Err(anyhow!("invalid method abi, format"));
-    }
-
-    let data = json!({
-        "inputs": [
-            {
-                "internalType": param_type,
-                "name": "template",
-                "type": param_type,
+            if let Some(owner) = owner {
+                subscriptions = subscriptions
+                    .into_iter()
+                    .filter(|sub| sub.owner == owner)
+                    .collect::<Vec<Subscription>>();
             }
-        ],
-        "name": func_name,
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    });
 
-    Ok((data.to_string(), MethodType::Random(param_type)))
-}
+            if !ids.is_empty() {
+                subscriptions = subscriptions
+                    .into_iter()
+                    .filter(|sub| ids.contains(&sub.id))
+                    .collect::<Vec<Subscription>>();
+            }
 
-fn get_empty_abi(raw_abi: &[&str]) -> Result<(String, MethodType)> {
-    if raw_abi.len() != 2 && !raw_abi[1].is_empty() {
-        return Err(anyhow!("invalid method abi: empty"));
+            subscriptions
+        })
     }
 
-    let func_name = raw_abi
-        .first()
-        .ok_or(anyhow!("invalid method abi: empty, function name"))?
-        .to_string();
+    pub fn remove(chain_id: &Nat, owner: &str, id: &Nat) -> Result<()> {
+        let id = id.clone();
+        STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            let subscriptions = state
+                .subscriptions
+                .0
+                .get_mut(chain_id)
+                .context(PythiaError::ChainDoesNotExist)?;
+            let index = subscriptions
+                .iter()
+                .position(|s| s.id == id && s.owner == owner)
+                .context(PythiaError::SubscriptionDoesNotExist)?;
+            subscriptions.remove(index);
+            Ok(())
+        })
+    }
 
-    let data = json!({
-        "inputs": [],
-        "name": func_name,
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    });
+    pub fn remove_all(chain_id: Option<Nat>, ids: Vec<Nat>, owner: Option<String>) -> Result<()> {
+        STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            state
+                .subscriptions
+                .0
+                .iter_mut()
+                .for_each(|(_chain_id, subs)| {
+                    if let Some(chain_id) = chain_id.clone() {
+                        if chain_id != _chain_id.clone() {
+                            return;
+                        }
+                    }
 
-    Ok((data.to_string(), MethodType::Empty))
-}
+                    subs.retain_mut(|sub| {
+                        if let Some(owner) = owner.clone() {
+                            if owner != sub.owner.clone() {
+                                return true;
+                            }
+                        }
 
-fn is_valid_func_param(func: &str) -> bool {
-    matches!(func, f if f.starts_with("string") 
-            || f.starts_with("bytes") 
-            || f.starts_with("uint") 
-            || f.starts_with("int"))
+                        if ids.is_empty() || ids.contains(&sub.id) {
+                            return false;
+                        }
+
+                        true
+                    })
+                });
+                
+            Ok(())
+        })
+    }
+
+    pub fn stop(chain_id: &Nat, owner: &str, id: &Nat) -> Result<()> {
+        let id = id.clone();
+        STATE.with(|state| {
+            state
+                .borrow_mut()
+                .subscriptions
+                .0
+                .get_mut(chain_id)
+                .context(PythiaError::ChainDoesNotExist)?
+                .iter_mut()
+                .find(|s| s.id == id && s.owner == owner)
+                .context(PythiaError::SubscriptionDoesNotExist)?
+                .status.is_active = false;
+
+            Ok(())
+        })
+    }
+
+    pub fn stop_all(chain_id: Option<Nat>, ids: Vec<Nat>, owner: Option<String>) -> Result<()> {
+        STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            state
+                .subscriptions
+                .0
+                .iter_mut()
+                .for_each(|(_chain_id, subs)| {
+                    if let Some(chain_id) = chain_id.clone() {
+                        if chain_id != _chain_id.clone() {
+                            return;
+                        }
+                    }
+
+                    subs.iter_mut().for_each(|sub| {
+                        if let Some(owner) = owner.clone() {
+                            if owner != sub.owner.clone() {
+                                return;
+                            }
+                        }
+
+                        if ids.is_empty() || ids.contains(&sub.id) {
+                            sub.status.is_active = false;
+                        }
+                    });
+                });
+                
+            Ok(())
+        })
+    }
+
+    pub fn start(chain_id: &Nat, owner: &str, id: &Nat) -> Result<()> {
+        let id = id.clone();
+        STATE.with(|state| {
+            state
+                .borrow_mut()
+                .subscriptions
+                .0
+                .get_mut(chain_id)
+                .context(PythiaError::ChainDoesNotExist)?
+                .iter_mut()
+                .find(|s| s.id == id && s.owner == owner)
+                .context(PythiaError::SubscriptionDoesNotExist)?
+                .status.is_active = true;
+
+            Ok(())
+        })
+    }
+
+    pub fn start_all(chain_id: Option<Nat>, ids: Vec<Nat>, owner: Option<String>) -> Result<()> {
+        STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            state
+                .subscriptions
+                .0
+                .iter_mut()
+                .for_each(|(_chain_id, subs)| {
+                    if let Some(chain_id) = chain_id.clone() {
+                        if chain_id != _chain_id.clone() {
+                            return;
+                        }
+                    }
+
+                    subs.iter_mut().for_each(|sub| {
+                        if let Some(owner) = owner.clone() {
+                            if owner != sub.owner.clone() {
+                                return;
+                            }
+                        }
+
+                        if ids.is_empty() || ids.contains(&sub.id) {
+                            sub.status.is_active = true;
+                        }
+                    });
+                });
+                
+            Ok(())
+        })
+    }
+
+    pub fn update(req: &UpdateSubscriptionRequest, address: &str) -> Result<()> {
+        STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            let mut subscription = state
+                .subscriptions
+                .0
+                .get_mut(&req.chain_id)
+                .context(PythiaError::ChainDoesNotExist)?
+                .iter_mut()
+                .find(|sub| sub.id == req.id && sub.owner == address)
+                .context(PythiaError::SubscriptionDoesNotExist)?;
+
+            if let Some(gas_limit) = req.gas_limit.clone() {
+                subscription.method.gas_limit = gas_limit;
+            }
+
+            if let Some(contract_addr) = req.contract_addr.clone() {
+                subscription.contract_addr = address::normalize(&contract_addr)
+                    .context(PythiaError::InvalidAddressFormat)?;
+            }
+
+            if let Some(frequency) = req.frequency.clone() {
+                validator::subscription_frequency(&frequency)
+                    .context(PythiaError::InvalidSubscriptionFrequency)?;
+                subscription.frequency = frequency;
+            }
+
+            if let (Some(method_abi), Some(is_random)) = (req.method_abi.clone(), req.is_random) {
+                let (abi, method_type) = abi::resolve_abi(
+                    method_abi,
+                    req.pair_id.clone(),
+                    is_random
+                )?;
+                subscription.method.abi = abi;
+                subscription.method.method_type = method_type;
+            }
+
+            Ok(())
+        })
+    }
+
+    pub fn check_limits(owner: &str) -> Result<()> {
+        STATE.with(|state| {
+            let state = state.borrow();
+
+            let owners = state
+                .subscriptions
+                .0
+                .values()
+                .map(|subs| {
+                    subs.iter()
+                        .map(|sub| sub.owner.clone())
+                        .collect::<Vec<String>>()
+                })
+                .fold(Vec::<String>::new(), |mut result, owners| {
+                    result.extend(owners);
+                    result
+                });
+
+            if owners.len() as u64 > state.subs_limit_total {
+                return Err(PythiaError::TotalSubscriptionsLimitReached.into());
+            }
+
+            if owners
+                .iter()
+                .filter(|&_owner| _owner.clone() == owner)
+                .count() as u64
+                > state.subs_limit_wallet
+            {
+                return Err(PythiaError::WalletSubscriptionsLimitReached.into());
+            }
+
+            Ok(())
+        })
+    }
+
+    pub fn init_new_chain(chain_id: &Nat) -> Result<()> {
+        STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            if state.subscriptions.0.contains_key(chain_id) {
+                return Err(PythiaError::ChainAlreadyExists.into());
+            }
+            state.subscriptions.0.insert(chain_id.clone(), vec![]);
+            Ok(())
+        })
+    }
+
+    pub fn deinit_chain(chain_id: &Nat) -> Result<()> {
+        STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            state
+                .subscriptions
+                .0
+                .remove(chain_id)
+                .context(PythiaError::ChainDoesNotExist)?;
+            Ok(())
+        })
+    }
 }

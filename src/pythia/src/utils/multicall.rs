@@ -11,8 +11,8 @@ use ic_web3::{
     Transport, Web3,
 };
 
-use super::{get_chain, get_key_info, get_pma, nat_to_u64, u256_to_nat};
-use crate::types::chains::Chain;
+use super::{web3, canister, nat, address};
+use crate::types::{chains::{Chain, Chains}, errors::PythiaError};
 
 const MULTICALL_ABI: &[u8] = include_bytes!("../../assets/MulticallABI.json");
 const MULTICALL_CONTRACT_ADDRESS: &str = "0x26df57f4577dcd7e1deea93299655b14df374b17";
@@ -109,13 +109,13 @@ pub async fn multicall<T: Transport>(
 ) -> Result<Vec<MulticallResult>> {
     let mut calls = calls;
     let mut result: Vec<MulticallResult> = vec![];
-    let chain = get_chain(chain_id)?;
+    let chain = Chains::get(chain_id)?;
     let contract_addr =
         H160::from_str(MULTICALL_CONTRACT_ADDRESS).expect("should be valid contract address");
     let contract = Contract::from_json(w3.eth(), contract_addr, MULTICALL_ABI)
         .expect("should be valid init contract data");
-    let from = get_pma().await.context("failed to get the PMA")?;
-    let key_info = get_key_info();
+    let from = canister::pma().await.context("failed to get the PMA")?;
+    let key_info = web3::key_info();
 
     let options = Options {
         gas_price: Some(gas_price),
@@ -147,7 +147,7 @@ pub async fn multicall<T: Transport>(
                 options.clone(),
                 from.clone(),
                 key_info.clone(),
-                nat_to_u64(chain_id),
+                nat::to_u64(chain_id),
             )
             .await
             .context("failed to sign contract call")?;
@@ -207,7 +207,7 @@ pub async fn multicall<T: Transport>(
 fn get_current_calls_batch(calls: &[Call], chain: &Chain) -> (Vec<Call>, Vec<Call>) {
     let mut gas_counter = Nat::from(BASE_GAS + 1000);
     for (i, call) in calls.iter().enumerate() {
-        gas_counter += u256_to_nat(call.gas_limit);
+        gas_counter += nat::from_u256(&call.gas_limit);
         if gas_counter >= chain.block_gas_limit {
             return (calls[..i].to_vec(), calls[i..].to_vec());
         }
@@ -252,27 +252,30 @@ pub async fn multitranfer<T: Transport>(
     chain_id: &Nat,
     transfers: Vec<Transfer>,
 ) -> Result<()> {
-    let contract_addr =
-        H160::from_str(MULTICALL_CONTRACT_ADDRESS).expect("should be valid contract address");
+    let contract_addr = address::to_h160(MULTICALL_CONTRACT_ADDRESS)?;
     let contract = Contract::from_json(w3.eth(), contract_addr, MULTICALL_ABI)
-        .expect("should be valid init contract data");
-    let from = get_pma().await.context("failed to get the PMA")?;
-    let key_info = get_key_info();
+        .context(PythiaError::InvalidContractABI)?;
+
+    let from = canister::pma()
+        .await
+        .context(PythiaError::UnableToGetPMA)?;
+    let key_info = web3::key_info();
 
     let gas_price = retry_until_success!(w3.eth().gas_price())?;
+    let gas_limit = BASE_GAS + (GAS_PER_TRANSFER * transfers.len() as u64);
+    let value = transfers.iter().fold(U256::from(0), |sum, t| sum + t.value);
+    let nonce = retry_until_success!(w3.eth().transaction_count(H160::from_str(&from)?, None))?;
 
     let options = Options {
         gas_price: Some((gas_price / 10) * 12),
-        gas: Some(U256::from(
-            BASE_GAS + (GAS_PER_TRANSFER * transfers.len() as u64),
-        )),
-        value: Some(transfers.iter().fold(U256::from(0), |sum, t| sum + t.value)),
-        nonce: Some(retry_until_success!(w3
-            .eth()
-            .transaction_count(H160::from_str(&from)?, None))?),
+        gas: Some(U256::from(gas_limit)),
+        value: Some(value),
+        nonce: Some(nonce),
         ..Default::default()
     };
+
     let params: Vec<Token> = transfers.iter().map(|c| c.clone().into_token()).collect();
+
     let signed_call = contract
         .sign(
             MULTICALL_TRANSFER_FUNCTION,
@@ -280,18 +283,19 @@ pub async fn multitranfer<T: Transport>(
             options,
             from,
             key_info,
-            nat_to_u64(chain_id),
+            nat::to_u64(chain_id),
         )
         .await
-        .context("failed to sign contract call")?;
+        .context(PythiaError::UnableToSignContractCall)?;
 
     let tx_hash = retry_until_success!(w3
         .eth()
         .send_raw_transaction(signed_call.raw_transaction.clone()))
-    .context("failed to execute a raw tx")?;
-    ic_cdk::println!("multitransfer tx_hash: {}", hex::encode(tx_hash.as_bytes()));
+    .context(PythiaError::UnableToExecuteRawTx)?;
+
     ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
         .await
-        .context("failed while waiting for a successful tx execution")?;
+        .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
+
     Ok(())
 }

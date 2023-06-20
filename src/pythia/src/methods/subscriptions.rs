@@ -1,279 +1,209 @@
-use std::collections::HashMap;
-
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 
 use ic_cdk::export::candid::Nat;
 use ic_cdk_macros::{query, update};
-use ic_utils::logger::log_message;
 
 use crate::{
-    clone_with_state,
-    jobs::publisher,
-    types::{subscription::Subscription, whitelist},
-    utils::{check_balance, check_subs_limit, get_chain, rec_eth_addr, validate_caller},
-    PythiaError, STATE,
+    types::{subscription::{Subscription, SubsribeRequest,  Subscriptions, UpdateSubscriptionRequest}, whitelist, balance::Balances},
+    utils::{validator, siwe}, PythiaError, clone_with_state, jobs::publisher, log,
 };
 
+/// Create a new subscriptions.
+/// 
+/// # Arguments
+/// 
+/// * `req` - The SubscribeRequest candid type.
+/// 
+/// # Returns
+/// 
+/// A result with a subscription id
 #[update]
-#[allow(clippy::too_many_arguments)]
-pub async fn subscribe(
-    chain_id: Nat,
-    pair_id: Option<String>,
-    contract_addr: String,
-    method_abi: String,
-    frequency: Nat,
-    is_random: bool,
-    gas_limit: Nat,
-    msg: String,
-    sig: String,
-) -> Result<(), String> {
-    _subscribe(
-        chain_id,
-        pair_id,
-        contract_addr,
-        method_abi,
-        frequency,
-        is_random,
-        gas_limit,
-        msg,
-        sig,
-    )
-    .await
-    .map_err(|e| format!("{e:?}"))
+pub async fn subscribe(req: SubsribeRequest) -> Result<Nat, String> {
+    _subscribe(req)
+        .await
+        .map_err(|e| format!("failed to subsribe: {e:?}"))
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn _subscribe(
-    chain_id: Nat,
-    pair_id: Option<String>,
-    contract_addr: String,
-    method_abi: String,
-    frequency: Nat,
-    is_random: bool,
-    gas_limit: Nat,
-    msg: String,
-    sig: String,
-) -> Result<()> {
-    if frequency < clone_with_state!(timer_frequency) {
-        return Err(anyhow!("frequency must be greater than 5 minutes"));
-    };
-
-    let chain = get_chain(&chain_id)?;
-    let pub_key = rec_eth_addr(&msg, &sig).await?;
-
-    check_subs_limit(&pub_key)?;
-    if !check_balance(&pub_key, &chain) {
-        return Err(anyhow!("not enough balance"));
-    }
-
-    let subscription = Subscription::builder()
-        .owner(&hex::encode(pub_key.as_bytes()))
-        .contract(&contract_addr)
-        .pair(pair_id)
-        .method(&method_abi, &gas_limit, &frequency)
-        .random(is_random)
-        .build()
+async fn _subscribe(req: SubsribeRequest) -> Result<Nat> {
+    let address = siwe::recover(&req.msg, &req.sig)
         .await
-        .context("failed to create a subscription")?;
+        .context(PythiaError::UnableToRecoverAddress)?;
+    if !whitelist::is_whitelisted(&address) {
+        return Err(PythiaError::UserIsNotWhitelisted.into());
+    }
+    if !Balances::is_sufficient(&req.chain_id, &address)? {
+        return Err(PythiaError::InsufficientBalance.into());
+    }
+    Subscriptions::check_limits(&address)?;
 
-    log_message(format!(
-        "[ADDR: 0x{}] subsciption creation; sub id: {}",
-        hex::encode(pub_key.as_bytes()),
-        subscription.id
-    ));
-
-    STATE.with(|state| {
-        let mut state = state.borrow_mut();
-        state
-            .subscriptions
-            .entry(chain_id)
-            .or_insert(vec![])
-            .push(subscription);
-    });
+    let id = Subscriptions::add(&req, &address)
+        .await
+        .context(PythiaError::UnableToAddSubscription)?;
 
     if !clone_with_state!(is_timer_active) {
         publisher::execute();
     }
 
+    log!("[SUBSCRIPTIONS] added, id: {id}");
+    Ok(id)
+}
+
+/// Get a subscriptions by owner if present
+/// 
+/// # Arguments
+/// 
+/// * `owner` - The owner of the subscription, can be omitted
+/// 
+/// # Returns
+/// 
+/// A vector of subscriptions
+#[query]
+pub fn get_subscriptions(owner: Option<String>) -> Vec<Subscription> {
+    Subscriptions::get_all(None, vec![], owner)
+}
+
+/// Stop a subscription
+/// 
+/// # Arguments
+/// 
+/// * `chain_id` - Unique identifier of the chain, for example Ethereum Mainnet is 1
+/// * `sub_id` - The subscription id
+/// * `msg` - SIWE message, For more information, refer to the [SIWE message specification](https://eips.ethereum.org/EIPS/eip-4361)
+/// * `sig` - SIWE signature, For more information, refer to the [SIWE message specification](https://eips.ethereum.org/EIPS/eip-4361)
+/// 
+/// # Returns
+/// 
+/// Returns a result that can contain an error message
+#[update]
+pub async fn stop_subscription(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<(), String> {
+    _stop_subscription(chain_id, sub_id, msg, sig)
+        .await
+        .map_err(|e| format!("failed to stop a subscription: {e:?}"))
+}
+
+pub async fn _stop_subscription(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<()> {
+    let address = siwe::recover(&msg, &sig)
+        .await
+        .context(PythiaError::UnableToRecoverAddress)?;
+    if !whitelist::is_whitelisted(&address) {
+        return Err(PythiaError::UserIsNotWhitelisted.into());
+    }
+
+    Subscriptions::stop(&chain_id, &address, &sub_id)
+        .context(PythiaError::UnableToStopSubscription)?;
+
+    log!("[SUBSCRIPTIONS] stopped, id: {sub_id}");
     Ok(())
 }
 
-#[query]
-pub fn get_subscriptions(pub_key: Option<String>) -> Vec<Subscription> {
-    STATE.with(|state| {
-        state
-            .borrow()
-            .subscriptions
-            .values()
-            .map(|subs| {
-                subs.iter()
-                    .filter(|sub| {
-                        if let Some(pub_key) = &pub_key {
-                            sub.owner == *pub_key
-                        } else {
-                            true
-                        }
-                    })
-                    .cloned()
-                    .collect::<Vec<Subscription>>()
-            })
-            .fold(vec![], |result, v| {
-                let mut result = result;
-                result.extend(v);
-                result
-            })
-    })
-}
 
+/// Start a subscription
+/// 
+/// # Arguments
+/// 
+/// * `chain_id` - Unique identifier of the chain, for example Ethereum Mainnet is 1
+/// * `sub_id` - The subscription id
+/// * `msg` - SIWE message, For more information, refer to the [SIWE message specification](https://eips.ethereum.org/EIPS/eip-4361)
+/// * `sig` - SIWE signature, For more information, refer to the [SIWE message specification](https://eips.ethereum.org/EIPS/eip-4361)
+/// 
+/// # Returns
+/// 
+/// Returns a result that can contain an error message
 #[update]
-pub async fn stop_sub(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<(), String> {
-    _stop_sub(chain_id, sub_id, msg, sig)
+pub async fn start_subscription(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<(), String> {
+    _start_subscription(chain_id, sub_id, msg, sig)
         .await
-        .map_err(|e| format!("{e:?}"))
+        .map_err(|e| format!("failed to start a subscription: {e:?}"))
 }
 
-pub async fn _stop_sub(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<()> {
-    let pub_key = rec_eth_addr(&msg, &sig).await?;
-    let owner = hex::encode(pub_key.as_bytes());
-    if !whitelist::is_whitelisted(&owner) {
-        return Err(anyhow!("not whitelisted"));
+pub async fn _start_subscription(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<()> {
+    let address = siwe::recover(&msg, &sig)
+        .await
+        .context(PythiaError::UnableToRecoverAddress)?;
+    if !whitelist::is_whitelisted(&address) {
+        return Err(PythiaError::UserIsNotWhitelisted.into());
+    }
+    if !Balances::is_sufficient(&chain_id, &address)? {
+        return Err(PythiaError::InsufficientBalance.into());
     }
 
-    STATE.with(|state| {
-        state
-            .borrow_mut()
-            .subscriptions
-            .get_mut(&chain_id)
-            .ok_or(PythiaError::ChainDoesNotExist)?
-            .iter_mut()
-            .find(|s| s.id == sub_id)
-            .ok_or(PythiaError::SubDoesNotExist)?
-            .status
-            .is_active = false;
+    Subscriptions::start(&chain_id, &address, &sub_id)
+        .context(PythiaError::UnableToStartSubscription)?;
 
-        log_message(format!("[USER: {}] stop sub_id: {}", owner, sub_id));
-        Ok(())
-    })
-}
-
-#[update]
-pub async fn start_sub(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<(), String> {
-    _start_sub(chain_id, sub_id, msg, sig)
-        .await
-        .map_err(|e| format!("{e:?}"))
-}
-
-pub async fn _start_sub(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<()> {
-    let pub_key = rec_eth_addr(&msg, &sig).await?;
-    let owner = hex::encode(pub_key.as_bytes());
-    if !whitelist::is_whitelisted(&owner) {
-        return Err(anyhow!("not whitelisted"));
+    if !clone_with_state!(is_timer_active) {
+        publisher::execute();
     }
 
-    STATE.with(|state| {
-        let mut state = state.borrow_mut();
-        state
-            .subscriptions
-            .get_mut(&chain_id)
-            .ok_or(PythiaError::ChainDoesNotExist)?
-            .iter_mut()
-            .find(|s| s.id == sub_id)
-            .ok_or(PythiaError::SubDoesNotExist)?
-            .status
-            .is_active = true;
-
-        log_message(format!("[USER: {}] start sub_id: {}", owner, sub_id));
-
-        if !state.is_timer_active {
-            publisher::execute();
-        }
-
-        Ok(())
-    })
+    log!("[SUBSCRIPTIONS] started, id: {sub_id}");
+    Ok(())
 }
 
+/// Update a subscription
+/// 
+/// # Arguments
+/// 
+/// * `req` - The UpdateSubscriptionRequest candid type.
+/// 
+/// # Returns
+/// 
+/// Returns a result that can contain an error message
 #[update]
-pub async fn update_sub_gas_limit(
-    gas_limit: Nat,
-    chain_id: Nat,
-    sub_id: Nat,
-    msg: String,
-    sig: String,
-) -> Result<(), String> {
-    _update_sub_gas_limit(gas_limit, chain_id, sub_id, msg, sig)
+pub async fn update_subscription(req: UpdateSubscriptionRequest) -> Result<(), String> {
+    _update_subscription(req)
         .await
-        .map_err(|e| format!("{e:?}"))
+        .map_err(|e| format!("failed to update a subscription: {e:?}"))
 }
 
-pub async fn _update_sub_gas_limit(
-    gas_limit: Nat,
-    chain_id: Nat,
-    sub_id: Nat,
-    msg: String,
-    sig: String,
-) -> Result<()> {
-    let pub_key = rec_eth_addr(&msg, &sig).await?;
-    let owner = hex::encode(pub_key.as_bytes());
-    if !whitelist::is_whitelisted(&owner) {
-        return Err(anyhow!("not whitelisted"));
+async fn _update_subscription(req: UpdateSubscriptionRequest) -> Result<()> {
+    let address = siwe::recover(&req.msg, &req.sig)
+        .await
+        .context(PythiaError::UnableToRecoverAddress)?;
+    if !whitelist::is_whitelisted(&address) {
+        return Err(PythiaError::UserIsNotWhitelisted.into());
     }
 
-    STATE.with(|state| {
-        state
-            .borrow_mut()
-            .subscriptions
-            .get_mut(&chain_id)
-            .ok_or(PythiaError::ChainDoesNotExist)?
-            .iter_mut()
-            .find(|s| s.id == sub_id)
-            .ok_or(PythiaError::SubDoesNotExist)?
-            .method
-            .gas_limit = gas_limit;
+    Subscriptions::update(&req, &address)
+        .context(PythiaError::UnableToUpdateSubscription)?;
 
-        log_message(format!(
-            "[USER: {}] update gas_limit, sub_id: {}",
-            owner, sub_id
-        ));
-        Ok(())
-    })
+    log!("[SUBSCRIPTIONS] updated, id: {}", req.id);
+    Ok(())
 }
 
+/// Stop all subscriptions
+/// 
+/// # Returns
+/// 
+/// Returns a result that can contain an error message
 #[update]
-pub fn stop_subs() -> Result<(), String> {
-    _stop_subs().map_err(|e| format!("{e:?}"))
+pub fn stop_subscriptions() -> Result<(), String> {
+    _stop_subscriptions()
+        .map_err(|e| format!("failed to stop subscriptions: {e:?}"))
 }
 
-fn _stop_subs() -> Result<()> {
-    validate_caller()?;
+fn _stop_subscriptions() -> Result<()> {
+    validator::caller()?;
+    Subscriptions::stop_all(None, vec![], None)
+        .context(PythiaError::UnableToStopSubscriptions)?;
 
-    log_message("subsctiptions stopped".into());
-
-    STATE.with(|state| {
-        state
-            .borrow_mut()
-            .subscriptions
-            .iter_mut()
-            .for_each(|(_, subscriptions)| {
-                subscriptions.iter_mut().for_each(|subscription| {
-                    subscription.status.is_active = false;
-                })
-            });
-
-        Ok(())
-    })
+    log!("[SUBSCRIPTIONS] stopped all");
+    Ok(())
 }
 
+/// Stop remove subscriptions
+/// 
+/// # Returns
+/// 
+/// Returns a result that can contain an error message
 #[update]
-pub fn remove_subs() -> Result<(), String> {
-    _remove_subs().map_err(|e| format!("{e:?}"))
+pub fn remove_subscriptions() -> Result<(), String> {
+    _remove_subscriptions().map_err(|e| format!("{e:?}"))
 }
 
-pub fn _remove_subs() -> Result<()> {
-    validate_caller()?;
+pub fn _remove_subscriptions() -> Result<()> {
+    validator::caller()?;
+    Subscriptions::remove_all(None, vec![], None)
+        .context(PythiaError::UnableToRemoveSubscriptions)?;
 
-    STATE.with(|s| s.borrow_mut().subscriptions = HashMap::default());
-
-    log_message("subsctiptions removed".into());
-
+    log!("[SUBSCRIPTIONS] removed all");
     Ok(())
 }

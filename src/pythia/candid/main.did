@@ -1,0 +1,110 @@
+// General
+type Error = variant { Ok : null; Err : text };
+// Balances
+type GetPMAResponse = variant { Ok : text; Err : text };
+type GetBalanceResponse = variant { Ok : nat; Err : text };
+// Chains
+type CandidTypeChain = record {
+    chain_id : nat;
+    rpc : text;
+    min_balance : nat;
+};
+type GetChainsResponse = variant { Ok : vec CandidTypeChain; Err : text};
+type GetChainRPCResponse = variant { Ok : text; Err : text};
+// Subscribptions
+type MethodType = variant {
+    Pair : text;
+    Random : text;
+    Empty : null;
+};
+type Method = record {
+    name : text;
+    abi : text;
+    gas_limit : nat;
+    method_type : MethodType;
+};
+type SubscriptionStatus = record {
+    is_active : bool;
+    last_update : nat;
+};
+type Subscription = record {
+    id : nat;
+    owner : text;
+    contract_addr : text;
+    frequency : nat;
+    method : Method;
+    status : SubscriptionStatus;
+};
+type SubscribeRequest = record {
+    chain_id : nat;
+    pair_id : opt text;
+    contract_addr : text;
+    method_abi : text;
+    frequency : nat;
+    is_random : bool;
+    gas_limit : nat;
+    msg : text;
+    sig : text;
+};
+
+type SubscribeResponse = variant { Ok : nat; Err : text };
+
+type UpdateSubscriptionRequest = record {
+    chain_id : nat;
+    id : nat;
+    pair_id : opt text;
+    gas_limit : opt nat;
+    method_abi : opt text;
+    contract_addr : opt text;
+    frequency : opt nat;
+    is_random : opt bool;
+    msg : text;
+    sig : text;
+};
+// Whitelist
+type WhitelistEntry = record {
+    address : text;
+    is_blacklisted : bool;
+};
+type Whitelist = vec WhitelistEntry;
+type GetWhiteListResponse = variant { Ok : Whitelist; Err : text};
+type IsWhitelistedResponse = variant { Ok : bool; Err : text};
+
+// Serive
+service : {
+    // Balances
+    get_pma : () -> (GetPMAResponse);
+    deposit : (tx_hash : text, chain_id : nat, msg : text, sig : text) -> (Error);
+    withdraw : (chain_id : nat, msg : text, sig : text, receiver: text) -> (Error);
+    get_balance : (chain_id : nat, address : text) -> (GetBalanceResponse);
+    // Chains
+    add_chain : (chain_id : nat, rpc : text, min_balance : nat, block_gas_limit : nat) -> (Error);
+    remove_chain : (chain_id : nat) -> (Error);
+    update_chain_rpc : (chain_id : nat, rpc : text) -> (Error);
+    update_chain_min_balance : (chain_id : nat, min_balance : nat) -> (Error);
+    get_chain_rpc : (chain_id : nat) -> (GetChainRPCResponse);
+    get_chains : () -> (GetChainsResponse);
+    // Controllers
+    execute_withdraw_job : () -> (Error);
+    execute_publisher_job : () -> (Error);
+    update_controllers : () -> (Error);
+    update_tx_fee : (tx_fee : nat) -> (Error);
+    update_subs_limit_wallet : (limit : nat) -> (Error);
+    update_subs_limit_total : (limit : nat) -> (Error);
+    update_timer_frequency : (frequency : nat) -> (Error);
+    // Subscriptions
+    subscribe : (req : SubscribeRequest) -> (SubscribeResponse);
+    get_subscriptions : (owner : opt text) -> (vec Subscription);
+    stop_subscriptions : () -> (Error);
+    remove_subscriptions : () -> (Error);
+    stop_subscription : (chain_id : nat, sub_id : nat, msg : text, sig : text) -> (Error);
+    start_subscription : (chain_id : nat, sub_id: nat, msg: text, sig: text) -> (Error);
+    update_subscription : (req: UpdateSubscriptionRequest) -> (Error);
+    // Whitelist
+    add_to_whitelist : (address : text) -> (Error);
+    remove_from_whitelist : (address : text) -> (Error);
+    blacklist : (address : text) -> (Error);
+    unblacklist : (address : text) -> (Error);
+    is_whitelisted : (address : text) -> (IsWhitelistedResponse);
+    get_whitelist : () -> (GetWhiteListResponse);
+};
