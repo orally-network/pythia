@@ -21,6 +21,7 @@ type Method = record {
     name : text;
     abi : text;
     gas_limit : nat;
+    chain_id : nat;
     method_type : MethodType;
 };
 type SubscriptionStatus = record {
