@@ -266,7 +266,7 @@ pub async fn multitranfer<T: Transport>(
     let nonce = retry_until_success!(w3.eth().transaction_count(H160::from_str(&from)?, None))?;
 
     let options = Options {
-        gas_price: Some((gas_price / 10) * 12),
+        gas_price: Some(gas_price),
         gas: Some(U256::from(gas_limit)),
         value: Some(value),
         nonce: Some(nonce),

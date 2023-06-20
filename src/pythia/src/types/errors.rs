@@ -120,4 +120,6 @@ pub enum PythiaError {
     InvalidMulticallResult,
     #[error("Unable to transfer funds")]
     UnableToTransferFunds,
+    #[error("Unable to get balance")]
+    UnableToGetBalance,
 }

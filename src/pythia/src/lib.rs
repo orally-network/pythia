@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 mod jobs;
 mod methods;
 mod migrations;

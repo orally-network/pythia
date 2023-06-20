@@ -4,12 +4,12 @@ type Error = variant { Ok : null; Err : text };
 type GetPMAResponse = variant { Ok : text; Err : text };
 type GetBalanceResponse = variant { Ok : nat; Err : text };
 // Chains
-type CandidTypeChain = record {
+type Chain = record {
     chain_id : nat;
     rpc : text;
     min_balance : nat;
+    block_gas_limit : nat;
 };
-type GetChainsResponse = variant { Ok : vec CandidTypeChain; Err : text};
 type GetChainRPCResponse = variant { Ok : text; Err : text};
 // Subscribptions
 type MethodType = variant {
@@ -74,7 +74,7 @@ type IsWhitelistedResponse = variant { Ok : bool; Err : text};
 service : {
     // Balances
     get_pma : () -> (GetPMAResponse);
-    deposit : (tx_hash : text, chain_id : nat, msg : text, sig : text) -> (Error);
+    deposit : (chain_id : nat, tx_hash : text, msg : text, sig : text) -> (Error);
     withdraw : (chain_id : nat, msg : text, sig : text, receiver: text) -> (Error);
     get_balance : (chain_id : nat, address : text) -> (GetBalanceResponse);
     // Chains
@@ -83,7 +83,7 @@ service : {
     update_chain_rpc : (chain_id : nat, rpc : text) -> (Error);
     update_chain_min_balance : (chain_id : nat, min_balance : nat) -> (Error);
     get_chain_rpc : (chain_id : nat) -> (GetChainRPCResponse);
-    get_chains : () -> (GetChainsResponse);
+    get_chains : () -> (vec Chain);
     // Controllers
     execute_withdraw_job : () -> (Error);
     execute_publisher_job : () -> (Error);

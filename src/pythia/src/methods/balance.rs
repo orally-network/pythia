@@ -5,13 +5,13 @@ use ic_cdk_macros::{query, update};
 
 use crate::{
     clone_with_state,
-    jobs::{publisher, withdraw},
+    jobs::withdraw,
     log,
     types::{
         balance::Balances, errors::PythiaError, subscription::Subscriptions, whitelist,
         withdraw::WithdrawRequests,
     },
-    utils::{canister, nat, siwe, web3},
+    utils::{address, canister, nat, siwe, web3},
 };
 
 /// Get the PMA address
@@ -75,17 +75,13 @@ async fn _deposit(chain_id: Nat, tx_hash: String, msg: String, sig: String) -> R
     Balances::save_nonce(&chain_id, &address, &nat::from_u256(&tx.nonce))
         .context(PythiaError::UnableToSaveNonce)?;
 
-    let amount = clone_with_state!(tx_fee) - nat::from_u256(&tx.value);
+    let amount = nat::from_u256(&tx.value) - clone_with_state!(tx_fee);
     if amount <= Nat::from(0) {
         return Ok(());
     }
 
     Balances::add_amount(&chain_id, &address, &amount)
         .context(PythiaError::UnableToIncreaseBalance)?;
-
-    if !clone_with_state!(is_timer_active) {
-        publisher::execute();
-    }
 
     log!("[{address}] deposited amount {amount}");
     Ok(())
@@ -148,5 +144,10 @@ async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) ->
 /// Returns a result with address's balance
 #[query]
 pub fn get_balance(chain_id: Nat, address: String) -> Result<Nat, String> {
-    Balances::get(&chain_id, &address).map_err(|e| format!("failed to get balance: {e:?}"))
+    _get_balance(chain_id, address).map_err(|e| format!("failed to get balance: {e:?}"))
+}
+
+fn _get_balance(chain_id: Nat, address: String) -> Result<Nat> {
+    let address = address::normalize(&address).context(PythiaError::InvalidAddressFormat)?;
+    Balances::get(&chain_id, &address).context(PythiaError::UnableToGetBalance)
 }

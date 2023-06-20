@@ -42,11 +42,17 @@ async fn _execute() -> Result<()> {
     Subscriptions::get_publishable()
         .iter()
         .for_each(|(chain_id, subs)| {
+            if subs.is_empty() {
+                return;
+            }
+
             futures.push(publish_on_chain(chain_id.clone(), subs.clone()));
         });
 
     if futures.is_empty() {
+        withdraw::withdraw().await;
         update_state!(is_timer_active, false);
+        log!("publisher job stopped");
         return Ok(());
     }
 
@@ -63,7 +69,7 @@ async fn _execute() -> Result<()> {
         execute,
     );
 
-    log!("publisher job finished");
+    log!("publisher job executed");
     Ok(())
 }
 

@@ -19,5 +19,6 @@ macro_rules! log {
     ($($arg:tt)*) => {{
         ic_cdk::println!($($arg)*);
         ic_utils::logger::log_message(format!($($arg)*));
+        ic_utils::monitor::collect_metrics();
     }};
 }

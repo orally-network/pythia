@@ -25,7 +25,7 @@ pub async fn update_controllers() -> Result<(), String> {
 }
 
 async fn _update_controllers() -> Result<()> {
-    if !clone_with_state!(initialized) {
+    if clone_with_state!(initialized) {
         validator::caller()?;
     } else {
         update_state!(initialized, true);
@@ -56,7 +56,7 @@ pub fn update_tx_fee(tx_fee: Nat) -> Result<(), String> {
 pub fn _update_tx_fee(tx_fee: Nat) -> Result<()> {
     validator::caller()?;
     update_state!(tx_fee, tx_fee.clone());
-    log_message(format!("[COTROLLERS] tx fee updated: {tx_fee}"));
+    log_message(format!("[CONTROLLERS] tx fee updated: {tx_fee}"));
     Ok(())
 }
 
