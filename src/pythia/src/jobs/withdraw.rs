@@ -6,7 +6,7 @@ use ic_web3::types::H160;
 
 use crate::{
     clone_with_state, log,
-    types::withdraw::{WithdrawRequest, WithdrawRequests},
+    types::{withdraw::{WithdrawRequest, WithdrawRequests}, errors::PythiaError},
     utils::{multicall, multicall::Transfer, nat, web3},
 };
 
@@ -23,7 +23,8 @@ pub async fn withdraw() {
             continue;
         }
 
-        WithdrawRequests::erase(&chain_id).expect("should erase withdraw requests");
+        WithdrawRequests::erase(&chain_id)
+        .expect("should erase withdraw requests");
     }
 
     log!("withdraw job executed");
@@ -37,7 +38,8 @@ async fn send_funds(chain_id: &Nat, reqs: &[WithdrawRequest]) -> Result<()> {
     let mut transfers: Vec<Transfer> = reqs
         .iter()
         .map(|req| Transfer {
-            target: H160::from_str(&req.receiver).expect("should be valid address"),
+            target: H160::from_str(&req.receiver)
+                .expect("should be valid address"),
             value: nat::to_u256(&req.amount),
         })
         .collect();
@@ -49,7 +51,7 @@ async fn send_funds(chain_id: &Nat, reqs: &[WithdrawRequest]) -> Result<()> {
             transfers.split_off((transfers.len() - 1) % MAX_TRANSFERS),
         )
         .await
-        .context("failed to transfer funds")?;
+        .context(PythiaError::UnableToTransferFunds)?;
     }
 
     Ok(())

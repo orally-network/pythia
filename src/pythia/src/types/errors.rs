@@ -118,4 +118,6 @@ pub enum PythiaError {
     UnableToDecodeOutputs,
     #[error("Invalid multicall result")]
     InvalidMulticallResult,
+    #[error("Unable to transfer funds")]
+    UnableToTransferFunds,
 }

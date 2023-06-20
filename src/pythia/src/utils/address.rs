@@ -4,6 +4,8 @@ use ic_web3::types::H160;
 
 use anyhow::{Context, Result};
 
+use crate::types::errors::PythiaError;
+
 #[inline]
 pub fn from_h160(h160: &H160) -> String {
     format!("0x{}", hex::encode(h160.as_bytes()))
@@ -11,7 +13,7 @@ pub fn from_h160(h160: &H160) -> String {
 
 #[inline]
 pub fn to_h160(address: &str) -> Result<H160> {
-    H160::from_str(address).context("failed to convert address to H160")
+    H160::from_str(address).context(PythiaError::InvalidAddressFormat)
 }
 
 #[inline]
