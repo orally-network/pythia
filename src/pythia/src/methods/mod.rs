@@ -1,7 +1,7 @@
+pub mod balance;
 pub mod chains;
 pub mod controllers;
 pub mod subscriptions;
-pub mod balance;
 pub mod whitelist;
 
 use ic_cdk::{query, update};

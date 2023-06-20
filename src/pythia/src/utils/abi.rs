@@ -1,10 +1,21 @@
-use anyhow::{Result, Context};
-use ic_web3::ethabi::Token;
+use anyhow::{Context, Result};
+use ic_cdk::api::management_canister::main::raw_rand;
+use ic_web3::ethabi::{Function, Token};
 use serde_json::json;
 
-use crate::{types::methods::MethodType, PythiaError};
+use crate::{
+    types::methods::{Method, MethodType},
+    utils::sybil,
+    PythiaError,
+};
 
-pub fn resolve_abi(method_abi: String, pair_id: Option<String>, is_random: bool) -> Result<(String, MethodType)> {
+const BITS_IN_BYTE: usize = 8;
+
+pub fn resolve_abi(
+    method_abi: String,
+    pair_id: Option<String>,
+    is_random: bool,
+) -> Result<(String, MethodType)> {
     let raw_abi: Vec<&str> = method_abi.split_terminator(&['(', ')', ',']).collect();
     if let Some(pair_id) = pair_id {
         get_pair_abi(&raw_abi, &pair_id)
@@ -20,7 +31,8 @@ fn get_pair_abi(raw_abi: &[&str], pair_id: &str) -> Result<(String, MethodType)>
         .first()
         .context(PythiaError::InvalidABIFunctionName)?
         .to_string();
-    if raw_abi.len() != 5 || raw_abi[1] != "string"
+    if raw_abi.len() != 5
+        || raw_abi[1] != "string"
         || raw_abi[2] != " uint256"
         || raw_abi[3] != " uint256"
         || raw_abi[4] != " uint256"
@@ -139,4 +151,56 @@ pub fn cast_to_param_type(value: u64, kind: &str) -> Option<Token> {
     }
 
     None
+}
+
+pub async fn get_call_data(method: &Method) -> Vec<u8> {
+    let input = get_input(&method.method_type)
+        .await
+        .expect("should be valid input");
+
+    serde_json::from_str::<Function>(&method.abi)
+        .expect("should be valid abi")
+        .encode_input(&input)
+        .expect("should encode")
+}
+
+pub async fn get_input(method_type: &MethodType) -> Result<Vec<Token>> {
+    let input = match method_type {
+        MethodType::Pair(pair_id) => get_sybil_input(pair_id).await?,
+        MethodType::Random(abi_type) => vec![get_random_input(abi_type).await?],
+        MethodType::Empty => vec![],
+    };
+
+    Ok(input)
+}
+
+pub async fn get_random_input(abi_type: &str) -> Result<Token> {
+    let (mut raw_data,) = raw_rand()
+        .await
+        .map_err(|_| PythiaError::UnableToGetRandom)?;
+
+    let (insufficient_bytes_count, was_overflowed) = raw_data.len().overflowing_sub(BITS_IN_BYTE);
+
+    if was_overflowed {
+        raw_data.append(&mut vec![0; insufficient_bytes_count]);
+    }
+
+    let value = u64::from_be_bytes(
+        raw_data[..BITS_IN_BYTE]
+            .try_into()
+            .expect("should be valid convertation"),
+    );
+
+    cast_to_param_type(value, abi_type).context(PythiaError::InvalidABIParameterTypes)
+}
+
+pub async fn get_sybil_input(pair_id: &str) -> Result<Vec<Token>> {
+    let rate = sybil::get_asset_data(pair_id).await?;
+
+    Ok(vec![
+        Token::String(rate.symbol),
+        Token::Uint(rate.rate.into()),
+        Token::Uint(rate.decimals.into()),
+        Token::Uint(rate.timestamp.into()),
+    ])
 }

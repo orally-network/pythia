@@ -1,12 +1,19 @@
 use std::collections::HashMap;
 
-use ic_cdk::export::{candid::{CandidType, Nat}, serde::{Deserialize, Serialize}};
+use ic_cdk::export::{
+    candid::{CandidType, Nat},
+    serde::{Deserialize, Serialize},
+};
+use ic_dl_utils::evm::time_in_seconds;
 use ic_web3::ethabi::Function;
 
-use anyhow::{Context, Result, Error};
+use anyhow::{Context, Error, Result};
 
-use crate::{STATE, utils::{abi, sybil, address, validator}};
-use super::{methods::Method, errors::PythiaError};
+use super::{errors::PythiaError, methods::Method};
+use crate::{
+    utils::{abi, address, sybil, validator},
+    STATE,
+};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct SubscriptionsIndexer(Nat);
@@ -72,11 +79,8 @@ impl Subscriptions {
     pub async fn add(req: &SubsribeRequest, owner: &str) -> Result<Nat> {
         validator::subscription_frequency(&req.frequency)
             .context(PythiaError::InvalidSubscriptionFrequency)?;
-        let (abi, method_type) = abi::resolve_abi(
-            req.method_abi.clone(),
-            req.pair_id.clone(),
-            req.is_random
-        )?;
+        let (abi, method_type) =
+            abi::resolve_abi(req.method_abi.clone(), req.pair_id.clone(), req.is_random)?;
         if let Some(pair_id) = req.pair_id.clone() {
             if !sybil::is_pair_exists(&pair_id).await? {
                 return Err(PythiaError::PairDoesNotExist.into());
@@ -105,7 +109,7 @@ impl Subscriptions {
                 ..Default::default()
             },
         };
-        
+
         STATE.with(|state| {
             state
                 .borrow_mut()
@@ -137,17 +141,20 @@ impl Subscriptions {
         })
     }
 
-    pub fn get_all(chain_id: Option<Nat>, ids: Vec<Nat>, owner: Option<String>) -> Vec<Subscription> {
+    pub fn get_all(
+        chain_id: Option<Nat>,
+        ids: Vec<Nat>,
+        owner: Option<String>,
+    ) -> Vec<Subscription> {
         STATE.with(|state| {
             let state = state.borrow();
-            let mut subscriptions = state
-                .subscriptions
-                .0
-                .values()
-                .fold(Vec::<Subscription>::new(), |mut result, subs| {
+            let mut subscriptions = state.subscriptions.0.values().fold(
+                Vec::<Subscription>::new(),
+                |mut result, subs| {
                     result.extend(subs.clone());
                     result
-                });
+                },
+            );
 
             if let Some(chain_id) = chain_id {
                 subscriptions = subscriptions
@@ -220,7 +227,7 @@ impl Subscriptions {
                         true
                     })
                 });
-                
+
             Ok(())
         })
     }
@@ -237,7 +244,8 @@ impl Subscriptions {
                 .iter_mut()
                 .find(|s| s.id == id && s.owner == owner)
                 .context(PythiaError::SubscriptionDoesNotExist)?
-                .status.is_active = false;
+                .status
+                .is_active = false;
 
             Ok(())
         })
@@ -269,7 +277,7 @@ impl Subscriptions {
                         }
                     });
                 });
-                
+
             Ok(())
         })
     }
@@ -286,7 +294,8 @@ impl Subscriptions {
                 .iter_mut()
                 .find(|s| s.id == id && s.owner == owner)
                 .context(PythiaError::SubscriptionDoesNotExist)?
-                .status.is_active = true;
+                .status
+                .is_active = true;
 
             Ok(())
         })
@@ -318,7 +327,7 @@ impl Subscriptions {
                         }
                     });
                 });
-                
+
             Ok(())
         })
     }
@@ -351,11 +360,8 @@ impl Subscriptions {
             }
 
             if let (Some(method_abi), Some(is_random)) = (req.method_abi.clone(), req.is_random) {
-                let (abi, method_type) = abi::resolve_abi(
-                    method_abi,
-                    req.pair_id.clone(),
-                    is_random
-                )?;
+                let (abi, method_type) =
+                    abi::resolve_abi(method_abi, req.pair_id.clone(), is_random)?;
                 subscription.method.abi = abi;
                 subscription.method.method_type = method_type;
             }
@@ -396,6 +402,70 @@ impl Subscriptions {
             }
 
             Ok(())
+        })
+    }
+
+    pub fn stop_insufficients() -> Result<()> {
+        STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            let balances = state.balances.0.clone();
+            let chains = state.chains.0.clone();
+            for (chain_id, subs) in state.subscriptions.0.iter_mut() {
+                let chain = chains.get(chain_id).expect("chain should exist");
+                for sub in subs {
+                    let balance = balances
+                        .get(chain_id)
+                        .expect("chain should exist")
+                        .get(&sub.owner)
+                        .expect("user should exist")
+                        .clone();
+                    if balance.amount < chain.min_balance {
+                        sub.status.is_active = false;
+                    }
+                }
+            }
+
+            Ok(())
+        })
+    }
+
+    pub fn update_last_update(chain_id: &Nat, sub_id: &Nat) {
+        STATE.with(|state| {
+            state
+                .borrow_mut()
+                .subscriptions
+                .0
+                .get_mut(chain_id)
+                .expect("chain should exist")
+                .iter_mut()
+                .find(|sub| sub.id == *sub_id)
+                .expect("sub should exist")
+                .status
+                .last_update = time_in_seconds().into();
+        })
+    }
+
+    pub fn get_publishable() -> Vec<(Nat, Vec<Subscription>)> {
+        STATE.with(|state| {
+            let state = state.borrow();
+            state
+                .subscriptions
+                .0
+                .iter()
+                .map(|(chain_id, subs)| {
+                    (
+                        chain_id.clone(),
+                        subs.iter()
+                            .filter(|sub| {
+                                sub.status.is_active
+                                    && (sub.status.last_update.clone() + sub.frequency.clone())
+                                        <= time_in_seconds()
+                            })
+                            .cloned()
+                            .collect::<Vec<Subscription>>(),
+                    )
+                })
+                .collect::<Vec<(Nat, Vec<Subscription>)>>()
         })
     }
 

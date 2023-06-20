@@ -6,11 +6,14 @@ use ic_cdk::export::{
     serde::{Deserialize, Serialize},
 };
 
-use anyhow::{anyhow, Result, Context};
+use anyhow::{anyhow, Context, Result};
 
-use crate::{utils::{multicall::GAS_PER_TRANSFER, address}, STATE};
+use crate::{
+    utils::{address, multicall::GAS_PER_TRANSFER},
+    STATE,
+};
 
-use super::{errors::PythiaError, chains::Chains};
+use super::{chains::Chains, errors::PythiaError};
 
 const ETH_TRANSFER_GAS_LIMIT: u64 = 21_000 + GAS_PER_TRANSFER;
 
@@ -35,7 +38,7 @@ impl Balances {
                 .context(PythiaError::ChainDoesNotExist)?
                 .get_mut(&address::normalize(address)?)
                 .context(PythiaError::BalanceDoesNotExist)?;
-            
+
             let gas = Nat::from(ETH_TRANSFER_GAS_LIMIT) * gas_price.clone();
             if balance.amount < gas {
                 return Err(anyhow!("not enough funds to pay for gas"));
@@ -45,7 +48,7 @@ impl Balances {
             Ok(value)
         })
     }
-    
+
     pub fn create(chain_id: &Nat, address: &str) -> Result<()> {
         let address = address::normalize(address)?;
         STATE.with(|state| {
@@ -62,7 +65,7 @@ impl Balances {
             Ok(())
         })
     }
-    
+
     pub fn is_exists(chain_id: &Nat, address: &str) -> Result<bool> {
         STATE.with(|state| {
             Ok(state
@@ -74,7 +77,7 @@ impl Balances {
                 .contains_key(address))
         })
     }
-    
+
     pub fn save_nonce(chain_id: &Nat, address: &str, nonce: &Nat) -> Result<()> {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
@@ -92,7 +95,7 @@ impl Balances {
             Ok(())
         })
     }
-    
+
     pub fn add_amount(chain_id: &Nat, address: &str, amount: &Nat) -> Result<()> {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
@@ -160,5 +163,20 @@ impl Balances {
         })?;
 
         Ok(balance >= Chains::get_min_balance(chain_id)?)
+    }
+
+    pub fn reduce(chain_id: &Nat, address: &str, amount: &Nat) -> Result<()> {
+        STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            let balance = state
+                .balances
+                .0
+                .get_mut(chain_id)
+                .context(PythiaError::ChainDoesNotExist)?
+                .get_mut(address)
+                .context(PythiaError::BalanceDoesNotExist)?;
+            balance.amount -= amount.clone();
+            Ok(())
+        })
     }
 }

@@ -1,18 +1,30 @@
 use std::str::FromStr;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 
-use ic_cdk::{export::Principal, api::management_canister::{provisional::CanisterIdRecord, main::canister_status}};
+use ic_cdk::{
+    api::management_canister::{main::canister_status, provisional::CanisterIdRecord},
+    export::Principal,
+};
 use ic_web3::{ic::get_eth_addr, types::H160};
 
-use crate::{clone_with_state, update_state, utils::{address, canister}};
+use crate::{
+    clone_with_state, update_state,
+    utils::{address, canister},
+};
 
 pub async fn get_controllers() -> Result<Vec<Principal>> {
     let (canister_status,) = canister_status(CanisterIdRecord {
         canister_id: ic_cdk::id(),
     })
-        .await
-        .map_err(|(rej_code, msg)| anyhow!("canister_status rejected with code: {:?}, msg: {:?}", rej_code, msg))?;
+    .await
+    .map_err(|(rej_code, msg)| {
+        anyhow!(
+            "canister_status rejected with code: {:?}, msg: {:?}",
+            rej_code,
+            msg
+        )
+    })?;
 
     Ok(canister_status.settings.controllers)
 }

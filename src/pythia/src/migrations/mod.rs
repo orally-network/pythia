@@ -5,7 +5,7 @@ use ic_cdk_macros::{post_upgrade, pre_upgrade};
 use ic_cdk_timers::set_timer;
 use ic_utils::{logger, monitor};
 
-use crate::{jobs::publisher, State, STATE, utils::nat};
+use crate::{jobs::publisher, utils::nat, State, STATE};
 
 #[pre_upgrade]
 fn pre_upgrade() {

@@ -5,9 +5,9 @@ use candid::Nat;
 use ic_web3::types::H160;
 
 use crate::{
-    clone_with_state,
+    clone_with_state, log,
     types::withdraw::{WithdrawRequest, WithdrawRequests},
-    utils::{multicall, multicall::Transfer, nat, web3}, log,
+    utils::{multicall, multicall::Transfer, nat, web3},
 };
 
 const MAX_TRANSFERS: usize = 100;
@@ -23,10 +23,9 @@ pub async fn withdraw() {
             continue;
         }
 
-        WithdrawRequests::erase(&chain_id)
-            .expect("should erase withdraw requests");
+        WithdrawRequests::erase(&chain_id).expect("should erase withdraw requests");
     }
-    
+
     log!("withdraw job executed");
 }
 

@@ -4,18 +4,26 @@ use ic_cdk::export::candid::Nat;
 use ic_cdk_macros::{query, update};
 
 use crate::{
-    types::{subscription::{Subscription, SubsribeRequest,  Subscriptions, UpdateSubscriptionRequest}, whitelist, balance::Balances},
-    utils::{validator, siwe}, PythiaError, clone_with_state, jobs::publisher, log,
+    clone_with_state,
+    jobs::publisher,
+    log,
+    types::{
+        balance::Balances,
+        subscription::{Subscription, Subscriptions, SubsribeRequest, UpdateSubscriptionRequest},
+        whitelist,
+    },
+    utils::{siwe, validator},
+    PythiaError,
 };
 
 /// Create a new subscriptions.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `req` - The SubscribeRequest candid type.
-/// 
+///
 /// # Returns
-/// 
+///
 /// A result with a subscription id
 #[update]
 pub async fn subscribe(req: SubsribeRequest) -> Result<Nat, String> {
@@ -49,13 +57,13 @@ async fn _subscribe(req: SubsribeRequest) -> Result<Nat> {
 }
 
 /// Get a subscriptions by owner if present
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `owner` - The owner of the subscription, can be omitted
-/// 
+///
 /// # Returns
-/// 
+///
 /// A vector of subscriptions
 #[query]
 pub fn get_subscriptions(owner: Option<String>) -> Vec<Subscription> {
@@ -63,25 +71,35 @@ pub fn get_subscriptions(owner: Option<String>) -> Vec<Subscription> {
 }
 
 /// Stop a subscription
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `chain_id` - Unique identifier of the chain, for example Ethereum Mainnet is 1
 /// * `sub_id` - The subscription id
 /// * `msg` - SIWE message, For more information, refer to the [SIWE message specification](https://eips.ethereum.org/EIPS/eip-4361)
 /// * `sig` - SIWE signature, For more information, refer to the [SIWE message specification](https://eips.ethereum.org/EIPS/eip-4361)
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
-pub async fn stop_subscription(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<(), String> {
+pub async fn stop_subscription(
+    chain_id: Nat,
+    sub_id: Nat,
+    msg: String,
+    sig: String,
+) -> Result<(), String> {
     _stop_subscription(chain_id, sub_id, msg, sig)
         .await
         .map_err(|e| format!("failed to stop a subscription: {e:?}"))
 }
 
-pub async fn _stop_subscription(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<()> {
+pub async fn _stop_subscription(
+    chain_id: Nat,
+    sub_id: Nat,
+    msg: String,
+    sig: String,
+) -> Result<()> {
     let address = siwe::recover(&msg, &sig)
         .await
         .context(PythiaError::UnableToRecoverAddress)?;
@@ -96,27 +114,36 @@ pub async fn _stop_subscription(chain_id: Nat, sub_id: Nat, msg: String, sig: St
     Ok(())
 }
 
-
 /// Start a subscription
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `chain_id` - Unique identifier of the chain, for example Ethereum Mainnet is 1
 /// * `sub_id` - The subscription id
 /// * `msg` - SIWE message, For more information, refer to the [SIWE message specification](https://eips.ethereum.org/EIPS/eip-4361)
 /// * `sig` - SIWE signature, For more information, refer to the [SIWE message specification](https://eips.ethereum.org/EIPS/eip-4361)
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
-pub async fn start_subscription(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<(), String> {
+pub async fn start_subscription(
+    chain_id: Nat,
+    sub_id: Nat,
+    msg: String,
+    sig: String,
+) -> Result<(), String> {
     _start_subscription(chain_id, sub_id, msg, sig)
         .await
         .map_err(|e| format!("failed to start a subscription: {e:?}"))
 }
 
-pub async fn _start_subscription(chain_id: Nat, sub_id: Nat, msg: String, sig: String) -> Result<()> {
+pub async fn _start_subscription(
+    chain_id: Nat,
+    sub_id: Nat,
+    msg: String,
+    sig: String,
+) -> Result<()> {
     let address = siwe::recover(&msg, &sig)
         .await
         .context(PythiaError::UnableToRecoverAddress)?;
@@ -139,13 +166,13 @@ pub async fn _start_subscription(chain_id: Nat, sub_id: Nat, msg: String, sig: S
 }
 
 /// Update a subscription
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `req` - The UpdateSubscriptionRequest candid type.
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
 pub async fn update_subscription(req: UpdateSubscriptionRequest) -> Result<(), String> {
@@ -162,37 +189,34 @@ async fn _update_subscription(req: UpdateSubscriptionRequest) -> Result<()> {
         return Err(PythiaError::UserIsNotWhitelisted.into());
     }
 
-    Subscriptions::update(&req, &address)
-        .context(PythiaError::UnableToUpdateSubscription)?;
+    Subscriptions::update(&req, &address).context(PythiaError::UnableToUpdateSubscription)?;
 
     log!("[SUBSCRIPTIONS] updated, id: {}", req.id);
     Ok(())
 }
 
 /// Stop all subscriptions
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
 pub fn stop_subscriptions() -> Result<(), String> {
-    _stop_subscriptions()
-        .map_err(|e| format!("failed to stop subscriptions: {e:?}"))
+    _stop_subscriptions().map_err(|e| format!("failed to stop subscriptions: {e:?}"))
 }
 
 fn _stop_subscriptions() -> Result<()> {
     validator::caller()?;
-    Subscriptions::stop_all(None, vec![], None)
-        .context(PythiaError::UnableToStopSubscriptions)?;
+    Subscriptions::stop_all(None, vec![], None).context(PythiaError::UnableToStopSubscriptions)?;
 
     log!("[SUBSCRIPTIONS] stopped all");
     Ok(())
 }
 
 /// Stop remove subscriptions
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
 pub fn remove_subscriptions() -> Result<(), String> {

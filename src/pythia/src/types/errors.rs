@@ -57,7 +57,7 @@ pub enum PythiaError {
     #[error("Unable to get a chain RPC")]
     UnableToGetChainRPC,
     #[error("Unable to get controllers")]
-    UnableToGetControllers,    
+    UnableToGetControllers,
     #[error("Pair does not exist")]
     PairDoesNotExist,
     #[error("Invalid ABI function Name")]
@@ -106,4 +106,16 @@ pub enum PythiaError {
     WaitingForSuccessConfirmationFailed,
     #[error("Unable to add a withdraw request")]
     UnableToAddWithdrawRequest,
+    #[error("Unable to get a random")]
+    UnableToGetRandom,
+    #[error("Unable to stop insufficient subscriptions")]
+    UnableToStopInsufficientSubscriptions,
+    #[error("Unable to execute the multicall")]
+    UnableToExecuteMulticall,
+    #[error("Unable to form call data")]
+    UnableToFormCallData,
+    #[error("Unable to decode outputs")]
+    UnableToDecodeOutputs,
+    #[error("Invalid multicall result")]
+    InvalidMulticallResult,
 }

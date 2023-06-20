@@ -8,7 +8,10 @@ use std::cell::RefCell;
 
 use types::{chains::Chain, errors::PythiaError, state::State};
 
-use ic_cdk::{api::management_canister::http_request::{HttpResponse, TransformArgs}, export::{candid::Nat, Principal}};
+use ic_cdk::{
+    api::management_canister::http_request::{HttpResponse, TransformArgs},
+    export::{candid::Nat, Principal},
+};
 use ic_cdk_macros::init;
 
 thread_local! {

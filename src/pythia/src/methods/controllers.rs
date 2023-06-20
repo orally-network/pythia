@@ -1,15 +1,21 @@
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 
 use ic_cdk::export::candid::Nat;
 use ic_cdk_macros::update;
 use ic_utils::logger::log_message;
 
-use crate::{jobs::{publisher, withdraw}, utils::{validator, canister}, update_state, clone_with_state, log, PythiaError};
+use crate::{
+    clone_with_state,
+    jobs::{publisher, withdraw},
+    log, update_state,
+    utils::{canister, validator},
+    PythiaError,
+};
 
 /// Update the controllers.
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
 pub async fn update_controllers() -> Result<(), String> {
@@ -34,18 +40,17 @@ async fn _update_controllers() -> Result<()> {
 }
 
 /// Update the tx fee.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `tx_fee` - New tx fee, used for collecting fee from balances.
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
 pub fn update_tx_fee(tx_fee: Nat) -> Result<(), String> {
-    _update_tx_fee(tx_fee)
-        .map_err(|e| format!("failed to update the tx fee{e:?}"))
+    _update_tx_fee(tx_fee).map_err(|e| format!("failed to update the tx fee{e:?}"))
 }
 
 pub fn _update_tx_fee(tx_fee: Nat) -> Result<()> {
@@ -56,13 +61,13 @@ pub fn _update_tx_fee(tx_fee: Nat) -> Result<()> {
 }
 
 /// Update the subscriptions limit for a wallet.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `limit` - New subs limit for a wallet, used to check if there is subscriptions for a waller overflow.
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
 pub fn update_subs_limit_wallet(limit: Nat) -> Result<(), String> {
@@ -78,13 +83,13 @@ fn _update_subs_limit_wallet(limit: Nat) -> Result<()> {
 }
 
 /// Update the subscriptions limit total.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `limit` - New subs limit total, used to check if there is subscriptions overflow.
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
 pub fn update_subs_limit_total(limit: Nat) -> Result<(), String> {
@@ -100,13 +105,13 @@ fn _update_subs_limit_total(limit: Nat) -> Result<()> {
 }
 
 /// Update the timer frequency.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `frequency` - New timer frequency, when will a new timer will be executed.
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
 pub fn update_timer_frequency(frequency: Nat) -> Result<(), String> {
@@ -122,14 +127,13 @@ fn _update_timer_frequency(frequency: Nat) -> Result<()> {
 }
 
 /// Execute the withdraw job
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
 pub fn execute_withdraw_job() -> Result<(), String> {
-    _execute_withdraw_job()
-        .map_err(|e| format!("failed to execute the withdraw job: {e:?}"))
+    _execute_withdraw_job().map_err(|e| format!("failed to execute the withdraw job: {e:?}"))
 }
 
 fn _execute_withdraw_job() -> Result<()> {
@@ -139,14 +143,13 @@ fn _execute_withdraw_job() -> Result<()> {
 }
 
 /// Execute the publisher job
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
 pub fn execute_publisher_job() -> Result<(), String> {
-    _execute_publisher_job()
-        .map_err(|e| format!("failed to execute the publisher job: {e:?}"))
+    _execute_publisher_job().map_err(|e| format!("failed to execute the publisher job: {e:?}"))
 }
 
 fn _execute_publisher_job() -> Result<()> {

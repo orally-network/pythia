@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 
 use candid::Nat;
 use ic_cdk::export::{
@@ -37,7 +37,7 @@ impl WithdrawRequests {
                 });
             Ok(())
         })
-    } 
+    }
 
     pub fn erase(chain_id: &Nat) -> Result<()> {
         STATE.with(|state| {

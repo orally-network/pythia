@@ -5,7 +5,10 @@ use ic_cdk::export::{
 };
 
 use super::{
-    balance::Balances, chains::Chains, subscription::{Subscriptions, SubscriptionsIndexer}, whitelist::Whitelist,
+    balance::Balances,
+    chains::Chains,
+    subscription::{Subscriptions, SubscriptionsIndexer},
+    whitelist::Whitelist,
     withdraw::WithdrawRequests,
 };
 
