@@ -42,6 +42,7 @@ pub struct Subscription {
 pub struct SubscriptionStatus {
     pub is_active: bool,
     pub last_update: Nat,
+    pub executions_counter: Nat,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
@@ -431,17 +432,18 @@ impl Subscriptions {
 
     pub fn update_last_update(chain_id: &Nat, sub_id: &Nat) {
         STATE.with(|state| {
-            state
-                .borrow_mut()
+            let mut state = state.borrow_mut();
+            let mut subscription = state
                 .subscriptions
                 .0
                 .get_mut(chain_id)
                 .expect("chain should exist")
                 .iter_mut()
                 .find(|sub| sub.id == *sub_id)
-                .expect("sub should exist")
-                .status
-                .last_update = time_in_seconds().into();
+                .expect("sub should exist");
+
+            subscription.status.last_update = time_in_seconds().into();
+            subscription.status.executions_counter += 1;
         })
     }
 

@@ -94,7 +94,8 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             .filter(|(result, sub)| {
                 if nat::from_u256(&result.used_gas) > sub.method.gas_limit {
                     log!("gas limit exceeded for sub {}", sub.id);
-                    Subscriptions::stop(&chain_id, &sub.owner, &sub.id).expect("should stop sub");
+                    Subscriptions::stop(&chain_id, &sub.owner, &sub.id)
+                        .expect("should stop sub");
                     return false;
                 }
 
@@ -103,8 +104,9 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                 }
 
                 Subscriptions::update_last_update(&chain_id, &sub.id);
-                let amount = nat::from_u256(&gas_price) * sub.method.gas_limit.clone();
-                Balances::reduce(&chain_id, &sub.owner, &amount).expect("should reduce balance");
+                let amount = nat::from_u256(&gas_price) * (sub.method.gas_limit.clone()+100);
+                Balances::reduce(&chain_id, &sub.owner, &amount)
+                    .expect("should reduce balance");
 
                 false
             })
