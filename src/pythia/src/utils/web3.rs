@@ -7,11 +7,11 @@ use ic_dl_utils::retry_until_success;
 use ic_web3::{
     ic::KeyInfo,
     transports::ICHttp,
-    types::{Transaction, TransactionId, H256, TransactionParameters},
+    types::{Transaction, TransactionId, TransactionParameters, H256},
     Web3,
 };
 
-use super::{nat, canister, address};
+use super::{address, canister, nat};
 use crate::{
     clone_with_state,
     types::{chains::Chains, errors::PythiaError},
@@ -62,7 +62,7 @@ pub async fn transfer(chain_id: &Nat, to: &str, value: &Nat) -> Result<()> {
     let from = canister::pma().await?;
     let from_h160 = address::to_h160(&from)?;
     let to = address::to_h160(to)?;
-    
+
     let nonce = retry_until_success!(w3.eth().transaction_count(from_h160, None))?;
     let gas_price = retry_until_success!(w3.eth().gas_price())?;
 
@@ -80,7 +80,9 @@ pub async fn transfer(chain_id: &Nat, to: &str, value: &Nat) -> Result<()> {
         .sign_transaction(tx, from, key_info(), nat::to_u64(chain_id))
         .await?;
 
-    let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(signed_tx.raw_transaction.clone()))?;
+    let tx_hash = retry_until_success!(w3
+        .eth()
+        .send_raw_transaction(signed_tx.raw_transaction.clone()))?;
     ic_dl_utils::evm::wait_for_success_confirmation(&w3, &tx_hash, 60)
         .await
         .context(PythiaError::WaitingForSuccessConfirmationFailed)?;

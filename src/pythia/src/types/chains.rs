@@ -44,10 +44,7 @@ pub struct Chains(pub HashMap<Nat, Chain>);
 
 impl Chains {
     pub fn add(req: &CreateChainRequest) -> Result<()> {
-        let rpc: Url = req
-            .rpc
-            .parse()
-            .context(PythiaError::InvalidChainRPC)?;
+        let rpc: Url = req.rpc.parse().context(PythiaError::InvalidChainRPC)?;
 
         STATE.with(|state| {
             state.borrow_mut().chains.0.insert(

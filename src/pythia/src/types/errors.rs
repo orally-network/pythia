@@ -31,7 +31,7 @@ pub enum PythiaError {
     #[error("Tx was not sent to the PMA")]
     TxWasNotSentToPma,
     #[error("Unable to recover address")]
-    UnableToRecoverAddress,    
+    UnableToRecoverAddress,
     #[error("Unable to add a new balance")]
     UnableToAddNewBalance,
     #[error("Unable to get tx")]

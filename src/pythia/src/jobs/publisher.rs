@@ -17,9 +17,9 @@ use crate::{
     },
     update_state,
     utils::{
-        abi, address,
+        abi, address, canister,
         multicall::{multicall, Call},
-        nat, web3, canister
+        nat, web3,
     },
 };
 
@@ -75,9 +75,7 @@ async fn _execute() -> Result<()> {
 
 async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -> Result<()> {
     let w3 = web3::instance(&chain_id)?;
-    let pma = canister::pma()
-        .await
-        .context(PythiaError::UnableToGetPMA)?;
+    let pma = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
     while !subscriptions.is_empty() {
         let calls: Vec<Call> = join_all(subscriptions.iter().map(|sub| async {
             Call {
@@ -109,10 +107,8 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                 Subscriptions::update_last_update(&chain_id, &sub.id);
                 let mut amount = nat::from_u256(&gas_price) * (sub.method.gas_limit.clone() + 100);
                 amount += fee.clone();
-                Balances::reduce(&chain_id, &sub.owner, &amount)
-                    .expect("should reduce balance");
-                canister::collect_fee(&chain_id, &pma, &fee)
-                    .expect("should collect fee");
+                Balances::reduce(&chain_id, &sub.owner, &amount).expect("should reduce balance");
+                canister::collect_fee(&chain_id, &pma, &fee).expect("should collect fee");
 
                 false
             })

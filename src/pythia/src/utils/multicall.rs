@@ -12,10 +12,10 @@ use ic_web3::{
 };
 
 use super::{address, canister, nat, web3};
-use crate::{types::{
+use crate::types::{
     chains::{Chain, Chains},
     errors::PythiaError,
-}, log};
+};
 
 const MULTICALL_ABI: &[u8] = include_bytes!("../../assets/MulticallABI.json");
 const MULTICALL_CONTRACT_ADDRESS: &str = "0x26df57f4577dcd7e1deea93299655b14df374b17";
@@ -167,7 +167,7 @@ pub async fn multicall<T: Transport>(
                 .transaction_count(H160::from_str(&from)?, None))?),
             ..Default::default()
         };
-  
+
         let params: Vec<Token> = current_calls_batch
             .iter()
             .map(|c| c.clone().into_token())

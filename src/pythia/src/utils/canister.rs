@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::{anyhow, Result, Context};  
+use anyhow::{anyhow, Context, Result};
 
 use candid::Nat;
 use ic_cdk::{
@@ -10,8 +10,10 @@ use ic_cdk::{
 use ic_web3::{ic::get_eth_addr, types::H160};
 
 use crate::{
-    clone_with_state, update_state,
-    utils::{address, canister, sybil}, types::{chains::Chains, errors::PythiaError, balance::Balances},
+    clone_with_state,
+    types::{balance::Balances, chains::Chains, errors::PythiaError},
+    update_state,
+    utils::{address, canister, sybil},
 };
 
 const DECIMALS: &str = "1000000000000000000";
@@ -29,8 +31,6 @@ pub async fn get_controllers() -> Result<Vec<Principal>> {
             msg
         )
     })?;
-
-
 
     Ok(canister_status.settings.controllers)
 }
@@ -61,20 +61,15 @@ pub async fn fee(chain_id: &Nat) -> Result<Nat> {
         let rate = sybil::get_asset_data(&pair_id)
             .await
             .context(PythiaError::UnableToGetAssetData)?;
-        let decimals = Nat::from_str(DECIMALS)
-            .context(PythiaError::InvalidNumber)?;
-        let fee_in_usdt = Nat::from_str(FEE_IN_USDT)
-            .context(PythiaError::InvalidNumber)?;
+        let decimals = Nat::from_str(DECIMALS).context(PythiaError::InvalidNumber)?;
+        let fee_in_usdt = Nat::from_str(FEE_IN_USDT).context(PythiaError::InvalidNumber)?;
 
-        return Ok(
-            (fee_in_usdt * decimals) / rate.rate
-        );
+        return Ok((fee_in_usdt * decimals) / rate.rate);
     }
 
     Chains::get_fee(chain_id)
 }
 
 pub fn collect_fee(chain_id: &Nat, receiver: &str, amount: &Nat) -> Result<()> {
-    Balances::add_amount(chain_id, &receiver, amount)
-        .context(PythiaError::UnableToIncreaseBalance)
+    Balances::add_amount(chain_id, receiver, amount).context(PythiaError::UnableToIncreaseBalance)
 }

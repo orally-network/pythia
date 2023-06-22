@@ -11,7 +11,7 @@ use crate::{
         subscription::Subscriptions,
         withdraw::WithdrawRequests,
     },
-    utils::{validator, canister},
+    utils::{canister, validator},
     Chain, PythiaError,
 };
 
@@ -39,18 +39,12 @@ async fn _add_chain(req: CreateChainRequest) -> Result<()> {
 
     Chains::add(&req).context(PythiaError::UnableToAddNewChain)?;
 
-    Balances::init_new_chain(&req.chain_id)
-        .context(PythiaError::UnableToAddNewChain)?;
-    Subscriptions::init_new_chain(&req.chain_id)
-        .context(PythiaError::UnableToAddNewChain)?;
-    WithdrawRequests::init_new_chain(&req.chain_id)
-        .context(PythiaError::UnableToAddNewChain)?;
+    Balances::init_new_chain(&req.chain_id).context(PythiaError::UnableToAddNewChain)?;
+    Subscriptions::init_new_chain(&req.chain_id).context(PythiaError::UnableToAddNewChain)?;
+    WithdrawRequests::init_new_chain(&req.chain_id).context(PythiaError::UnableToAddNewChain)?;
 
-    let pma = canister::pma()
-        .await
-        .context(PythiaError::UnableToGetPMA)?;
-    Balances::create(&req.chain_id, &pma)
-        .context(PythiaError::UnableToAddNewBalance)?;
+    let pma = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
+    Balances::create(&req.chain_id, &pma).context(PythiaError::UnableToAddNewBalance)?;
 
     log!("[CHAINS] added, id: {}", req.chain_id);
     Ok(())
@@ -74,12 +68,9 @@ fn _remove_chain(chain_id: Nat) -> Result<()> {
     validator::caller()?;
     Chains::remove(&chain_id).context(PythiaError::UnableToRemoveChain)?;
 
-    Balances::deinit_chain(&chain_id)
-        .context(PythiaError::UnableToRemoveChain)?;
-    Subscriptions::deinit_chain(&chain_id)
-        .context(PythiaError::UnableToRemoveChain)?;
-    WithdrawRequests::deinit_chain(&chain_id)
-        .context(PythiaError::UnableToRemoveChain)?;
+    Balances::deinit_chain(&chain_id).context(PythiaError::UnableToRemoveChain)?;
+    Subscriptions::deinit_chain(&chain_id).context(PythiaError::UnableToRemoveChain)?;
+    WithdrawRequests::deinit_chain(&chain_id).context(PythiaError::UnableToRemoveChain)?;
 
     log!("[CHAINS] removed, id: {chain_id}");
     Ok(())
