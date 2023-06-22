@@ -64,7 +64,8 @@ pub async fn transfer(chain_id: &Nat, to: &str, value: &Nat) -> Result<()> {
     let to = address::to_h160(to)?;
 
     let nonce = retry_until_success!(w3.eth().transaction_count(from_h160, None))?;
-    let gas_price = retry_until_success!(w3.eth().gas_price())?;
+    let mut gas_price = retry_until_success!(w3.eth().gas_price())?;
+    gas_price = (gas_price / 10) * 12;
 
     let tx = TransactionParameters {
         gas: TRANSFER_GAS_LIMIT.into(),

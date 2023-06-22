@@ -4,7 +4,7 @@ use candid::Nat;
 use crate::{clone_with_state, PythiaError};
 
 pub fn subscription_frequency(frequency: &Nat) -> Result<()> {
-    if *frequency < clone_with_state!(timer_frequency) {
+    if frequency.clone() < clone_with_state!(timer_frequency) {
         return Err(PythiaError::TimerFrequencyIsGreaterThanSubscriptionFrequency.into());
     }
 

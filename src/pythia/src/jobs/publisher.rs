@@ -87,7 +87,8 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
         .await;
 
         let fee = canister::fee(&chain_id).await?;
-        let gas_price = retry_until_success!(w3.eth().gas_price())?;
+        let mut gas_price = retry_until_success!(w3.eth().gas_price())?;
+        gas_price = (gas_price / 10) * 12;
         subscriptions = multicall(&w3, &chain_id, calls, gas_price)
             .await
             .context(PythiaError::UnableToExecuteMulticall)?
@@ -100,7 +101,7 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                     return false;
                 }
 
-                if result.used_gas != 0.into() {
+                if result.used_gas == 0.into() {
                     return true;
                 }
 

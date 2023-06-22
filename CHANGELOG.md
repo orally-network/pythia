@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Metric collecting
 - Chain ID field to the Subscription type in .did interfaces
 - Executions counter to Subscriptions
+- A method to update a subscription
 
 ### Fixed
 - Refresh README.md
