@@ -68,7 +68,7 @@ async fn _deposit(chain_id: Nat, tx_hash: String, msg: String, sig: String) -> R
     let receiver = tx.to.context(PythiaError::TxWithoutReceiver)?;
     let pma = canister::pma_h160()
         .await
-        .context(PythiaError::UnableToGetPmaAddress)?;
+        .context(PythiaError::UnableToGetPMA)?;
     if receiver != pma {
         return Err(PythiaError::TxWasNotSentToPma.into());
     }

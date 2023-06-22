@@ -8,8 +8,8 @@ use crate::{
     clone_with_state,
     jobs::{publisher, withdraw},
     log, update_state,
-    utils::{canister, validator},
-    PythiaError,
+    utils::{canister, validator, address, web3},
+    PythiaError, types::balance::Balances,
 };
 
 /// Update the controllers.
@@ -139,6 +139,7 @@ pub fn execute_withdraw_job() -> Result<(), String> {
 fn _execute_withdraw_job() -> Result<()> {
     validator::caller()?;
     withdraw::execute();
+    log!("[CONTROLLERS] withdraw job forcefully executed");
     Ok(())
 }
 
@@ -157,5 +158,42 @@ fn _execute_publisher_job() -> Result<()> {
     if !clone_with_state!(is_timer_active) {
         publisher::execute();
     }
+    log!("[CONTROLLERS] publisher job forcefully executed");
+    Ok(())
+}
+
+/// Withdraw the platform fees.
+/// 
+/// # Arguments
+/// 
+/// * `chain_id` - Unique identifier of the chain, for example Ethereum Mainnet is 1
+/// * `receiver` - Address of the receiver
+/// 
+/// # Returns
+/// 
+/// Returns a result that can contain an error message
+#[update]
+pub async fn withdraw_fee(chain_id: Nat, receiver: String) -> Result<(), String> {
+    _withdraw_fee(chain_id, receiver)
+        .await
+        .map_err(|e| format!("failed to withdraw the fee: {e:?}"))
+}
+
+async fn _withdraw_fee(chain_id: Nat, receiver: String) -> Result<()> {
+    validator::caller()?;
+    let receiver = address::normalize(&receiver)
+        .context(PythiaError::InvalidAddressFormat)?;
+    let pma = canister::pma()
+        .await
+        .context(PythiaError::UnableToGetPMA)?;
+    let value = Balances::get(&chain_id, &pma)
+        .context(PythiaError::UnableToGetBalance)?;
+    web3::transfer(&chain_id, &receiver, &value)
+        .await
+        .context(PythiaError::UnableToTransferFunds)?;
+    Balances::reduce(&chain_id, &pma, &value)
+        .context(PythiaError::UnableToReduceBalance)?;
+
+    log!("[CONTROLLERS] fees were withdrawn to: {receiver}");
     Ok(())
 }

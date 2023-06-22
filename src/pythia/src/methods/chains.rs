@@ -2,16 +2,16 @@ use anyhow::{anyhow, Context, Result};
 
 use ic_cdk::export::candid::Nat;
 use ic_cdk_macros::{query, update};
-use ic_utils::logger::log_message;
 
 use crate::{
+    log,
     types::{
         balance::Balances,
-        chains::{ChainUpdator, Chains},
+        chains::{ChainUpdator, Chains, CreateChainRequest},
         subscription::Subscriptions,
         withdraw::WithdrawRequests,
     },
-    utils::validator,
+    utils::{validator, canister},
     Chain, PythiaError,
 };
 
@@ -19,39 +19,40 @@ use crate::{
 ///
 /// # Arguments
 ///
-/// * `chain_id` - Unique identifier of the chain, for example Ethereum Mainnet is 1
-/// * `rpc` - RPC endpoint.
-/// * `min_balance` - Minimum balance, used to check if balances have sufficient funds.
-/// * `block_gas_limit` - Max gas limit per block.
+/// * `req` - the CreateChainRequest
 ///
 /// # Returns
 ///
 /// Returns a result that can contain an error message
 #[update]
-pub fn add_chain(
-    chain_id: Nat,
-    rpc: String,
-    min_balance: Nat,
-    block_gas_limit: Nat,
-) -> Result<(), String> {
-    _add_chain(chain_id, rpc, min_balance, block_gas_limit)
+pub async fn add_chain(req: CreateChainRequest) -> Result<(), String> {
+    _add_chain(req)
+        .await
         .map_err(|e| format!("failed to add a chain: {e:?}"))
 }
 
-fn _add_chain(chain_id: Nat, rpc: String, min_balance: Nat, block_gas_limit: Nat) -> Result<()> {
+async fn _add_chain(req: CreateChainRequest) -> Result<()> {
     validator::caller()?;
-    if Chains::is_exists(&chain_id) {
+    if Chains::is_exists(&req.chain_id) {
         return Err(anyhow!(PythiaError::ChainAlreadyExists));
     }
 
-    Chains::add(&chain_id, &rpc, &min_balance, &block_gas_limit)
+    Chains::add(&req).context(PythiaError::UnableToAddNewChain)?;
+
+    Balances::init_new_chain(&req.chain_id)
+        .context(PythiaError::UnableToAddNewChain)?;
+    Subscriptions::init_new_chain(&req.chain_id)
+        .context(PythiaError::UnableToAddNewChain)?;
+    WithdrawRequests::init_new_chain(&req.chain_id)
         .context(PythiaError::UnableToAddNewChain)?;
 
-    Balances::init_new_chain(&chain_id)?;
-    Subscriptions::init_new_chain(&chain_id)?;
-    WithdrawRequests::init_new_chain(&chain_id)?;
+    let pma = canister::pma()
+        .await
+        .context(PythiaError::UnableToGetPMA)?;
+    Balances::create(&req.chain_id, &pma)
+        .context(PythiaError::UnableToAddNewBalance)?;
 
-    log_message(format!("[CHAINS] added, id: {chain_id}"));
+    log!("[CHAINS] added, id: {}", req.chain_id);
     Ok(())
 }
 
@@ -73,11 +74,14 @@ fn _remove_chain(chain_id: Nat) -> Result<()> {
     validator::caller()?;
     Chains::remove(&chain_id).context(PythiaError::UnableToRemoveChain)?;
 
-    Balances::deinit_chain(&chain_id).context(PythiaError::UnableToRemoveChain)?;
-    Subscriptions::deinit_chain(&chain_id).context(PythiaError::UnableToRemoveChain)?;
-    WithdrawRequests::deinit_chain(&chain_id).context(PythiaError::UnableToRemoveChain)?;
+    Balances::deinit_chain(&chain_id)
+        .context(PythiaError::UnableToRemoveChain)?;
+    Subscriptions::deinit_chain(&chain_id)
+        .context(PythiaError::UnableToRemoveChain)?;
+    WithdrawRequests::deinit_chain(&chain_id)
+        .context(PythiaError::UnableToRemoveChain)?;
 
-    log_message(format!("[CHAINS] removed, id: {chain_id}"));
+    log!("[CHAINS] removed, id: {chain_id}");
     Ok(())
 }
 
@@ -107,7 +111,7 @@ fn _update_chain_rpc(chain_id: Nat, rpc: String) -> Result<()> {
     )
     .context(PythiaError::UnableToUpdateChain)?;
 
-    log_message(format!("[CHAINS] RPC updated: {rpc}, id: {chain_id}"));
+    log!("[CHAINS] RPC updated: {rpc}, id: {chain_id}");
     Ok(())
 }
 
@@ -138,9 +142,7 @@ fn _update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<()> {
     )
     .context(PythiaError::UnableToUpdateChain)?;
 
-    log_message(format!(
-        "[CHAINS] minimum balance updated: {min_balance}, id: {chain_id}"
-    ));
+    log!("[CHAINS] minimum balance updated: {min_balance}, id: {chain_id}");
     Ok(())
 }
 

@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Result, Context};  
 
+use candid::Nat;
 use ic_cdk::{
     api::management_canister::{main::canister_status, provisional::CanisterIdRecord},
     export::Principal,
@@ -10,8 +11,11 @@ use ic_web3::{ic::get_eth_addr, types::H160};
 
 use crate::{
     clone_with_state, update_state,
-    utils::{address, canister},
+    utils::{address, canister, sybil}, types::{chains::Chains, errors::PythiaError, balance::Balances},
 };
+
+const DECIMALS: &str = "1000000000000000000";
+const FEE_IN_USDT: &str = "67500";
 
 pub async fn get_controllers() -> Result<Vec<Principal>> {
     let (canister_status,) = canister_status(CanisterIdRecord {
@@ -25,6 +29,8 @@ pub async fn get_controllers() -> Result<Vec<Principal>> {
             msg
         )
     })?;
+
+
 
     Ok(canister_status.settings.controllers)
 }
@@ -45,4 +51,30 @@ pub async fn pma() -> Result<String> {
 
 pub async fn pma_h160() -> Result<H160> {
     Ok(H160::from_str(&canister::pma().await?).expect("pma should be a valid address"))
+}
+
+pub async fn fee(chain_id: &Nat) -> Result<Nat> {
+    let mut pair_id = Chains::get(chain_id)?.symbol;
+    pair_id.push_str("/USDT");
+
+    if sybil::is_pair_exists(&pair_id).await? {
+        let rate = sybil::get_asset_data(&pair_id)
+            .await
+            .context(PythiaError::UnableToGetAssetData)?;
+        let decimals = Nat::from_str(DECIMALS)
+            .context(PythiaError::InvalidNumber)?;
+        let fee_in_usdt = Nat::from_str(FEE_IN_USDT)
+            .context(PythiaError::InvalidNumber)?;
+
+        return Ok(
+            (fee_in_usdt * decimals) / rate.rate
+        );
+    }
+
+    Chains::get_fee(chain_id)
+}
+
+pub fn collect_fee(chain_id: &Nat, receiver: &str, amount: &Nat) -> Result<()> {
+    Balances::add_amount(chain_id, &receiver, amount)
+        .context(PythiaError::UnableToIncreaseBalance)
 }

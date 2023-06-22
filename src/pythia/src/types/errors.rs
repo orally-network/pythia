@@ -31,9 +31,7 @@ pub enum PythiaError {
     #[error("Tx was not sent to the PMA")]
     TxWasNotSentToPma,
     #[error("Unable to recover address")]
-    UnableToRecoverAddress,
-    #[error("Unable to get PMA address")]
-    UnableToGetPmaAddress,
+    UnableToRecoverAddress,    
     #[error("Unable to add a new balance")]
     UnableToAddNewBalance,
     #[error("Unable to get tx")]
@@ -122,4 +120,10 @@ pub enum PythiaError {
     UnableToTransferFunds,
     #[error("Unable to get balance")]
     UnableToGetBalance,
+    #[error("Unable to get asset data")]
+    UnableToGetAssetData,
+    #[error("Invalid number")]
+    InvalidNumber,
+    #[error("Unable to reduce balance")]
+    UnableToReduceBalance,
 }

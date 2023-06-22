@@ -17,6 +17,18 @@ pub struct Chain {
     pub rpc: String,
     pub min_balance: Nat,
     pub block_gas_limit: Nat,
+    pub fee: Nat,
+    pub symbol: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, CandidType)]
+pub struct CreateChainRequest {
+    pub chain_id: Nat,
+    pub rpc: String,
+    pub min_balance: Nat,
+    pub block_gas_limit: Nat,
+    pub fee: Nat,
+    pub symbol: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, CandidType)]
@@ -31,17 +43,22 @@ pub struct ChainUpdator {
 pub struct Chains(pub HashMap<Nat, Chain>);
 
 impl Chains {
-    pub fn add(id: &Nat, rpc: &str, min_balance: &Nat, block_gas_limit: &Nat) -> Result<()> {
-        let rpc: Url = rpc.parse().context(PythiaError::InvalidChainRPC)?;
+    pub fn add(req: &CreateChainRequest) -> Result<()> {
+        let rpc: Url = req
+            .rpc
+            .parse()
+            .context(PythiaError::InvalidChainRPC)?;
 
         STATE.with(|state| {
             state.borrow_mut().chains.0.insert(
-                id.clone(),
+                req.chain_id.clone(),
                 Chain {
-                    chain_id: id.clone(),
+                    chain_id: req.chain_id.clone(),
                     rpc: rpc.to_string(),
-                    min_balance: min_balance.clone(),
-                    block_gas_limit: block_gas_limit.clone(),
+                    min_balance: req.min_balance.clone(),
+                    block_gas_limit: req.block_gas_limit.clone(),
+                    fee: req.fee.clone(),
+                    symbol: req.symbol.clone(),
                 },
             );
         });
@@ -135,6 +152,32 @@ impl Chains {
                 .ok_or(PythiaError::ChainDoesNotExist)?;
 
             Ok(chain.block_gas_limit.clone())
+        })
+    }
+
+    pub fn get_fee(id: &Nat) -> Result<Nat> {
+        STATE.with(|state| {
+            let state = state.borrow();
+            let chain = state
+                .chains
+                .0
+                .get(id)
+                .ok_or(PythiaError::ChainDoesNotExist)?;
+
+            Ok(chain.fee.clone())
+        })
+    }
+
+    pub fn get_symbol(id: &Nat) -> Result<String> {
+        STATE.with(|state| {
+            let state = state.borrow();
+            let chain = state
+                .chains
+                .0
+                .get(id)
+                .ok_or(PythiaError::ChainDoesNotExist)?;
+
+            Ok(chain.symbol.to_string())
         })
     }
 

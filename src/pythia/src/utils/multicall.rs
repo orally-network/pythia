@@ -12,10 +12,10 @@ use ic_web3::{
 };
 
 use super::{address, canister, nat, web3};
-use crate::types::{
+use crate::{types::{
     chains::{Chain, Chains},
     errors::PythiaError,
-};
+}, log};
 
 const MULTICALL_ABI: &[u8] = include_bytes!("../../assets/MulticallABI.json");
 const MULTICALL_CONTRACT_ADDRESS: &str = "0x26df57f4577dcd7e1deea93299655b14df374b17";
@@ -149,25 +149,25 @@ pub async fn multicall<T: Transport>(
         .context(PythiaError::InvalidContractABI)?;
     let from = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
 
-    let options = Options {
-        gas_price: Some(gas_price),
-        gas: Some(
-            calls
-                .iter()
-                .fold(U256::from(BASE_GAS + 10000), |result, call| {
-                    result + call.gas_limit
-                }),
-        ),
-        nonce: Some(retry_until_success!(w3
-            .eth()
-            .transaction_count(H160::from_str(&from)?, None))?),
-        ..Default::default()
-    };
-
     #[allow(unused_assignments)]
     let mut current_calls_batch = vec![];
     while !calls.is_empty() {
         (current_calls_batch, calls) = get_current_calls_batch(&calls, &chain);
+        let options = Options {
+            gas_price: Some(gas_price),
+            gas: Some(
+                current_calls_batch
+                    .iter()
+                    .fold(U256::from(BASE_GAS + 10000), |result, call| {
+                        result + call.gas_limit
+                    }),
+            ),
+            nonce: Some(retry_until_success!(w3
+                .eth()
+                .transaction_count(H160::from_str(&from)?, None))?),
+            ..Default::default()
+        };
+  
         let params: Vec<Token> = current_calls_batch
             .iter()
             .map(|c| c.clone().into_token())

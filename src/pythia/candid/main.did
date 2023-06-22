@@ -9,6 +9,17 @@ type Chain = record {
     rpc : text;
     min_balance : nat;
     block_gas_limit : nat;
+    fee : nat;
+    symbol : text;
+};
+
+type CreateChainRequest = record {
+    chain_id : nat;
+    rpc : text;
+    min_balance : nat;
+    block_gas_limit : nat;
+    fee : nat;
+    symbol : text;
 };
 type GetChainRPCResponse = variant { Ok : text; Err : text};
 // Subscribptions
@@ -79,7 +90,7 @@ service : {
     withdraw : (chain_id : nat, msg : text, sig : text, receiver: text) -> (Error);
     get_balance : (chain_id : nat, address : text) -> (GetBalanceResponse);
     // Chains
-    add_chain : (chain_id : nat, rpc : text, min_balance : nat, block_gas_limit : nat) -> (Error);
+    add_chain : (req: CreateChainRequest) -> (Error);
     remove_chain : (chain_id : nat) -> (Error);
     update_chain_rpc : (chain_id : nat, rpc : text) -> (Error);
     update_chain_min_balance : (chain_id : nat, min_balance : nat) -> (Error);

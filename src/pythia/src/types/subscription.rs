@@ -165,6 +165,7 @@ impl Subscriptions {
             }
 
             if let Some(owner) = owner {
+                let owner = address::normalize(&owner).unwrap();
                 subscriptions = subscriptions
                     .into_iter()
                     .filter(|sub| sub.owner == owner)
