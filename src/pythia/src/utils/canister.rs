@@ -54,7 +54,7 @@ pub async fn pma_h160() -> Result<H160> {
 }
 
 pub async fn fee(chain_id: &Nat) -> Result<Nat> {
-    let mut pair_id = Chains::get(chain_id)?.symbol;
+    let mut pair_id = Chains::get_symbol(chain_id)?;
     pair_id.push_str("/USDT");
 
     if sybil::is_pair_exists(&pair_id).await? {

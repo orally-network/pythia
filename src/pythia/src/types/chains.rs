@@ -11,14 +11,14 @@ use ic_cdk::export::{
 use super::errors::PythiaError;
 use crate::STATE;
 
-#[derive(Clone, Debug, Deserialize, Serialize, CandidType)]
+#[derive(Clone, Debug, Deserialize, Serialize, CandidType, Default)]
 pub struct Chain {
     pub chain_id: Nat,
     pub rpc: String,
     pub min_balance: Nat,
     pub block_gas_limit: Nat,
-    pub fee: Nat,
-    pub symbol: String,
+    pub fee: Option<Nat>,
+    pub symbol: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, CandidType)]
@@ -54,8 +54,8 @@ impl Chains {
                     rpc: rpc.to_string(),
                     min_balance: req.min_balance.clone(),
                     block_gas_limit: req.block_gas_limit.clone(),
-                    fee: req.fee.clone(),
-                    symbol: req.symbol.clone(),
+                    fee: Some(req.fee.clone()),
+                    symbol: Some(req.symbol.clone()),
                 },
             );
         });
@@ -161,7 +161,7 @@ impl Chains {
                 .get(id)
                 .ok_or(PythiaError::ChainDoesNotExist)?;
 
-            Ok(chain.fee.clone())
+            Ok(chain.fee.clone().unwrap())
         })
     }
 
@@ -174,7 +174,7 @@ impl Chains {
                 .get(id)
                 .ok_or(PythiaError::ChainDoesNotExist)?;
 
-            Ok(chain.symbol.to_string())
+            Ok(chain.symbol.clone().unwrap())
         })
     }
 

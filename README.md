@@ -1,10 +1,16 @@
 # Pythia
 Pythia is a canister that provides the SubPub functionality for the Ethereum family smart contracts.
 
-## Upgrade
+## Upgrade local
 ```sh
 dfx build pythia && gzip -f -1 ./.dfx/local/canisters/pythia/pythia.wasm
 dfx canister install --mode upgrade --wasm ./.dfx/local/canisters/pythia/pythia.wasm.gz pythia
+```
+
+## Upgrade production
+```sh
+dfx build pythia --network ic && gzip -f -1 ./.dfx/ic/canisters/pythia/pythia.wasm
+dfx canister install --network ic --mode upgrade --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz pythia
 ```
 
 ## Usage
