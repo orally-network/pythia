@@ -9,8 +9,8 @@ type Chain = record {
     rpc : text;
     min_balance : nat;
     block_gas_limit : nat;
-    fee : nat;
-    symbol : text;
+    fee : opt nat;
+    symbol : opt text;
 };
 
 type CreateChainRequest = record {
@@ -104,6 +104,7 @@ service : {
     update_subs_limit_wallet : (limit : nat) -> (Error);
     update_subs_limit_total : (limit : nat) -> (Error);
     update_timer_frequency : (frequency : nat) -> (Error);
+    update_chain_fee_and_symbol : (chain_id : nat, fee : nat, symbol : text) -> (Error);
     // Subscriptions
     subscribe : (req : SubscribeRequest) -> (SubscribeResponse);
     get_subscriptions : (owner : opt text) -> (vec Subscription);

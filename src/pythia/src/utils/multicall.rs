@@ -7,7 +7,7 @@ use ic_dl_utils::retry_until_success;
 use ic_web3::{
     contract::{tokens::Tokenizable, Contract, Error, Options},
     ethabi::Token,
-    types::{BlockId, Bytes, CallRequest, H160, U256, TransactionCondition},
+    types::{BlockId, Bytes, CallRequest, H160, U256},
     Transport, Web3,
 };
 
@@ -19,6 +19,7 @@ use crate::{types::{
 
 const MULTICALL_ABI: &[u8] = include_bytes!("../../assets/MulticallABI.json");
 const MULTICALL_CONTRACT_ADDRESS: &str = "0xa27a3A7702Bc1010be95f73A2c64873d21D6D027";
+//const MULTICALL_CONTRACT_ADDRESS: &str = "0xcA5931044E54A6E900DcF5d5A9B37DeB0e065619";
 const MULTICALL_CALL_FUNCTION: &str = "multicall";
 const MULTICALL_TRANSFER_FUNCTION: &str = "multitransfer";
 const BASE_GAS: u64 = 27_000;
@@ -141,6 +142,7 @@ pub async fn multicall<T: Transport>(
     calls: Vec<Call>,
     gas_price: U256,
 ) -> Result<Vec<MulticallResult>> {
+    log!("[PUBLISHER] Chain: {}, prepering multicall", chain_id);
     let mut calls = calls;
     let mut result: Vec<MulticallResult> = vec![];
     let chain = Chains::get(chain_id)?;
@@ -150,14 +152,14 @@ pub async fn multicall<T: Transport>(
     let from = canister::pma()
         .await
         .context(PythiaError::UnableToGetPMA)?;
-    let gas_price = (gas_price / 10) * 12;
+    let key_info = web3::key_info();
+    let gas_price = (gas_price / 10) * 15;
     
-    log!("[PUBLISHER EXECUTION] PMA: {from}");
+    log!("[PUBLISHER] PMA: {from}");
 
     while !calls.is_empty() {
         let (current_calls_batch, _calls) = get_current_calls_batch(&calls, &chain);
         calls = _calls;
-        let block_height = retry_until_success!(w3.eth().block_number())?;
         let options = Options {
             gas_price: Some(gas_price),
             gas: Some(
@@ -170,17 +172,8 @@ pub async fn multicall<T: Transport>(
             nonce: Some(retry_until_success!(w3
                 .eth()
                 .transaction_count(H160::from_str(&from)?, None))?),
-            condition: Some(TransactionCondition::Block(block_height.as_u64())),
             ..Default::default()
         };
-
-        log!("[PUBLISHER EXECUTION] Gas price: {}", gas_price);
-        log!("[PUBLISHER EXECUTION] Gas limit: {}", options.gas.unwrap());
-        log!("[PUBLISHER EXECUTION] Tx price: {}", gas_price * options.gas.unwrap());
-        log!("[PUBLISHER EXECUTION] Block height: {}", block_height);
-
-        let address_balance = retry_until_success!(w3.eth().balance(address::to_h160(&from)?, None))?;
-        log!("[PUBLISHER EXECUTION] Address balance: {}", address_balance);
 
         let params: Vec<Token> = current_calls_batch
             .iter()
@@ -192,21 +185,21 @@ pub async fn multicall<T: Transport>(
                 vec![params.clone()],
                 options.clone(),
                 from.clone(),
-                web3::key_info(),
+                key_info.clone(),
                 nat::to_u64(chain_id),
             )
             .await
             .context(PythiaError::UnableToSignContractCall)?;
-        log!("[PUBLISHER EXECUTION] tx was signed");
+        log!("[PUBLISHER] tx was signed");
         let tx_hash = retry_until_success!(w3
             .eth()
             .send_raw_transaction(signed_call.raw_transaction.clone()))
             .context(PythiaError::UnableToExecuteRawTx)?;
-        log!("[PUBLISHER EXECUTION] tx was sent");
+        log!("[PUBLISHER] tx was sent");
         let tx_receipt = ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
             .await
             .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
-        log!("[PUBLISHER EXECUTION] tx was executed");
+        log!("[PUBLISHER] tx was executed");
         let data = contract
             .abi()
             .function(MULTICALL_CALL_FUNCTION)
@@ -225,7 +218,7 @@ pub async fn multicall<T: Transport>(
         );
         let raw_result =
             retry_until_success!(w3.eth().call(call_request.clone(), Some(block_number)))?;
-        log!("[PUBLISHER EXECUTION] tx result was received");
+        log!("[PUBLISHER] tx result was received");
         let call_result: Vec<Token> = contract
             .abi()
             .function(MULTICALL_CALL_FUNCTION)
@@ -239,7 +232,7 @@ pub async fn multicall<T: Transport>(
             .into_array()
             .context(PythiaError::InvalidMulticallResult)?;
 
-        log!("[PUBLISHER EXECUTION] result: {results:?}");
+        log!("[PUBLISHER] result: {results:?}");
 
         result.append(
             &mut results

@@ -844,7 +844,7 @@ dependencies = [
 [[package]]
 name = "ic-dl-utils"
 version = "0.1.0"
-source = "git+https://github.com/ivanlele/ic-dl-utils?branch=master#b342566f647b815d1dc453f7e56c7f8a0296979e"
+source = "git+https://github.com/ivanlele/ic-dl-utils?branch=master#2ae042279d2ee7bb533b65aeaf091edf6616c402"
 dependencies = [
  "anyhow",
  "canistergeek_ic_rust",

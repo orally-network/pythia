@@ -36,6 +36,8 @@ pub struct ChainUpdator {
     pub rpc: Option<String>,
     pub min_balance: Option<Nat>,
     pub block_gas_limit: Option<Nat>,
+    pub fee: Option<Nat>,
+    pub symbol: Option<String>,
 }
 
 /// Chain id => Chain
@@ -95,6 +97,14 @@ impl Chains {
 
             if let Some(block_gas_limit) = updator.block_gas_limit {
                 chain.block_gas_limit = block_gas_limit;
+            }
+
+            if let Some(fee) = updator.fee {
+                chain.fee = Some(fee);
+            }
+
+            if let Some(symbol) = updator.symbol {
+                chain.symbol = Some(symbol);
             }
 
             Ok(())

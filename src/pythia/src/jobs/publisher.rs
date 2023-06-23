@@ -32,14 +32,15 @@ pub fn execute() {
 }
 
 async fn _execute() -> Result<()> {
-    log!("publisher job started");
+    log!("[PUBLISHER] publisher job started");
     update_state!(is_timer_active, true);
 
     Subscriptions::stop_insufficients()
         .context(PythiaError::UnableToStopInsufficientSubscriptions)?;
 
     let mut futures = vec![];
-    Subscriptions::get_publishable()
+    let (publishable_subs, is_active) = Subscriptions::get_publishable();
+    publishable_subs
         .iter()
         .for_each(|(chain_id, subs)| {
             if subs.is_empty() {
@@ -49,16 +50,16 @@ async fn _execute() -> Result<()> {
             futures.push(publish_on_chain(chain_id.clone(), subs.clone()));
         });
 
-    if futures.is_empty() {
+    if !is_active {
         withdraw::withdraw().await;
         update_state!(is_timer_active, false);
-        log!("publisher job stopped");
+        log!("[PUBLISHER] publisher job stopped");
         return Ok(());
     }
 
     join_all(futures).await.iter().for_each(|e| {
         if let Err(e) = e {
-            log!("error while publishing: {e:?}");
+            log!("[PUBLISHER] error while publishing: {e:?}");
         }
     });
 
@@ -69,14 +70,16 @@ async fn _execute() -> Result<()> {
         execute,
     );
 
-    log!("publisher job executed");
+    log!("[PUBLISHER] publisher job executed");
     Ok(())
 }
 
 async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -> Result<()> {
+    log!("[PUBLISHER] Publishing on chain {}", chain_id);
     let w3 = web3::instance(&chain_id)?;
     let pma = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
     while !subscriptions.is_empty() {
+        log!("[PUBLISHER] Chain: {}, Subscriptions left: {}", chain_id, subscriptions.len());
         let calls: Vec<Call> = join_all(subscriptions.iter().map(|sub| async {
             Call {
                 target: address::to_h160(&sub.contract_addr).expect("should be valid address"),
@@ -96,7 +99,7 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             .zip(subscriptions)
             .filter(|(result, sub)| {
                 if nat::from_u256(&result.used_gas) > sub.method.gas_limit {
-                    log!("gas limit exceeded for sub {}", sub.id);
+                    log!("[[PUBLISHER]] gas limit exceeded for sub {}", sub.id);
                     Subscriptions::stop(&chain_id, &sub.owner, &sub.id).expect("should stop sub");
                     return false;
                 }
@@ -116,6 +119,6 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             .map(|(_, subscription)| subscription)
             .collect();
     }
-
+    log!("[PUBLISHER] Published on chain {}", chain_id);
     Ok(())
 }

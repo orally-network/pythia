@@ -137,6 +137,39 @@ fn _update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<()> {
     Ok(())
 }
 
+/// Update a chain fee and symbol.
+/// 
+/// # Arguments
+/// 
+/// * `chain_id` - Unique identifier of the chain, for example Ethereum Mainnet is 1
+/// * `fee` - Fee for the chain.
+/// * `symbol` - Symbol for the chain.
+/// 
+/// # Returns
+/// 
+/// Returns a result that can contain an error message
+#[update]
+pub fn update_chain_fee_and_symbol(chain_id: Nat, fee: Nat, symbol: String) -> Result<(), String> {
+    _update_chain_fee_and_symbol(chain_id, fee, symbol)
+        .map_err(|e| format!("failed to update a chain fee and symbol: {e:?}"))
+}
+
+fn _update_chain_fee_and_symbol(chain_id: Nat, fee: Nat, symbol: String) -> Result<()> {
+    validator::caller()?;
+    Chains::update(
+        &chain_id,
+        ChainUpdator {
+            fee: Some(fee.clone()),
+            symbol: Some(symbol.clone()),
+            ..Default::default()
+        },
+    )
+    .context(PythiaError::UnableToUpdateChain)?;
+
+    log!("[CHAINS] fee and symbol updated: {fee}, {symbol}, id: {chain_id}");
+    Ok(())
+}
+
 /// Get a chain RPC from the state.
 ///
 /// # Arguments

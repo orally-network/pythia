@@ -15,13 +15,13 @@ use ic_cdk::{
     api::management_canister::http_request::{HttpResponse, TransformArgs},
     export::{candid::Nat, Principal},
 };
-use ic_cdk_macros::init;
+use ic_cdk_macros::{init, query};
 
 thread_local! {
     pub static STATE: RefCell<State> = RefCell::default();
 }
 
-#[ic_cdk_macros::query]
+#[query]
 fn transform(response: TransformArgs) -> HttpResponse {
     response.response
 }

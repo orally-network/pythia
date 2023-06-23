@@ -157,9 +157,7 @@ pub fn execute_publisher_job() -> Result<(), String> {
 
 fn _execute_publisher_job() -> Result<()> {
     validator::caller()?;
-    if !clone_with_state!(is_timer_active) {
-        publisher::execute();
-    }
+    publisher::execute();
     log!("[CONTROLLERS] publisher job forcefully executed");
     Ok(())
 }
