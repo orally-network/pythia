@@ -13,9 +13,8 @@ use crate::{
     types::{
         balance::Balances,
         errors::PythiaError,
-        subscription::{Subscription, Subscriptions},
+        subscription::{Subscription, Subscriptions}, timer::Timer,
     },
-    update_state,
     utils::{
         abi, address, canister,
         multicall::{multicall, Call},
@@ -33,7 +32,8 @@ pub fn execute() {
 
 async fn _execute() -> Result<()> {
     log!("[PUBLISHER] publisher job started");
-    update_state!(is_timer_active, true);
+    Timer::activate()
+        .context(PythiaError::UnableToActivateTimer)?;
 
     Subscriptions::stop_insufficients()
         .context(PythiaError::UnableToStopInsufficientSubscriptions)?;
@@ -52,7 +52,8 @@ async fn _execute() -> Result<()> {
 
     if !is_active {
         withdraw::withdraw().await;
-        update_state!(is_timer_active, false);
+        Timer::deactivate()
+            .context(PythiaError::UnableToDeactivateTimer)?;
         log!("[PUBLISHER] publisher job stopped");
         return Ok(());
     }
@@ -65,21 +66,24 @@ async fn _execute() -> Result<()> {
 
     withdraw::withdraw().await;
 
-    set_timer(
+    let timer_id = set_timer(
         Duration::from_secs(nat::to_u64(&clone_with_state!(timer_frequency))),
         execute,
     );
+
+    Timer::update(timer_id)
+        .context(PythiaError::UnableToUpdateTimer)?;
 
     log!("[PUBLISHER] publisher job executed");
     Ok(())
 }
 
 async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -> Result<()> {
-    log!("[PUBLISHER] Publishing on chain {}", chain_id);
+    log!("[PUBLISHER] chain: {}, publishing", chain_id);
     let w3 = web3::instance(&chain_id)?;
     let pma = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
     while !subscriptions.is_empty() {
-        log!("[PUBLISHER] Chain: {}, Subscriptions left: {}", chain_id, subscriptions.len());
+        log!("[PUBLISHER] chain: {}, subscriptions left: {}", chain_id, subscriptions.len());
         let calls: Vec<Call> = join_all(subscriptions.iter().map(|sub| async {
             Call {
                 target: address::to_h160(&sub.contract_addr).expect("should be valid address"),
@@ -97,7 +101,7 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             .context(PythiaError::UnableToExecuteMulticall)?;
 
         if multicall_results.is_empty() {
-            log!("[PUBLISHER] No results from multicall, corruption detected");
+            log!("[PUBLISHER] chain: {}, no results from multicall, corruption detected", chain_id);
             continue;
         }
 
@@ -106,7 +110,7 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             .zip(subscriptions)
             .filter(|(result, sub)| {
                 if nat::from_u256(&result.used_gas) > sub.method.gas_limit {
-                    log!("[[PUBLISHER]] gas limit exceeded for sub {}", sub.id);
+                    log!("[PUBLISHER] chain: {}, gas limit exceeded for sub {}", chain_id, sub.id);
                     Subscriptions::stop(&chain_id, &sub.owner, &sub.id).expect("should stop sub");
                     return false;
                 }
@@ -118,14 +122,16 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                 Subscriptions::update_last_update(&chain_id, &sub.id);
                 let mut amount = nat::from_u256(&gas_price) * (sub.method.gas_limit.clone() + 100);
                 amount += fee.clone();
-                Balances::reduce(&chain_id, &sub.owner, &amount).expect("should reduce balance");
-                canister::collect_fee(&chain_id, &pma, &fee).expect("should collect fee");
+                Balances::reduce(&chain_id, &sub.owner, &amount)
+                    .expect("should reduce balance");
+                canister::collect_fee(&chain_id, &pma, &fee)
+                    .expect("should collect fee");
 
                 false
             })
             .map(|(_, subscription)| subscription)
             .collect();
     }
-    log!("[PUBLISHER] Published on chain {}", chain_id);
+    log!("[PUBLISHER] chain: {}, published", chain_id);
     Ok(())
 }

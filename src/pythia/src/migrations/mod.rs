@@ -5,7 +5,7 @@ use ic_cdk_macros::{post_upgrade, pre_upgrade};
 use ic_cdk_timers::set_timer;
 use ic_utils::{logger, monitor};
 
-use crate::{jobs::publisher, State, STATE};
+use crate::{jobs::publisher, State, STATE, types::timer::Timer};
 
 #[pre_upgrade]
 fn pre_upgrade() {
@@ -21,7 +21,7 @@ fn pre_upgrade() {
 #[post_upgrade]
 fn post_upgrade() {
     #[allow(clippy::type_complexity)]
-    let (state, log_data, monitor_data): (
+    let (mut state, log_data, monitor_data): (
         State,
         logger::PostUpgradeStableData,
         monitor::PostUpgradeStableData,
@@ -30,10 +30,16 @@ fn post_upgrade() {
     logger::post_upgrade_stable_data(log_data);
     monitor::post_upgrade_stable_data(monitor_data);
 
-    set_timer(
+    let timer_id = set_timer(
         Duration::from_secs(10),
         publisher::execute,
     );
+    let timer = Timer {
+        id: serde_json::to_string(&timer_id).unwrap(),
+        is_active: true,
+    };
+
+    state.timer = Some(timer);
 
     STATE.with(|s| s.replace(state));   
 }

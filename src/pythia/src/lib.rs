@@ -9,7 +9,7 @@ mod utils;
 
 use std::cell::RefCell;
 
-use types::{chains::Chain, errors::PythiaError, state::State};
+use types::{chains::Chain, errors::PythiaError, state::State, timer::Timer};
 
 use ic_cdk::{
     api::management_canister::http_request::{HttpResponse, TransformArgs},
@@ -37,5 +37,6 @@ fn init(tx_fee: Nat, key_name: String, siwe_canister: Principal, sybil_canister:
         state.subs_limit_wallet = 5.into();
         state.subs_limit_total = 100.into();
         state.timer_frequency = (5 * 60).into();
+        state.timer = Some(Timer::default());
     })
 }

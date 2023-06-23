@@ -4,13 +4,12 @@ use ic_cdk::export::candid::Nat;
 use ic_cdk_macros::{query, update};
 
 use crate::{
-    clone_with_state,
     jobs::publisher,
     log,
     types::{
         balance::Balances,
         subscription::{Subscription, Subscriptions, SubsribeRequest, UpdateSubscriptionRequest},
-        whitelist,
+        whitelist, timer::Timer,
     },
     utils::{siwe, validator},
     PythiaError,
@@ -48,7 +47,7 @@ async fn _subscribe(req: SubsribeRequest) -> Result<Nat> {
         .await
         .context(PythiaError::UnableToAddSubscription)?;
 
-    if !clone_with_state!(is_timer_active) {
+    if !Timer::is_active() {
         publisher::execute();
     }
 
@@ -157,7 +156,7 @@ pub async fn _start_subscription(
     Subscriptions::start(&chain_id, &address, &sub_id)
         .context(PythiaError::UnableToStartSubscription)?;
 
-    if !clone_with_state!(is_timer_active) {
+    if !Timer::is_active() {
         publisher::execute();
     }
 
@@ -213,7 +212,7 @@ fn _stop_subscriptions() -> Result<()> {
     Ok(())
 }
 
-/// Stop remove subscriptions
+/// Remove all subscriptions
 ///
 /// # Returns
 ///
@@ -229,5 +228,29 @@ pub fn _remove_subscriptions() -> Result<()> {
         .context(PythiaError::UnableToRemoveSubscriptions)?;
 
     log!("[SUBSCRIPTIONS] removed all");
+    Ok(())
+}
+
+/// Remove a subscription by id
+/// 
+/// # Arguments
+/// 
+/// * `id` - The subscription id
+/// 
+/// # Returns
+/// 
+/// Returns a result that can contain an error message
+#[update]
+pub fn remove_subscription(id: Nat) -> Result<(), String> {
+    _remove_subscription(id)
+        .map_err(|e| format!("{e:?}"))
+}
+
+pub fn _remove_subscription(id: Nat) -> Result<()> {
+    validator::caller()?;
+    Subscriptions::remove_all(None, vec![id.clone()], None)
+        .context(PythiaError::UnableToRemoveSubscriptions)?;
+
+    log!("[SUBSCRIPTIONS] removed, id: {}", id);
     Ok(())
 }

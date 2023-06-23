@@ -24,7 +24,7 @@ dfx canister call pythia add_to_whitelist '("e86c4a45c1da21f8838a1ea26fc852bd664
 # get the PMA
 dfx canister call pythia get_pma
 # init a new sub
-dfx canister call pythia deposit '(11155111:nat, "0c22e62a46d10b4993929aab41d4bea8e10977e0eb7e3c1c33f7dc83cc8e03c8", "service.org wants you to sign in with your Ethereum account:
+dfx canister call pythia deposit '(11155111:nat, "0x326f686c5646bf368ba86e98e234393ea5ac1abe677c00f9fb6cc0f5388fadfe", "service.org wants you to sign in with your Ethereum account:
 0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9
     
 

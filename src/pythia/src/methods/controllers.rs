@@ -8,7 +8,7 @@ use crate::{
     clone_with_state,
     jobs::{publisher, withdraw},
     log,
-    types::balance::Balances,
+    types::{balance::Balances, timer::Timer},
     update_state,
     utils::{address, canister, validator, web3},
     PythiaError,
@@ -220,10 +220,29 @@ async fn _withdraw_all_balance(chain_id: Nat, receiver: String) -> Result<()> {
     let receiver = address::normalize(&receiver)
         .context(PythiaError::InvalidAddressFormat)?;
     
-    web3::transfer_all(&chain_id, &receiver,)
+    web3::transfer_all(&chain_id, &receiver)
         .await
         .context(PythiaError::UnableToTransferFunds)?;
 
     log!("[CONTROLLERS] all balance was withdrawn to: {receiver}");
+    Ok(())
+}
+
+/// Stop main timer
+/// 
+/// # Returns
+/// 
+/// Returns a result that can contain an error message
+#[update]
+pub fn stop_timer() -> Result<(), String> {
+    _stop_timer()
+        .map_err(|e| format!("failed to stop the timer: {e:?}"))
+}
+
+fn _stop_timer() -> Result<()> {
+    validator::caller()?;
+    Timer::deactivate()
+        .context(PythiaError::UnableToDeactivateTimer)?;
+    log!("[CONTROLLERS] timer was stopped");
     Ok(())
 }

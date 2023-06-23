@@ -10,6 +10,7 @@ use super::{
     subscription::{Subscriptions, SubscriptionsIndexer},
     whitelist::Whitelist,
     withdraw::WithdrawRequests,
+    timer::Timer,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, CandidType, Default)]
@@ -29,6 +30,8 @@ pub struct State {
     pub subscriptions: Subscriptions,
     pub timer_frequency: Nat,
     pub subscriptions_indexer: SubscriptionsIndexer,
+    #[deprecated]
     pub is_timer_active: bool,
+    pub timer: Option<Timer>,
     pub whitelist: Whitelist,
 }

@@ -9,7 +9,7 @@ use crate::{
     log,
     types::{
         balance::Balances, errors::PythiaError, subscription::Subscriptions, whitelist,
-        withdraw::WithdrawRequests,
+        withdraw::WithdrawRequests, timer::Timer,
     },
     utils::{address, canister, nat, siwe, web3},
 };
@@ -125,7 +125,7 @@ async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) ->
     WithdrawRequests::add(&chain_id, &receiver, &amount)
         .context(PythiaError::UnableToAddWithdrawRequest)?;
 
-    if !clone_with_state!(is_timer_active) {
+    if !Timer::is_active() {
         withdraw::execute();
     }
 

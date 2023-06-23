@@ -126,4 +126,12 @@ pub enum PythiaError {
     InvalidNumber,
     #[error("Unable to reduce balance")]
     UnableToReduceBalance,
+    #[error("Unable to activate timer")]
+    UnableToActivateTimer,
+    #[error("Unable to deactivate timer")]
+    UnableToDeactivateTimer,
+    #[error("Unable to update timer")]
+    UnableToUpdateTimer,
+    #[error("Timer is not initialized")]
+    TimerIsNotInitialized,
 }
