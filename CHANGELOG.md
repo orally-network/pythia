@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - Executions counter to Subscriptions
 - A method to update a subscription
 - The update_chain_fee_and_symbol method
+- Protection for insufficient funds
 
 ### Fixed
 - Refresh README.md
