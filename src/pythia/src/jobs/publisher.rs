@@ -92,9 +92,16 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
         let fee = canister::fee(&chain_id).await?;
         let mut gas_price = retry_until_success!(w3.eth().gas_price())?;
         gas_price = (gas_price / 10) * 12;
-        subscriptions = multicall(&w3, &chain_id, calls, gas_price)
+        let multicall_results = multicall(&w3, &chain_id, calls.clone(), gas_price)
             .await
-            .context(PythiaError::UnableToExecuteMulticall)?
+            .context(PythiaError::UnableToExecuteMulticall)?;
+
+        if multicall_results.is_empty() {
+            log!("[PUBLISHER] No results from multicall, corruption detected");
+            continue;
+        }
+
+        subscriptions = multicall_results
             .iter()
             .zip(subscriptions)
             .filter(|(result, sub)| {

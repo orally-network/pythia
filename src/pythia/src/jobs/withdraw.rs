@@ -20,7 +20,7 @@ pub fn execute() {
 }
 
 pub async fn withdraw() {
-    log!("withdraw job started");
+    log!("[WITHDRAWER] withdraw job started");
     for (chain_id, reqs) in clone_with_state!(withdraw_requests).0 {
         if let Err(err) = send_funds(&chain_id, &reqs).await {
             log!("failed to send funds: {err:?}");
@@ -30,7 +30,7 @@ pub async fn withdraw() {
         WithdrawRequests::erase(&chain_id).expect("should erase withdraw requests");
     }
 
-    log!("withdraw job executed");
+    log!("[WITHDRAWER] withdraw job executed");
 }
 
 async fn send_funds(chain_id: &Nat, reqs: &[WithdrawRequest]) -> Result<()> {

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 
 use candid::Nat;
-use ic_dl_utils::retry_until_success;
+use ic_dl_utils::{retry_until_success, retry_with_unhandled};
 use ic_web3::{
     contract::{tokens::Tokenizable, Contract, Error, Options},
     ethabi::Token,
@@ -18,8 +18,8 @@ use crate::{types::{
 }, log};
 
 const MULTICALL_ABI: &[u8] = include_bytes!("../../assets/MulticallABI.json");
-const MULTICALL_CONTRACT_ADDRESS: &str = "0xa27a3A7702Bc1010be95f73A2c64873d21D6D027";
-//const MULTICALL_CONTRACT_ADDRESS: &str = "0xcA5931044E54A6E900DcF5d5A9B37DeB0e065619";
+// const MULTICALL_CONTRACT_ADDRESS: &str = "0xa27a3A7702Bc1010be95f73A2c64873d21D6D027";
+const MULTICALL_CONTRACT_ADDRESS: &str = "0xcA5931044E54A6E900DcF5d5A9B37DeB0e065619";
 const MULTICALL_CALL_FUNCTION: &str = "multicall";
 const MULTICALL_TRANSFER_FUNCTION: &str = "multitransfer";
 const BASE_GAS: u64 = 27_000;
@@ -153,9 +153,7 @@ pub async fn multicall<T: Transport>(
         .await
         .context(PythiaError::UnableToGetPMA)?;
     let key_info = web3::key_info();
-    let gas_price = (gas_price / 10) * 15;
-    
-    log!("[PUBLISHER] PMA: {from}");
+    let gas_price = (gas_price / 10) * 12;
 
     while !calls.is_empty() {
         let (current_calls_batch, _calls) = get_current_calls_batch(&calls, &chain);
@@ -191,10 +189,17 @@ pub async fn multicall<T: Transport>(
             .await
             .context(PythiaError::UnableToSignContractCall)?;
         log!("[PUBLISHER] tx was signed");
-        let tx_hash = retry_until_success!(w3
+        let (tx_result, is_corrupted) = retry_with_unhandled!(w3
             .eth()
-            .send_raw_transaction(signed_call.raw_transaction.clone()))
+            .send_raw_transaction(signed_call.raw_transaction.clone()));
+        
+        if is_corrupted {
+            return Ok(result);
+        }
+
+        let tx_hash = tx_result
             .context(PythiaError::UnableToExecuteRawTx)?;
+
         log!("[PUBLISHER] tx was sent");
         let tx_receipt = ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
             .await

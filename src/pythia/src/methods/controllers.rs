@@ -181,14 +181,49 @@ pub async fn withdraw_fee(chain_id: Nat, receiver: String) -> Result<(), String>
 
 async fn _withdraw_fee(chain_id: Nat, receiver: String) -> Result<()> {
     validator::caller()?;
-    let receiver = address::normalize(&receiver).context(PythiaError::InvalidAddressFormat)?;
-    let pma = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
-    let value = Balances::get(&chain_id, &pma).context(PythiaError::UnableToGetBalance)?;
+    let receiver = address::normalize(&receiver)
+        .context(PythiaError::InvalidAddressFormat)?;
+    let pma = canister::pma()
+        .await
+        .context(PythiaError::UnableToGetPMA)?;
+    let value = Balances::get(&chain_id, &pma)
+        .context(PythiaError::UnableToGetBalance)?;
     web3::transfer(&chain_id, &receiver, &value)
         .await
         .context(PythiaError::UnableToTransferFunds)?;
-    Balances::reduce(&chain_id, &pma, &value).context(PythiaError::UnableToReduceBalance)?;
+    Balances::reduce(&chain_id, &pma, &value)
+        .context(PythiaError::UnableToReduceBalance)?;
 
     log!("[CONTROLLERS] fees were withdrawn to: {receiver}");
+    Ok(())
+}
+
+/// Withdraw all the balance.
+/// 
+/// # Arguments
+/// 
+/// * `chain_id` - Unique identifier of the chain, for example Ethereum Mainnet is 1
+/// * `receiver` - Address of the receiver
+/// 
+/// # Returns
+/// 
+/// Returns a result that can contain an error message
+#[update]
+pub async fn withdraw_all_balance(chain_id: Nat, receiver: String) -> Result<(), String> {
+    _withdraw_all_balance(chain_id, receiver)
+        .await
+        .map_err(|e| format!("failed to withdraw all balance: {e:?}"))
+}
+
+async fn _withdraw_all_balance(chain_id: Nat, receiver: String) -> Result<()> {
+    validator::caller()?;
+    let receiver = address::normalize(&receiver)
+        .context(PythiaError::InvalidAddressFormat)?;
+    
+    web3::transfer_all(&chain_id, &receiver,)
+        .await
+        .context(PythiaError::UnableToTransferFunds)?;
+
+    log!("[CONTROLLERS] all balance was withdrawn to: {receiver}");
     Ok(())
 }

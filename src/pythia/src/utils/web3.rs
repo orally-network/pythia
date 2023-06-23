@@ -89,3 +89,39 @@ pub async fn transfer(chain_id: &Nat, to: &str, value: &Nat) -> Result<()> {
         .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
     Ok(())
 }
+
+pub async fn transfer_all(chain_id: &Nat, to: &str) -> Result<()> {
+    let w3 = instance(chain_id)?;
+    let from = canister::pma().await?;
+    let from_h160 = address::to_h160(&from)?;
+    let to = address::to_h160(to)?;
+
+    let nonce = retry_until_success!(w3.eth().transaction_count(from_h160, None))?;
+    let mut gas_price = retry_until_success!(w3.eth().gas_price())?;
+    gas_price = (gas_price / 10) * 12;
+    let mut value = retry_until_success!(w3.eth().balance(from_h160, None))?;
+    value -= gas_price * TRANSFER_GAS_LIMIT;
+
+    let tx = TransactionParameters {
+        gas: TRANSFER_GAS_LIMIT.into(),
+        gas_price: Some(gas_price),
+        to: Some(to),
+        value,
+        nonce: Some(nonce),
+        ..Default::default()
+    };
+
+    let signed_tx = w3
+        .accounts()
+        .sign_transaction(tx, from, key_info(), nat::to_u64(chain_id))
+        .await?;
+
+    let tx_hash = retry_until_success!(w3
+        .eth()
+        .send_raw_transaction(signed_tx.raw_transaction.clone()))?;
+    ic_dl_utils::evm::wait_for_success_confirmation(&w3, &tx_hash, 60)
+        .await
+        .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
+
+    Ok(())
+}
