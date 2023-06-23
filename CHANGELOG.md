@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Chain ID field to the Subscription type in .did interfaces
 - Executions counter to Subscriptions
 - A method to update a subscription
+- The update_chain_fee_and_symbol method
 
 ### Fixed
 - Refresh README.md
