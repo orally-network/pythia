@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Improve fee system
 - Improve .did interfaces
+- Improve controller checking
 
 ### Added
 
