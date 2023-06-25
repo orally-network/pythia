@@ -3,10 +3,6 @@ use std::str::FromStr;
 use anyhow::{anyhow, Context, Result};
 
 use candid::Nat;
-use ic_cdk::{
-    api::management_canister::{main::canister_status, provisional::CanisterIdRecord},
-    export::Principal,
-};
 use ic_web3::{ic::get_eth_addr, types::H160};
 
 use crate::{
@@ -18,22 +14,6 @@ use crate::{
 
 const DECIMALS: &str = "1000000000000000000";
 const FEE_IN_USDT: &str = "67500";
-
-pub async fn get_controllers() -> Result<Vec<Principal>> {
-    let (canister_status,) = canister_status(CanisterIdRecord {
-        canister_id: ic_cdk::id(),
-    })
-    .await
-    .map_err(|(rej_code, msg)| {
-        anyhow!(
-            "canister_status rejected with code: {:?}, msg: {:?}",
-            rej_code,
-            msg
-        )
-    })?;
-
-    Ok(canister_status.settings.controllers)
-}
 
 pub async fn pma() -> Result<String> {
     if let Some(pma) = clone_with_state!(pma) {

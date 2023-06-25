@@ -138,15 +138,15 @@ fn _update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<()> {
 }
 
 /// Update a chain fee and symbol.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `chain_id` - Unique identifier of the chain, for example Ethereum Mainnet is 1
 /// * `fee` - Fee for the chain.
 /// * `symbol` - Symbol for the chain.
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
 pub fn update_chain_fee_and_symbol(chain_id: Nat, fee: Nat, symbol: String) -> Result<(), String> {

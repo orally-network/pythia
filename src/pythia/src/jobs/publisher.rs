@@ -13,7 +13,8 @@ use crate::{
     types::{
         balance::Balances,
         errors::PythiaError,
-        subscription::{Subscription, Subscriptions}, timer::Timer,
+        subscription::{Subscription, Subscriptions},
+        timer::Timer,
     },
     utils::{
         abi, address, canister,
@@ -32,28 +33,24 @@ pub fn execute() {
 
 async fn _execute() -> Result<()> {
     log!("[PUBLISHER] publisher job started");
-    Timer::activate()
-        .context(PythiaError::UnableToActivateTimer)?;
+    Timer::activate().context(PythiaError::UnableToActivateTimer)?;
 
     Subscriptions::stop_insufficients()
         .context(PythiaError::UnableToStopInsufficientSubscriptions)?;
 
     let mut futures = vec![];
     let (publishable_subs, is_active) = Subscriptions::get_publishable();
-    publishable_subs
-        .iter()
-        .for_each(|(chain_id, subs)| {
-            if subs.is_empty() {
-                return;
-            }
+    publishable_subs.iter().for_each(|(chain_id, subs)| {
+        if subs.is_empty() {
+            return;
+        }
 
-            futures.push(publish_on_chain(chain_id.clone(), subs.clone()));
-        });
+        futures.push(publish_on_chain(chain_id.clone(), subs.clone()));
+    });
 
     if !is_active {
         withdraw::withdraw().await;
-        Timer::deactivate()
-            .context(PythiaError::UnableToDeactivateTimer)?;
+        Timer::deactivate().context(PythiaError::UnableToDeactivateTimer)?;
         log!("[PUBLISHER] publisher job stopped");
         return Ok(());
     }
@@ -71,8 +68,7 @@ async fn _execute() -> Result<()> {
         execute,
     );
 
-    Timer::update(timer_id)
-        .context(PythiaError::UnableToUpdateTimer)?;
+    Timer::update(timer_id).context(PythiaError::UnableToUpdateTimer)?;
 
     log!("[PUBLISHER] publisher job executed");
     Ok(())
@@ -83,7 +79,11 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
     let w3 = web3::instance(&chain_id)?;
     let pma = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
     while !subscriptions.is_empty() {
-        log!("[PUBLISHER] chain: {}, subscriptions left: {}", chain_id, subscriptions.len());
+        log!(
+            "[PUBLISHER] chain: {}, subscriptions left: {}",
+            chain_id,
+            subscriptions.len()
+        );
         let calls: Vec<Call> = join_all(subscriptions.iter().map(|sub| async {
             Call {
                 target: address::to_h160(&sub.contract_addr).expect("should be valid address"),
@@ -101,7 +101,10 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             .context(PythiaError::UnableToExecuteMulticall)?;
 
         if multicall_results.is_empty() {
-            log!("[PUBLISHER] chain: {}, no results from multicall, corruption detected", chain_id);
+            log!(
+                "[PUBLISHER] chain: {}, no results from multicall, corruption detected",
+                chain_id
+            );
             continue;
         }
 
@@ -110,7 +113,11 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             .zip(subscriptions)
             .filter(|(result, sub)| {
                 if nat::from_u256(&result.used_gas) > sub.method.gas_limit {
-                    log!("[PUBLISHER] chain: {}, gas limit exceeded for sub {}", chain_id, sub.id);
+                    log!(
+                        "[PUBLISHER] chain: {}, gas limit exceeded for sub {}",
+                        chain_id,
+                        sub.id
+                    );
                     Subscriptions::stop(&chain_id, &sub.owner, &sub.id).expect("should stop sub");
                     return false;
                 }
@@ -122,10 +129,8 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                 Subscriptions::update_last_update(&chain_id, &sub.id);
                 let mut amount = nat::from_u256(&gas_price) * (sub.method.gas_limit.clone() + 100);
                 amount += fee.clone();
-                Balances::reduce(&chain_id, &sub.owner, &amount)
-                    .expect("should reduce balance");
-                canister::collect_fee(&chain_id, &pma, &fee)
-                    .expect("should collect fee");
+                Balances::reduce(&chain_id, &sub.owner, &amount).expect("should reduce balance");
+                canister::collect_fee(&chain_id, &pma, &fee).expect("should collect fee");
 
                 false
             })

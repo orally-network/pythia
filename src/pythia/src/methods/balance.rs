@@ -8,8 +8,8 @@ use crate::{
     jobs::withdraw,
     log,
     types::{
-        balance::Balances, errors::PythiaError, subscription::Subscriptions, whitelist,
-        withdraw::WithdrawRequests, timer::Timer,
+        balance::Balances, errors::PythiaError, subscription::Subscriptions, timer::Timer,
+        whitelist, withdraw::WithdrawRequests,
     },
     utils::{address, canister, nat, siwe, web3},
 };
@@ -76,6 +76,7 @@ async fn _deposit(chain_id: Nat, tx_hash: String, msg: String, sig: String) -> R
         .context(PythiaError::UnableToSaveNonce)?;
 
     let amount = nat::from_u256(&tx.value) - clone_with_state!(tx_fee);
+    #[allow(clippy::cmp_owned)]
     if amount <= Nat::from(0) {
         return Ok(());
     }

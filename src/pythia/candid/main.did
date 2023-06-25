@@ -99,7 +99,6 @@ service : {
     // Controllers
     execute_withdraw_job : () -> (Error);
     execute_publisher_job : () -> (Error);
-    update_controllers : () -> (Error);
     update_tx_fee : (tx_fee : nat) -> (Error);
     update_subs_limit_wallet : (limit : nat) -> (Error);
     update_subs_limit_total : (limit : nat) -> (Error);

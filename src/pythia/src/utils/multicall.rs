@@ -12,10 +12,13 @@ use ic_web3::{
 };
 
 use super::{address, canister, nat, web3};
-use crate::{types::{
-    chains::{Chain, Chains},
-    errors::PythiaError,
-}, log};
+use crate::{
+    log,
+    types::{
+        chains::{Chain, Chains},
+        errors::PythiaError,
+    },
+};
 
 const MULTICALL_ABI: &[u8] = include_bytes!("../../assets/MulticallABI.json");
 //const MULTICALL_CONTRACT_ADDRESS: &str = "0xa27a3A7702Bc1010be95f73A2c64873d21D6D027";
@@ -149,9 +152,7 @@ pub async fn multicall<T: Transport>(
     let contract_addr = address::to_h160(MULTICALL_CONTRACT_ADDRESS)?;
     let contract = Contract::from_json(w3.eth(), contract_addr, MULTICALL_ABI)
         .context(PythiaError::InvalidContractABI)?;
-    let from = canister::pma()
-        .await
-        .context(PythiaError::UnableToGetPMA)?;
+    let from = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
     let key_info = web3::key_info();
     let gas_price = (gas_price / 10) * 12;
 
@@ -189,16 +190,27 @@ pub async fn multicall<T: Transport>(
             .await
             .context(PythiaError::UnableToSignContractCall)?;
         log!("[PUBLISHER] chain: {}, tx was signed", chain_id);
-        let (tx_result, is_corrupted) = retry_with_unhandled!(w3
+        let (mut tx_result, is_corrupted) = retry_with_unhandled!(w3
             .eth()
             .send_raw_transaction(signed_call.raw_transaction.clone()));
-        
+
         if is_corrupted {
-            return Ok(result);
+            // try to check if a tx was sent, if so continue, otherwise try all over again
+            if retry_until_success!(w3.eth().transaction_receipt(signed_call.transaction_hash))?
+                .is_some()
+            {
+                log!(
+                    "[PUBLISHER] chain: {}, tx was corrupted, but sent, tx_hash: {}",
+                    chain_id,
+                    hex::encode(signed_call.transaction_hash.as_bytes()),
+                );
+                tx_result = Ok(signed_call.transaction_hash);
+            } else {
+                return Ok(result);
+            };
         }
 
-        let tx_hash = tx_result
-            .context(PythiaError::UnableToExecuteRawTx)?;
+        let tx_hash = tx_result.context(PythiaError::UnableToExecuteRawTx)?;
 
         log!("[PUBLISHER] chain: {}, tx was sent", chain_id);
         let tx_receipt = ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)

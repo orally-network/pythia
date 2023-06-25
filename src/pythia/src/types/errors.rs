@@ -4,8 +4,6 @@ use thiserror::Error;
 pub enum PythiaError {
     #[error("Not a controller")]
     NotAController,
-    #[error("Controllers were not initialized")]
-    ControllersWereNotInitialized,
     #[error("Chain already exists")]
     ChainAlreadyExists,
     #[error("Chain does not exist")]
@@ -54,8 +52,6 @@ pub enum PythiaError {
     UnableToUpdateChain,
     #[error("Unable to get a chain RPC")]
     UnableToGetChainRPC,
-    #[error("Unable to get controllers")]
-    UnableToGetControllers,
     #[error("Pair does not exist")]
     PairDoesNotExist,
     #[error("Invalid ABI function Name")]

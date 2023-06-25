@@ -8,14 +8,16 @@ use super::{
     balance::Balances,
     chains::Chains,
     subscription::{Subscriptions, SubscriptionsIndexer},
+    timer::Timer,
     whitelist::Whitelist,
     withdraw::WithdrawRequests,
-    timer::Timer,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, CandidType, Default)]
 pub struct State {
+    #[deprecated]
     pub initialized: bool,
+    #[deprecated]
     pub controllers: Vec<Principal>,
     pub chains: Chains,
     pub tx_fee: Nat,

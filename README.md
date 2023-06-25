@@ -1,19 +1,23 @@
 # Pythia
+
 Pythia is a canister that provides the SubPub functionality for the Ethereum family smart contracts.
 
 ## Upgrade local
+
 ```sh
 dfx build pythia && gzip -f -1 ./.dfx/local/canisters/pythia/pythia.wasm
 dfx canister install --mode upgrade --wasm ./.dfx/local/canisters/pythia/pythia.wasm.gz pythia
 ```
 
 ## Upgrade production
+
 ```sh
 dfx build pythia --network ic && gzip -f -1 ./.dfx/ic/canisters/pythia/pythia.wasm
 dfx canister install --network ic --mode upgrade --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz pythia
 ```
 
 ## Usage
+
 ```sh
 # update the timer frequency for debug
 dfx canister call pythia update_timer_frequency '(60:nat)'
@@ -24,7 +28,7 @@ dfx canister call pythia add_to_whitelist '("e86c4a45c1da21f8838a1ea26fc852bd664
 # get the PMA
 dfx canister call pythia get_pma
 # init a new sub
-dfx canister call pythia deposit '(11155111:nat, "0x326f686c5646bf368ba86e98e234393ea5ac1abe677c00f9fb6cc0f5388fadfe", "service.org wants you to sign in with your Ethereum account:
+dfx canister call pythia deposit '(11155111:nat, "0x888ee71eb2410c74f6f5e78b0009902ef1b02e2f7a2a8fe52cacbb093c3c37e1", "service.org wants you to sign in with your Ethereum account:
 0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9
     
 

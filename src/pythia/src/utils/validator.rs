@@ -1,5 +1,6 @@
 use anyhow::Result;
 use candid::Nat;
+use ic_cdk::api::is_controller;
 
 use crate::{clone_with_state, PythiaError};
 
@@ -16,12 +17,7 @@ pub fn subscription_frequency(frequency: &Nat) -> Result<()> {
 }
 
 pub fn caller() -> Result<()> {
-    if !clone_with_state!(initialized) {
-        return Err(PythiaError::ControllersWereNotInitialized.into());
-    }
-
-    let controllers = clone_with_state!(controllers);
-    if controllers.contains(&ic_cdk::caller()) {
+    if is_controller(&ic_cdk::caller()) {
         return Ok(());
     }
 

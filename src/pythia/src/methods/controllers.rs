@@ -5,7 +5,6 @@ use ic_cdk_macros::update;
 use ic_utils::logger::log_message;
 
 use crate::{
-    clone_with_state,
     jobs::{publisher, withdraw},
     log,
     types::{balance::Balances, timer::Timer},
@@ -13,33 +12,6 @@ use crate::{
     utils::{address, canister, validator, web3},
     PythiaError,
 };
-
-/// Update the controllers.
-///
-/// # Returns
-///
-/// Returns a result that can contain an error message
-#[update]
-pub async fn update_controllers() -> Result<(), String> {
-    _update_controllers()
-        .await
-        .map_err(|e| format!("failed to update the conrollers: {e:?}"))
-}
-
-async fn _update_controllers() -> Result<()> {
-    if clone_with_state!(initialized) {
-        validator::caller()?;
-    } else {
-        update_state!(initialized, true);
-    }
-    let controllers = canister::get_controllers()
-        .await
-        .context(PythiaError::UnableToGetControllers)?;
-    update_state!(controllers, controllers.clone());
-
-    log!("[CONTROLLERS] updated: {controllers:?}");
-    Ok(())
-}
 
 /// Update the tx fee.
 ///
@@ -181,32 +153,27 @@ pub async fn withdraw_fee(chain_id: Nat, receiver: String) -> Result<(), String>
 
 async fn _withdraw_fee(chain_id: Nat, receiver: String) -> Result<()> {
     validator::caller()?;
-    let receiver = address::normalize(&receiver)
-        .context(PythiaError::InvalidAddressFormat)?;
-    let pma = canister::pma()
-        .await
-        .context(PythiaError::UnableToGetPMA)?;
-    let value = Balances::get(&chain_id, &pma)
-        .context(PythiaError::UnableToGetBalance)?;
+    let receiver = address::normalize(&receiver).context(PythiaError::InvalidAddressFormat)?;
+    let pma = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
+    let value = Balances::get(&chain_id, &pma).context(PythiaError::UnableToGetBalance)?;
     web3::transfer(&chain_id, &receiver, &value)
         .await
         .context(PythiaError::UnableToTransferFunds)?;
-    Balances::reduce(&chain_id, &pma, &value)
-        .context(PythiaError::UnableToReduceBalance)?;
+    Balances::reduce(&chain_id, &pma, &value).context(PythiaError::UnableToReduceBalance)?;
 
     log!("[CONTROLLERS] fees were withdrawn to: {receiver}");
     Ok(())
 }
 
 /// Withdraw all the balance.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `chain_id` - Unique identifier of the chain, for example Ethereum Mainnet is 1
 /// * `receiver` - Address of the receiver
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
 pub async fn withdraw_all_balance(chain_id: Nat, receiver: String) -> Result<(), String> {
@@ -217,9 +184,8 @@ pub async fn withdraw_all_balance(chain_id: Nat, receiver: String) -> Result<(),
 
 async fn _withdraw_all_balance(chain_id: Nat, receiver: String) -> Result<()> {
     validator::caller()?;
-    let receiver = address::normalize(&receiver)
-        .context(PythiaError::InvalidAddressFormat)?;
-    
+    let receiver = address::normalize(&receiver).context(PythiaError::InvalidAddressFormat)?;
+
     web3::transfer_all(&chain_id, &receiver)
         .await
         .context(PythiaError::UnableToTransferFunds)?;
@@ -229,20 +195,18 @@ async fn _withdraw_all_balance(chain_id: Nat, receiver: String) -> Result<()> {
 }
 
 /// Stop main timer
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
 pub fn stop_timer() -> Result<(), String> {
-    _stop_timer()
-        .map_err(|e| format!("failed to stop the timer: {e:?}"))
+    _stop_timer().map_err(|e| format!("failed to stop the timer: {e:?}"))
 }
 
 fn _stop_timer() -> Result<()> {
     validator::caller()?;
-    Timer::deactivate()
-        .context(PythiaError::UnableToDeactivateTimer)?;
+    Timer::deactivate().context(PythiaError::UnableToDeactivateTimer)?;
     log!("[CONTROLLERS] timer was stopped");
     Ok(())
 }

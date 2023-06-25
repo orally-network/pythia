@@ -1,12 +1,12 @@
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 
 use ic_cdk::export::{
     candid::CandidType,
     serde::{Deserialize, Serialize},
 };
-use ic_cdk_timers::{TimerId, clear_timer};
+use ic_cdk_timers::{clear_timer, TimerId};
 
-use crate::{STATE, PythiaError};
+use crate::{PythiaError, STATE};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct Timer {
@@ -27,11 +27,10 @@ impl Timer {
 
             let new_timer = Timer {
                 id,
-                is_active: old_timer.is_active,  
+                is_active: old_timer.is_active,
             };
 
-            state
-                .timer = Some(new_timer);
+            state.timer = Some(new_timer);
 
             Ok(())
         })
@@ -50,8 +49,7 @@ impl Timer {
                 is_active: true,
             };
 
-            state
-                .timer = Some(new_timer);
+            state.timer = Some(new_timer);
 
             Ok(())
         })
@@ -76,13 +74,12 @@ impl Timer {
                     .timer
                     .clone()
                     .context(PythiaError::TimerIsNotInitialized)?
-                    .id
+                    .id,
             )?;
-            
+
             clear_timer(id);
 
-            state
-                .timer = Some(new_timer);
+            state.timer = Some(new_timer);
 
             Ok(())
         })

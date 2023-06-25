@@ -9,7 +9,8 @@ use crate::{
     types::{
         balance::Balances,
         subscription::{Subscription, Subscriptions, SubsribeRequest, UpdateSubscriptionRequest},
-        whitelist, timer::Timer,
+        timer::Timer,
+        whitelist,
     },
     utils::{siwe, validator},
     PythiaError,
@@ -232,18 +233,17 @@ pub fn _remove_subscriptions() -> Result<()> {
 }
 
 /// Remove a subscription by id
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `id` - The subscription id
-/// 
+///
 /// # Returns
-/// 
+///
 /// Returns a result that can contain an error message
 #[update]
 pub fn remove_subscription(id: Nat) -> Result<(), String> {
-    _remove_subscription(id)
-        .map_err(|e| format!("{e:?}"))
+    _remove_subscription(id).map_err(|e| format!("{e:?}"))
 }
 
 pub fn _remove_subscription(id: Nat) -> Result<()> {

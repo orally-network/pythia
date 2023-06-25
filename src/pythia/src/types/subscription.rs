@@ -465,9 +465,9 @@ impl Subscriptions {
                                     return false;
                                 }
                                 is_active = true;
-                                
+
                                 (sub.status.last_update.clone() + sub.frequency.clone())
-                                        <= time_in_seconds()
+                                    <= time_in_seconds()
                             })
                             .cloned()
                             .collect::<Vec<Subscription>>(),
