@@ -1,103 +1,328 @@
-// use std::str::FromStr;
+use std::str::FromStr;
 
-// use anyhow::Result;
+use anyhow::{Context, Result};
 
-// use ic_web3::{types::H160, contract::{Error, tokens::Tokenizable, Contract}, ethabi::Token, transports::ICHttp, Web3};
+use candid::Nat;
+use ic_dl_utils::{retry_until_success, retry_with_unhandled};
+use ic_web3::{
+    contract::{tokens::Tokenizable, Contract, Error, Options},
+    ethabi::Token,
+    types::{BlockId, Bytes, CallRequest, H160, U256},
+    Transport, Web3,
+};
 
-// const MULTICALL3_ABI: &[u8] = include_bytes!("../../assets/Multicall3ABI.json");
-// const MULTICALL3_CONTRACT_ADDRESS: &str = "0xcA11bde05977b3631167028862bE2a173976CA11";
-// const MULTICALL3_AGGREGATE3_FUNCTION: &str = "aggregate3";
+use super::{address, canister, nat, web3};
+use crate::{
+    log,
+    types::{
+        chains::{Chain, Chains},
+        errors::PythiaError,
+    },
+};
 
-// pub struct Call3 {
-//     pub target: H160,
-//     pub allow_failure: bool,
-//     pub call_data: Vec<u8>,
-// }
+const MULTICALL_ABI: &[u8] = include_bytes!("../../assets/MulticallABI.json");
+//const MULTICALL_CONTRACT_ADDRESS: &str = "0xa27a3A7702Bc1010be95f73A2c64873d21D6D027";
+const MULTICALL_CONTRACT_ADDRESS: &str = "0xcA5931044E54A6E900DcF5d5A9B37DeB0e065619";
+const MULTICALL_CALL_FUNCTION: &str = "multicall";
+const MULTICALL_TRANSFER_FUNCTION: &str = "multitransfer";
+const BASE_GAS: u64 = 27_000;
+pub const GAS_PER_TRANSFER: u64 = 7_900;
+const TX_TIMEOUT: u64 = 60 * 5;
 
-// impl Tokenizable for Call3 {
-//     fn from_token(token: Token) -> Result<Self, Error>
-//     where
-//         Self: Sized {
-//         if let Token::Tuple(tokens) = token {
-//             if tokens.len() != 3 {
-//                 return Err(Error::InvalidOutputType("invalid tokens number".into()));
-//             }
+#[derive(Debug, Clone, Default)]
+pub struct Call {
+    pub target: H160,
+    pub call_data: Vec<u8>,
+    pub gas_limit: U256,
+}
 
-//             if let (
-//                 Token::Address(target),
-//                 Token::Bool(allow_failure),
-//                 Token::Bytes(call_data)
-//             ) = (tokens[0].clone(), tokens[1].clone(), tokens[2].clone()) {
-//                 return Ok(Self {
-//                     target,
-//                     allow_failure,
-//                     call_data,
-//                 });
-//             }
-//         }
+impl Tokenizable for Call {
+    fn from_token(token: Token) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
+        if let Token::Tuple(tokens) = token {
+            if tokens.len() != 3 {
+                return Err(Error::InvalidOutputType("invalid tokens number".into()));
+            }
 
-//         Err(Error::InvalidOutputType("invalid tokens".into()))
-//     }
+            if let (Token::Address(target), Token::Bytes(call_data), Token::Uint(gas_limit)) =
+                (tokens[0].clone(), tokens[1].clone(), tokens[2].clone())
+            {
+                return Ok(Self {
+                    target,
+                    call_data,
+                    gas_limit,
+                });
+            }
+        }
 
-//     fn into_token(self) -> Token {
-//         return Token::Tuple(vec![
-//             Token::Address(self.target),
-//             Token::Bool(self.allow_failure),
-//             Token::Bytes(self.call_data),
-//         ])
-//     }
-// }
+        Err(Error::InvalidOutputType("invalid tokens".into()))
+    }
 
-// pub struct MulticallResult {
-//     pub success: bool,
-//     pub return_data: Vec<u8>,
-// }
+    fn into_token(self) -> Token {
+        Token::Tuple(vec![
+            Token::Address(self.target),
+            Token::Bytes(self.call_data),
+            Token::Uint(self.gas_limit),
+        ])
+    }
+}
 
-// impl Tokenizable for MulticallResult {
-//     fn from_token(token: Token) -> Result<Self, Error>
-//     where
-//         Self: Sized {
-//             if let Token::Tuple(tokens) = token {
-//                 if tokens.len() != 2 {
-//                     return Err(Error::InvalidOutputType("invalid tokens number".into()));
-//                 }
-    
-//                 if let (
-//                     Token::Bool(success),
-//                     Token::Bytes(return_data)
-//                 ) = (tokens[0].clone(), tokens[1].clone()) {
-//                     return Ok(Self {
-//                         success,
-//                         return_data,
-//                     });
-//                 }
-//             }
-    
-//             Err(Error::InvalidOutputType("invalid tokens".into()))
-//     }
+#[derive(Debug, Clone, Default)]
+pub struct MulticallResult {
+    pub success: bool,
+    pub used_gas: U256,
+    pub return_data: Vec<u8>,
+}
 
-//     fn into_token(self) -> Token {
-//         return Token::Tuple(vec![
-//             Token::Bool(self.success),
-//             Token::Bytes(self.return_data),
-//         ])
-//     }
-// }
+impl Tokenizable for MulticallResult {
+    fn from_token(token: Token) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
+        if let Token::Tuple(tokens) = token {
+            if tokens.len() != 3 {
+                return Err(Error::InvalidOutputType("invalid tokens number".into()));
+            }
 
-// pub async fn aggregate3(w3: &Web3<ICHttp>, calls: Vec<Call3>) -> Result<Vec<MulticallResult>> {
-//     let contract_addr = H160::from_str(MULTICALL3_CONTRACT_ADDRESS)
-//         .expect("should be valid contract address");
+            if let (Token::Bool(success), Token::Uint(used_gas), Token::Bytes(return_data)) =
+                (tokens[0].clone(), tokens[1].clone(), tokens[2].clone())
+            {
+                return Ok(Self {
+                    success,
+                    used_gas,
+                    return_data,
+                });
+            }
+        }
 
-//     let contract = Contract::from_json(w3.eth(), contract_addr, MULTICALL3_ABI)
-//         .expect("should be valid init contract data");
+        Err(Error::InvalidOutputType("invalid tokens".into()))
+    }
 
-//     contract.sign(
-//         MULTICALL3_AGGREGATE3_FUNCTION,
-//         vec![calls.iter().map(|c| c.into_token()).collect()],
-//         options,
-//         from,
-//         key_info,
-//         chain_id,
-//     );
-//     Ok(vec![])
-// }
+    fn into_token(self) -> Token {
+        Token::Tuple(vec![
+            Token::Bool(self.success),
+            Token::Bytes(self.return_data),
+        ])
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Transfer {
+    pub target: H160,
+    pub value: U256,
+}
+
+impl Tokenizable for Transfer {
+    fn from_token(token: Token) -> std::result::Result<Self, Error>
+    where
+        Self: Sized,
+    {
+        if let Token::Tuple(tokens) = token {
+            if tokens.len() != 2 {
+                return Err(Error::InvalidOutputType("invalid tokens number".into()));
+            }
+
+            if let (Token::Address(target), Token::Uint(value)) =
+                (tokens[0].clone(), tokens[1].clone())
+            {
+                return Ok(Self { target, value });
+            }
+        }
+
+        Err(Error::InvalidOutputType("invalid tokens".into()))
+    }
+
+    fn into_token(self) -> Token {
+        Token::Tuple(vec![Token::Address(self.target), Token::Uint(self.value)])
+    }
+}
+
+pub async fn multicall<T: Transport>(
+    w3: &Web3<T>,
+    chain_id: &Nat,
+    calls: Vec<Call>,
+    gas_price: U256,
+) -> Result<Vec<MulticallResult>> {
+    log!("[PUBLISHER] chain: {}, prepering multicall", chain_id);
+    let mut calls = calls;
+    let mut result: Vec<MulticallResult> = vec![];
+    let chain = Chains::get(chain_id)?;
+    let contract_addr = address::to_h160(MULTICALL_CONTRACT_ADDRESS)?;
+    let contract = Contract::from_json(w3.eth(), contract_addr, MULTICALL_ABI)
+        .context(PythiaError::InvalidContractABI)?;
+    let from = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
+    let key_info = web3::key_info();
+    let gas_price = (gas_price / 10) * 12;
+
+    while !calls.is_empty() {
+        let (current_calls_batch, _calls) = get_current_calls_batch(&calls, &chain);
+        calls = _calls;
+        let options = Options {
+            gas_price: Some(gas_price),
+            gas: Some(
+                current_calls_batch
+                    .iter()
+                    .fold(U256::from(BASE_GAS + 10000), |result, call| {
+                        result + call.gas_limit
+                    }),
+            ),
+            nonce: Some(retry_until_success!(w3
+                .eth()
+                .transaction_count(H160::from_str(&from)?, None))?),
+            ..Default::default()
+        };
+
+        let params: Vec<Token> = current_calls_batch
+            .iter()
+            .map(|c| c.clone().into_token())
+            .collect();
+        let signed_call = contract
+            .sign(
+                MULTICALL_CALL_FUNCTION,
+                vec![params.clone()],
+                options.clone(),
+                from.clone(),
+                key_info.clone(),
+                nat::to_u64(chain_id),
+            )
+            .await
+            .context(PythiaError::UnableToSignContractCall)?;
+        log!("[PUBLISHER] chain: {}, tx was signed", chain_id);
+        let (mut tx_result, is_corrupted) = retry_with_unhandled!(w3
+            .eth()
+            .send_raw_transaction(signed_call.raw_transaction.clone()));
+
+        if is_corrupted {
+            // try to check if a tx was sent, if so continue, otherwise try all over again
+            if retry_until_success!(w3.eth().transaction_receipt(signed_call.transaction_hash))?
+                .is_some()
+            {
+                log!(
+                    "[PUBLISHER] chain: {}, tx was corrupted, but sent, tx_hash: {}",
+                    chain_id,
+                    hex::encode(signed_call.transaction_hash.as_bytes()),
+                );
+                tx_result = Ok(signed_call.transaction_hash);
+            } else {
+                return Ok(result);
+            };
+        }
+
+        let tx_hash = tx_result.context(PythiaError::UnableToExecuteRawTx)?;
+
+        log!("[PUBLISHER] chain: {}, tx was sent", chain_id);
+        let tx_receipt = ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
+            .await
+            .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
+        log!("[PUBLISHER] chain: {}, tx was executed", chain_id);
+        let data = contract
+            .abi()
+            .function(MULTICALL_CALL_FUNCTION)
+            .and_then(|f| f.encode_input(&[params.into_token()]))
+            .context(PythiaError::UnableToFormCallData)?;
+        let call_request = CallRequest {
+            from: Some(tx_receipt.from),
+            to: tx_receipt.to,
+            data: Some(Bytes::from(data)),
+            ..Default::default()
+        };
+        let block_number = BlockId::from(
+            tx_receipt
+                .block_number
+                .expect("block number should be valid"),
+        );
+        let raw_result =
+            retry_until_success!(w3.eth().call(call_request.clone(), Some(block_number)))?;
+        log!("[PUBLISHER] chain: {}, tx result was received", chain_id);
+        let call_result: Vec<Token> = contract
+            .abi()
+            .function(MULTICALL_CALL_FUNCTION)
+            .and_then(|f| f.decode_output(&raw_result.0))
+            .context(PythiaError::UnableToDecodeOutputs)?;
+
+        let results = call_result
+            .first()
+            .context(PythiaError::InvalidMulticallResult)?
+            .clone()
+            .into_array()
+            .context(PythiaError::InvalidMulticallResult)?;
+
+        log!("[PUBLISHER] chain: {}, result: {:?}", chain_id, results);
+
+        result.append(
+            &mut results
+                .iter()
+                .map(|token| {
+                    MulticallResult::from_token(token.clone()).expect("failed to decode from token")
+                })
+                .collect::<Vec<MulticallResult>>(),
+        );
+    }
+
+    Ok(result)
+}
+
+fn get_current_calls_batch(calls: &[Call], chain: &Chain) -> (Vec<Call>, Vec<Call>) {
+    let mut gas_counter = Nat::from(BASE_GAS + 1000);
+    for (i, call) in calls.iter().enumerate() {
+        gas_counter += nat::from_u256(&call.gas_limit);
+        if gas_counter >= chain.block_gas_limit {
+            return (calls[..i].to_vec(), calls[i..].to_vec());
+        }
+    }
+
+    (calls.to_vec(), vec![])
+}
+
+pub async fn multitranfer<T: Transport>(
+    w3: &Web3<T>,
+    chain_id: &Nat,
+    transfers: Vec<Transfer>,
+) -> Result<()> {
+    let contract_addr = address::to_h160(MULTICALL_CONTRACT_ADDRESS)?;
+    let contract = Contract::from_json(w3.eth(), contract_addr, MULTICALL_ABI)
+        .context(PythiaError::InvalidContractABI)?;
+
+    let from = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
+    let key_info = web3::key_info();
+
+    let gas_price = retry_until_success!(w3.eth().gas_price())?;
+    let gas_limit = BASE_GAS + (GAS_PER_TRANSFER * transfers.len() as u64);
+    let value = transfers.iter().fold(U256::from(0), |sum, t| sum + t.value);
+    let nonce = retry_until_success!(w3.eth().transaction_count(H160::from_str(&from)?, None))?;
+
+    let options = Options {
+        gas_price: Some(gas_price),
+        gas: Some(U256::from(gas_limit)),
+        value: Some(value),
+        nonce: Some(nonce),
+        ..Default::default()
+    };
+
+    let params: Vec<Token> = transfers.iter().map(|c| c.clone().into_token()).collect();
+
+    let signed_call = contract
+        .sign(
+            MULTICALL_TRANSFER_FUNCTION,
+            vec![params.clone()],
+            options,
+            from,
+            key_info,
+            nat::to_u64(chain_id),
+        )
+        .await
+        .context(PythiaError::UnableToSignContractCall)?;
+
+    let tx_hash = retry_until_success!(w3
+        .eth()
+        .send_raw_transaction(signed_call.raw_transaction.clone()))
+    .context(PythiaError::UnableToExecuteRawTx)?;
+
+    ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
+        .await
+        .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
+
+    Ok(())
+}

@@ -1,7 +1,7 @@
 {
   "canisters": {
     "pythia": {
-      "candid": "src/pythia/pythia.did",
+      "candid": "src/pythia/candid/main.did",
       "package": "pythia",
       "type": "rust"
     },
