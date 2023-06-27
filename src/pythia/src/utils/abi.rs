@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use ic_cdk::api::management_canister::main::raw_rand;
-use ic_web3::ethabi::{Function, Token};
+use ic_web3_rs::ethabi::{Function, Token};
 use serde_json::json;
 
 use crate::{

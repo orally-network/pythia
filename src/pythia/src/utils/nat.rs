@@ -1,5 +1,5 @@
 use candid::Nat;
-use ic_web3::types::U256;
+use ic_web3_rs::types::U256;
 
 pub fn to_u256(nat: &Nat) -> U256 {
     U256::from_big_endian(&nat.0.to_bytes_be())

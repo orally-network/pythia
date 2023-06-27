@@ -5,7 +5,7 @@ use ic_cdk::export::{
     serde::{Deserialize, Serialize},
 };
 use ic_dl_utils::time::time_in_seconds;
-use ic_web3::ethabi::Function;
+use ic_web3_rs::ethabi::Function;
 
 use anyhow::{Context, Error, Result};
 
