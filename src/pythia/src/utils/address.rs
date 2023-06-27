@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use ic_web3::types::H160;
+use ic_web3_rs::types::H160;
 
 use anyhow::{Context, Result};
 

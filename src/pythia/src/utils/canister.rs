@@ -3,7 +3,8 @@ use std::str::FromStr;
 use anyhow::{anyhow, Context, Result};
 
 use candid::Nat;
-use ic_web3::{ic::get_eth_addr, types::H160};
+use ic_cdk::api::management_canister::http_request::{TransformContext, TransformFunc};
+use ic_web3_rs::{ic::get_eth_addr, types::H160, transports::ic_http_client::{CallOptions, CallOptionsBuilder}};
 
 use crate::{
     clone_with_state,
@@ -52,4 +53,31 @@ pub async fn fee(chain_id: &Nat) -> Result<Nat> {
 
 pub fn collect_fee(chain_id: &Nat, receiver: &str, amount: &Nat) -> Result<()> {
     Balances::add_amount(chain_id, receiver, amount).context(PythiaError::UnableToIncreaseBalance)
+}
+
+pub fn transform_ctx_tx() -> CallOptions {
+    get_transform_ctx("transform_tx")
+}
+
+pub fn transform_ctx_tx_with_logs() -> CallOptions {
+    get_transform_ctx("transform_tx_with_logs")
+}
+
+pub fn transform_ctx() -> CallOptions {
+    get_transform_ctx("transform")
+}
+
+fn get_transform_ctx(method: &str) -> CallOptions {
+    CallOptionsBuilder::default()
+        .transform(Some(TransformContext {
+            function: TransformFunc(candid::Func {
+                principal: ic_cdk::api::id(),
+                method: method.into(),
+            }),
+            context: vec![],
+        }))
+        .cycles(None)
+        .max_resp(None)
+        .build()
+        .expect("failed to build call options")
 }

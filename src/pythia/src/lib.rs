@@ -9,6 +9,7 @@ mod utils;
 
 use std::cell::RefCell;
 
+use ic_web3_rs::transforms::{processors, transform::TransformProcessor};
 use types::{chains::Chain, errors::PythiaError, state::State, timer::Timer};
 
 use ic_cdk::{
@@ -24,6 +25,16 @@ thread_local! {
 #[query]
 fn transform(response: TransformArgs) -> HttpResponse {
     response.response
+}
+
+#[query]
+fn transform_tx_with_logs(args: TransformArgs) -> HttpResponse {
+    utils::processors::raw_tx_execution_transform_processor().transform(args)
+}
+
+#[query]
+fn transform_tx(args: TransformArgs) -> HttpResponse {
+    processors::send_transaction_processor().transform(args)
 }
 
 #[init]

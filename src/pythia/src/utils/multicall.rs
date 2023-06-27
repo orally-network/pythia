@@ -3,8 +3,8 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 
 use candid::Nat;
-use ic_dl_utils::{retry_until_success, retry_with_unhandled};
-use ic_web3::{
+use ic_dl_utils::retry_until_success;
+use ic_web3_rs::{
     contract::{tokens::Tokenizable, Contract, Error, Options},
     ethabi::Token,
     types::{BlockId, Bytes, CallRequest, H160, U256},
@@ -167,9 +167,8 @@ pub async fn multicall<T: Transport>(
                         result + call.gas_limit
                     }),
             ),
-            nonce: Some(retry_until_success!(w3
-                .eth()
-                .transaction_count(H160::from_str(&from)?, None))?),
+            nonce: Some(
+                retry_until_success!(w3.eth().transaction_count(H160::from_str(&from)?, None, canister::transform_ctx()))?),
             ..Default::default()
         };
 
@@ -189,27 +188,10 @@ pub async fn multicall<T: Transport>(
             .await
             .context(PythiaError::UnableToSignContractCall)?;
         log!("[PUBLISHER] chain: {}, tx was signed", chain_id);
-        let (mut tx_result, is_corrupted) = retry_with_unhandled!(w3
-            .eth()
-            .send_raw_transaction(signed_call.raw_transaction.clone()));
-
-        if is_corrupted {
-            // try to check if a tx was sent, if so continue, otherwise try all over again
-            if retry_until_success!(w3.eth().transaction_receipt(signed_call.transaction_hash))?
-                .is_some()
-            {
-                log!(
-                    "[PUBLISHER] chain: {}, tx was corrupted, but sent, tx_hash: {}",
-                    chain_id,
-                    hex::encode(signed_call.transaction_hash.as_bytes()),
-                );
-                tx_result = Ok(signed_call.transaction_hash);
-            } else {
-                return Ok(result);
-            };
-        }
-
-        let tx_hash = tx_result.context(PythiaError::UnableToExecuteRawTx)?;
+        let tx_hash = retry_until_success!(
+            w3.eth().send_raw_transaction(signed_call.raw_transaction.clone(), canister::transform_ctx())
+        )
+            .context(PythiaError::UnableToExecuteRawTx)?;
 
         log!("[PUBLISHER] chain: {}, tx was sent", chain_id);
         let tx_receipt = ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
@@ -233,7 +215,7 @@ pub async fn multicall<T: Transport>(
                 .expect("block number should be valid"),
         );
         let raw_result =
-            retry_until_success!(w3.eth().call(call_request.clone(), Some(block_number)))?;
+            retry_until_success!(w3.eth().call(call_request.clone(), Some(block_number), canister::transform_ctx()))?;
         log!("[PUBLISHER] chain: {}, tx result was received", chain_id);
         let call_result: Vec<Token> = contract
             .abi()
@@ -287,10 +269,12 @@ pub async fn multitranfer<T: Transport>(
     let from = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
     let key_info = web3::key_info();
 
-    let gas_price = retry_until_success!(w3.eth().gas_price())?;
+    let gas_price = retry_until_success!(w3.eth().gas_price(canister::transform_ctx()))?;
     let gas_limit = BASE_GAS + (GAS_PER_TRANSFER * transfers.len() as u64);
     let value = transfers.iter().fold(U256::from(0), |sum, t| sum + t.value);
-    let nonce = retry_until_success!(w3.eth().transaction_count(H160::from_str(&from)?, None))?;
+    let nonce = retry_until_success!(
+        w3.eth().transaction_count(H160::from_str(&from)?, None, canister::transform_ctx())
+    )?;
 
     let options = Options {
         gas_price: Some(gas_price),
@@ -314,10 +298,10 @@ pub async fn multitranfer<T: Transport>(
         .await
         .context(PythiaError::UnableToSignContractCall)?;
 
-    let tx_hash = retry_until_success!(w3
-        .eth()
-        .send_raw_transaction(signed_call.raw_transaction.clone()))
-    .context(PythiaError::UnableToExecuteRawTx)?;
+    let tx_hash = retry_until_success!(
+        w3.eth().send_raw_transaction(signed_call.raw_transaction.clone(), canister::transform_ctx())
+    )
+        .context(PythiaError::UnableToExecuteRawTx)?;
 
     ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
         .await

@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use anyhow::{Context, Result};
 use candid::Nat;
-use ic_web3::types::H160;
+use ic_web3_rs::types::H160;
 
 use crate::{
     clone_with_state, log,

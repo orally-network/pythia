@@ -8,3 +8,4 @@ pub mod siwe;
 pub mod sybil;
 pub mod validator;
 pub mod web3;
+pub mod processors;

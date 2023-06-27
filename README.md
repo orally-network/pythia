@@ -58,6 +58,4 @@ read -p "Tx hash: " TX_HASH
 dfx canister call pythia deposit "(${CHAIN_ID}:nat, \"${TX_HASH}\", \"${SIWE_MSG}\", \"${SIWE_SIG}\")"
 # create a subscription
 dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; frequency=${UPDATE_TIME_FREQUENCY}:nat; is_random=false; gas_limit=${GAS_LIMIT}:nat; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
-# withdraw user balance
-dfx canister call pythia withdraw "(${CHAIN_ID}:nat, \"${SIWE_MSG}\", \"${SIWE_SIG}\", \"${ADDRESS}\")"
 ```
