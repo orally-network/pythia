@@ -940,7 +940,7 @@ dependencies = [
 [[package]]
 name = "ic-web3-rs"
 version = "0.1.1"
-source = "git+https://github.com/ivanlele/ic-web3-rs#ba8cd1c9ac15c086d96f7e51da677283dcbb54ed"
+source = "git+https://github.com/ivanlele/ic-web3-rs#fd07c77e72805c1e3577fd698351e2bc8f1107d3"
 dependencies = [
  "arrayvec 0.7.4",
  "candid",

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 
 use candid::Nat;
-use ic_dl_utils::{retry_until_success, retry_with_unhandled};
+use ic_dl_utils::retry_until_success;
 use ic_web3_rs::{
     contract::{tokens::Tokenizable, Contract, Error, Options},
     ethabi::Token,
@@ -21,8 +21,7 @@ use crate::{
 };
 
 const MULTICALL_ABI: &[u8] = include_bytes!("../../assets/MulticallABI.json");
-//const MULTICALL_CONTRACT_ADDRESS: &str = "0xa27a3A7702Bc1010be95f73A2c64873d21D6D027";
-const MULTICALL_CONTRACT_ADDRESS: &str = "0xcA5931044E54A6E900DcF5d5A9B37DeB0e065619";
+const MULTICALL_CONTRACT_ADDRESS: &str = "0xa27a3A7702Bc1010be95f73A2c64873d21D6D027";
 const MULTICALL_CALL_FUNCTION: &str = "multicall";
 const MULTICALL_TRANSFER_FUNCTION: &str = "multitransfer";
 const BASE_GAS: u64 = 27_000;
@@ -173,8 +172,6 @@ pub async fn multicall<T: Transport>(
             ..Default::default()
         };
 
-        
-
         let params: Vec<Token> = current_calls_batch
             .iter()
             .map(|c| c.clone().into_token())
@@ -191,30 +188,10 @@ pub async fn multicall<T: Transport>(
             .await
             .context(PythiaError::UnableToSignContractCall)?;
         log!("[PUBLISHER] chain: {}, tx was signed", chain_id);
-        log!("Signed transaction: {:?}", signed_call);
-        let (mut tx_result, is_corrupted) = retry_with_unhandled!(
+        let tx_hash = retry_until_success!(
             w3.eth().send_raw_transaction(signed_call.raw_transaction.clone(), canister::transform_ctx())
-        );
-
-        if is_corrupted {
-            // try to check if a tx was sent, if so continue, otherwise try all over again
-            if retry_until_success!(
-                w3.eth().transaction_receipt(signed_call.transaction_hash, canister::transform_ctx_tx_with_logs())
-            )?
-                .is_some()
-            {
-                log!(
-                    "[PUBLISHER] chain: {}, tx was corrupted, but sent, tx_hash: {}",
-                    chain_id,
-                    hex::encode(signed_call.transaction_hash.as_bytes()),
-                );
-                tx_result = Ok(signed_call.transaction_hash);
-            } else {
-                return Ok(result);
-            };
-        }
-
-        let tx_hash = tx_result.context(PythiaError::UnableToExecuteRawTx)?;
+        )
+            .context(PythiaError::UnableToExecuteRawTx)?;
 
         log!("[PUBLISHER] chain: {}, tx was sent", chain_id);
         let tx_receipt = ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
