@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 
 use ic_cdk::export::candid::Nat;
-use ic_cdk_macros::{query, update};
+use ic_cdk::{query, update};
 
 use crate::{
     jobs::publisher,

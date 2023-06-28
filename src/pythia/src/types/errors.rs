@@ -128,4 +128,8 @@ pub enum PythiaError {
     UnableToUpdateTimer,
     #[error("Timer is not initialized")]
     TimerIsNotInitialized,
+    #[error("Tx timeout")]
+    TxTimeout,
+    #[error("Unable to get tx receipt")]
+    UnableToGetTxReceipt,
 }

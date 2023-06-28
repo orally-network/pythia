@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
 
-use ic_cdk::export::candid::Nat;
-use ic_cdk_macros::{query, update};
+use ic_cdk::{export::candid::Nat, query, update};
 
 use crate::{
     clone_with_state,

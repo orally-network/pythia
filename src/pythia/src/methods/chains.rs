@@ -1,16 +1,15 @@
 use anyhow::{anyhow, Context, Result};
 
-use ic_cdk::export::candid::Nat;
-use ic_cdk_macros::{query, update};
+use ic_cdk::{export::candid::Nat, query, update};
 
 use crate::{
     log,
     types::{
         balance::Balances,
         chains::{ChainUpdator, Chains, CreateChainRequest},
+        logger::CHAINS,
         subscription::Subscriptions,
         withdraw::WithdrawRequests,
-        logger::CHAINS,
     },
     utils::{canister, validator},
     Chain, PythiaError,

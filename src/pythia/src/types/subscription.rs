@@ -4,14 +4,13 @@ use ic_cdk::export::{
     candid::{CandidType, Nat},
     serde::{Deserialize, Serialize},
 };
-use ic_dl_utils::time::time_in_seconds;
 use ic_web3_rs::ethabi::Function;
 
 use anyhow::{Context, Error, Result};
 
 use super::{errors::PythiaError, methods::Method};
 use crate::{
-    utils::{abi, address, sybil, validator},
+    utils::{abi, address, sybil, time, validator},
     STATE,
 };
 
@@ -443,7 +442,7 @@ impl Subscriptions {
                 .find(|sub| sub.id == *sub_id)
                 .expect("sub should exist");
 
-            subscription.status.last_update = time_in_seconds().into();
+            subscription.status.last_update = time::in_seconds().into();
             subscription.status.executions_counter += 1;
         })
     }
@@ -467,7 +466,7 @@ impl Subscriptions {
                                 is_active = true;
 
                                 (sub.status.last_update.clone() + sub.frequency.clone())
-                                    <= time_in_seconds()
+                                    <= time::in_seconds()
                             })
                             .cloned()
                             .collect::<Vec<Subscription>>(),

@@ -15,8 +15,8 @@ use types::{chains::Chain, errors::PythiaError, state::State, timer::Timer};
 use ic_cdk::{
     api::management_canister::http_request::{HttpResponse, TransformArgs},
     export::{candid::Nat, Principal},
+    init, query,
 };
-use ic_cdk_macros::{init, query};
 
 thread_local! {
     pub static STATE: RefCell<State> = RefCell::default();

@@ -4,7 +4,11 @@ use anyhow::{anyhow, Context, Result};
 
 use candid::Nat;
 use ic_cdk::api::management_canister::http_request::{TransformContext, TransformFunc};
-use ic_web3_rs::{ic::get_eth_addr, types::H160, transports::ic_http_client::{CallOptions, CallOptionsBuilder}};
+use ic_web3_rs::{
+    ic::get_eth_addr,
+    transports::ic_http_client::{CallOptions, CallOptionsBuilder},
+    types::H160,
+};
 
 use crate::{
     clone_with_state,

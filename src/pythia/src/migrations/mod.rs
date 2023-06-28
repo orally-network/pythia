@@ -1,7 +1,6 @@
 use std::time::Duration;
 
-use ic_cdk::storage;
-use ic_cdk_macros::{post_upgrade, pre_upgrade};
+use ic_cdk::{post_upgrade, pre_upgrade, storage};
 use ic_cdk_timers::set_timer;
 use ic_utils::{logger, monitor};
 

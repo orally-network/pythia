@@ -1,12 +1,11 @@
 use anyhow::{Context, Result};
 
-use ic_cdk::export::candid::Nat;
-use ic_cdk_macros::update;
+use ic_cdk::{export::candid::Nat, update};
 
 use crate::{
     jobs::{publisher, withdraw},
     log,
-    types::{balance::Balances, timer::Timer, logger::CONTROLLERS},
+    types::{balance::Balances, logger::CONTROLLERS, timer::Timer},
     update_state,
     utils::{address, canister, validator, web3},
     PythiaError,

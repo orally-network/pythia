@@ -11,17 +11,13 @@ pub struct RawTxExecutionTransformProcessor {
 impl TransformProcessor for RawTxExecutionTransformProcessor {
     fn process_body(&self, body: &[u8]) -> Vec<u8> {
         let mut body: Value = serde_json::from_slice(body).unwrap();
-        
-        let result = body
-            .get_mut("result")
-            .unwrap()
-            .as_array_mut();
+
+        let result = body.get_mut("result").unwrap().as_array_mut();
         if result.is_none() {
             return serde_json::to_vec(&body).unwrap();
         }
-    
-        let elements = result
-            .unwrap();
+
+        let elements = result.unwrap();
         for element in elements.iter_mut() {
             if self.transaction_index {
                 element

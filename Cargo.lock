@@ -874,19 +874,6 @@ dependencies = [
 
 [[package]]
 name = "ic-cdk"
-version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9beb0bf1dcd0639c313630e34aa547a2b19450ddf1969c176e13225ef3b29048"
-dependencies = [
- "candid",
- "ic-cdk-macros",
- "ic0",
- "serde",
- "serde_bytes",
-]
-
-[[package]]
-name = "ic-cdk"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff1375116689aeeffdc6e96ec8ed1953671aee1dcd01016ab86e0606e93bec94"
@@ -914,12 +901,12 @@ dependencies = [
 
 [[package]]
 name = "ic-cdk-timers"
-version = "0.1.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c739e7c592cb66df4f15c6b6c4859b1195782f63923e2fb1b29553d9c0819bd4"
+checksum = "83ae33d93347308ae34156bacec10a348689f2f42b1e783dc7015f0ba1c4987a"
 dependencies = [
  "futures",
- "ic-cdk 0.7.4",
+ "ic-cdk 0.9.2",
  "ic0",
  "serde",
  "serde_bytes",
@@ -927,20 +914,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "ic-dl-utils"
-version = "0.1.0"
-source = "git+https://github.com/ivanlele/ic-dl-utils?branch=master#9c4f12f0c1e928817cf09bd5eb1a276c89215631"
-dependencies = [
- "anyhow",
- "canistergeek_ic_rust",
- "ic-cdk 0.9.2",
- "ic-web3-rs",
-]
-
-[[package]]
 name = "ic-web3-rs"
 version = "0.1.1"
-source = "git+https://github.com/ivanlele/ic-web3-rs#fd07c77e72805c1e3577fd698351e2bc8f1107d3"
+source = "git+https://github.com/orally-network/ic-web3-rs#fd07c77e72805c1e3577fd698351e2bc8f1107d3"
 dependencies = [
  "arrayvec 0.7.4",
  "candid",
@@ -1533,12 +1509,9 @@ dependencies = [
  "futures",
  "hex",
  "ic-cdk 0.9.2",
- "ic-cdk-macros",
  "ic-cdk-timers",
- "ic-dl-utils",
  "ic-web3-rs",
  "num-bigint",
- "rand",
  "serde",
  "serde_json",
  "slotmap",

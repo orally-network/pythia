@@ -3,7 +3,6 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 
 use candid::Nat;
-use ic_dl_utils::retry_until_success;
 use ic_web3_rs::{
     contract::{tokens::Tokenizable, Contract, Error, Options},
     ethabi::Token,
@@ -13,7 +12,7 @@ use ic_web3_rs::{
 
 use super::{address, canister, nat, web3};
 use crate::{
-    log,
+    log, retry_until_success,
     types::{
         chains::{Chain, Chains},
         errors::PythiaError,
@@ -168,8 +167,11 @@ pub async fn multicall<T: Transport>(
                         result + call.gas_limit
                     }),
             ),
-            nonce: Some(
-                retry_until_success!(w3.eth().transaction_count(H160::from_str(&from)?, None, canister::transform_ctx()))?),
+            nonce: Some(retry_until_success!(w3.eth().transaction_count(
+                H160::from_str(&from)?,
+                None,
+                canister::transform_ctx()
+            ))?),
             ..Default::default()
         };
 
@@ -189,13 +191,14 @@ pub async fn multicall<T: Transport>(
             .await
             .context(PythiaError::UnableToSignContractCall)?;
         log!("[{PUBLISHER}] chain: {}, tx was signed", chain_id);
-        let tx_hash = retry_until_success!(
-            w3.eth().send_raw_transaction(signed_call.raw_transaction.clone(), canister::transform_ctx())
-        )
-            .context(PythiaError::UnableToExecuteRawTx)?;
+        let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(
+            signed_call.raw_transaction.clone(),
+            canister::transform_ctx()
+        ))
+        .context(PythiaError::UnableToExecuteRawTx)?;
 
         log!("[{PUBLISHER}] chain: {}, tx was sent", chain_id);
-        let tx_receipt = ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
+        let tx_receipt = web3::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
             .await
             .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
         log!("[{PUBLISHER}] chain: {}, tx was executed", chain_id);
@@ -215,8 +218,11 @@ pub async fn multicall<T: Transport>(
                 .block_number
                 .expect("block number should be valid"),
         );
-        let raw_result =
-            retry_until_success!(w3.eth().call(call_request.clone(), Some(block_number), canister::transform_ctx()))?;
+        let raw_result = retry_until_success!(w3.eth().call(
+            call_request.clone(),
+            Some(block_number),
+            canister::transform_ctx()
+        ))?;
         log!("[{PUBLISHER}] chain: {}, tx result was received", chain_id);
         let call_result: Vec<Token> = contract
             .abi()
@@ -273,9 +279,11 @@ pub async fn multitranfer<T: Transport>(
     let gas_price = retry_until_success!(w3.eth().gas_price(canister::transform_ctx()))?;
     let gas_limit = BASE_GAS + (GAS_PER_TRANSFER * transfers.len() as u64);
     let value = transfers.iter().fold(U256::from(0), |sum, t| sum + t.value);
-    let nonce = retry_until_success!(
-        w3.eth().transaction_count(H160::from_str(&from)?, None, canister::transform_ctx())
-    )?;
+    let nonce = retry_until_success!(w3.eth().transaction_count(
+        H160::from_str(&from)?,
+        None,
+        canister::transform_ctx()
+    ))?;
 
     let options = Options {
         gas_price: Some(gas_price),
@@ -299,12 +307,13 @@ pub async fn multitranfer<T: Transport>(
         .await
         .context(PythiaError::UnableToSignContractCall)?;
 
-    let tx_hash = retry_until_success!(
-        w3.eth().send_raw_transaction(signed_call.raw_transaction.clone(), canister::transform_ctx())
-    )
-        .context(PythiaError::UnableToExecuteRawTx)?;
+    let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(
+        signed_call.raw_transaction.clone(),
+        canister::transform_ctx()
+    ))
+    .context(PythiaError::UnableToExecuteRawTx)?;
 
-    ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
+    web3::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
         .await
         .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
 

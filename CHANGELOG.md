@@ -6,9 +6,6 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Improve fee system
-- Improve .did interfaces
-- Improve controller checking
 - Web3 client
 
 ### Added
@@ -26,4 +23,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- Refresh README.md
+- Improve fee system
+- Improve .did interfaces
+- Improve controller checking
+- Improve README.md

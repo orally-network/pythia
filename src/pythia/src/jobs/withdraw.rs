@@ -8,8 +8,8 @@ use crate::{
     clone_with_state, log,
     types::{
         errors::PythiaError,
-        withdraw::{WithdrawRequest, WithdrawRequests},
         logger::WITHDRAWER,
+        withdraw::{WithdrawRequest, WithdrawRequests},
     },
     utils::{multicall, multicall::Transfer, nat, web3},
 };
