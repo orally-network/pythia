@@ -10,6 +10,7 @@ use crate::{
         chains::{ChainUpdator, Chains, CreateChainRequest},
         subscription::Subscriptions,
         withdraw::WithdrawRequests,
+        logger::CHAINS,
     },
     utils::{canister, validator},
     Chain, PythiaError,
@@ -46,7 +47,7 @@ async fn _add_chain(req: CreateChainRequest) -> Result<()> {
     let pma = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
     Balances::create(&req.chain_id, &pma).context(PythiaError::UnableToAddNewBalance)?;
 
-    log!("[CHAINS] added, id: {}", req.chain_id);
+    log!("[{CHAINS}] added, id: {}", req.chain_id);
     Ok(())
 }
 
@@ -72,7 +73,7 @@ fn _remove_chain(chain_id: Nat) -> Result<()> {
     Subscriptions::deinit_chain(&chain_id).context(PythiaError::UnableToRemoveChain)?;
     WithdrawRequests::deinit_chain(&chain_id).context(PythiaError::UnableToRemoveChain)?;
 
-    log!("[CHAINS] removed, id: {chain_id}");
+    log!("[{CHAINS}] removed, id: {chain_id}");
     Ok(())
 }
 
@@ -102,7 +103,7 @@ fn _update_chain_rpc(chain_id: Nat, rpc: String) -> Result<()> {
     )
     .context(PythiaError::UnableToUpdateChain)?;
 
-    log!("[CHAINS] RPC updated: {rpc}, id: {chain_id}");
+    log!("[{CHAINS}] RPC updated: {rpc}, id: {chain_id}");
     Ok(())
 }
 
@@ -133,7 +134,7 @@ fn _update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<()> {
     )
     .context(PythiaError::UnableToUpdateChain)?;
 
-    log!("[CHAINS] minimum balance updated: {min_balance}, id: {chain_id}");
+    log!("[{CHAINS}] minimum balance updated: {min_balance}, id: {chain_id}");
     Ok(())
 }
 
@@ -166,7 +167,7 @@ fn _update_chain_fee_and_symbol(chain_id: Nat, fee: Nat, symbol: String) -> Resu
     )
     .context(PythiaError::UnableToUpdateChain)?;
 
-    log!("[CHAINS] fee and symbol updated: {fee}, {symbol}, id: {chain_id}");
+    log!("[{CHAINS}] fee and symbol updated: {fee}, {symbol}, id: {chain_id}");
     Ok(())
 }
 

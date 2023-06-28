@@ -17,6 +17,7 @@ use crate::{
     types::{
         chains::{Chain, Chains},
         errors::PythiaError,
+        logger::PUBLISHER,
     },
 };
 
@@ -144,7 +145,7 @@ pub async fn multicall<T: Transport>(
     calls: Vec<Call>,
     gas_price: U256,
 ) -> Result<Vec<MulticallResult>> {
-    log!("[PUBLISHER] chain: {}, prepering multicall", chain_id);
+    log!("[{PUBLISHER}] chain: {}, prepering multicall", chain_id);
     let mut calls = calls;
     let mut result: Vec<MulticallResult> = vec![];
     let chain = Chains::get(chain_id)?;
@@ -187,17 +188,17 @@ pub async fn multicall<T: Transport>(
             )
             .await
             .context(PythiaError::UnableToSignContractCall)?;
-        log!("[PUBLISHER] chain: {}, tx was signed", chain_id);
+        log!("[{PUBLISHER}] chain: {}, tx was signed", chain_id);
         let tx_hash = retry_until_success!(
             w3.eth().send_raw_transaction(signed_call.raw_transaction.clone(), canister::transform_ctx())
         )
             .context(PythiaError::UnableToExecuteRawTx)?;
 
-        log!("[PUBLISHER] chain: {}, tx was sent", chain_id);
+        log!("[{PUBLISHER}] chain: {}, tx was sent", chain_id);
         let tx_receipt = ic_dl_utils::evm::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
             .await
             .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
-        log!("[PUBLISHER] chain: {}, tx was executed", chain_id);
+        log!("[{PUBLISHER}] chain: {}, tx was executed", chain_id);
         let data = contract
             .abi()
             .function(MULTICALL_CALL_FUNCTION)
@@ -216,7 +217,7 @@ pub async fn multicall<T: Transport>(
         );
         let raw_result =
             retry_until_success!(w3.eth().call(call_request.clone(), Some(block_number), canister::transform_ctx()))?;
-        log!("[PUBLISHER] chain: {}, tx result was received", chain_id);
+        log!("[{PUBLISHER}] chain: {}, tx result was received", chain_id);
         let call_result: Vec<Token> = contract
             .abi()
             .function(MULTICALL_CALL_FUNCTION)
@@ -230,7 +231,7 @@ pub async fn multicall<T: Transport>(
             .into_array()
             .context(PythiaError::InvalidMulticallResult)?;
 
-        log!("[PUBLISHER] chain: {}, result: {:?}", chain_id, results);
+        log!("[{PUBLISHER}] chain: {}, result: {:?}", chain_id, results);
 
         result.append(
             &mut results

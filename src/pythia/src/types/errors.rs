@@ -118,8 +118,6 @@ pub enum PythiaError {
     UnableToGetBalance,
     #[error("Unable to get asset data")]
     UnableToGetAssetData,
-    #[error("Invalid number")]
-    InvalidNumber,
     #[error("Unable to reduce balance")]
     UnableToReduceBalance,
     #[error("Unable to activate timer")]

@@ -8,3 +8,4 @@ pub mod subscription;
 pub mod timer;
 pub mod whitelist;
 pub mod withdraw;
+pub mod logger;

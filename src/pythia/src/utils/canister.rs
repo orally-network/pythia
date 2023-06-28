@@ -42,8 +42,8 @@ pub async fn fee(chain_id: &Nat) -> Result<Nat> {
         let rate = sybil::get_asset_data(&pair_id)
             .await
             .context(PythiaError::UnableToGetAssetData)?;
-        let decimals = Nat::from_str(DECIMALS).context(PythiaError::InvalidNumber)?;
-        let fee_in_usdt = Nat::from_str(FEE_IN_USDT).context(PythiaError::InvalidNumber)?;
+        let decimals = Nat::from_str(DECIMALS)?;
+        let fee_in_usdt = Nat::from_str(FEE_IN_USDT)?;
 
         return Ok((fee_in_usdt * decimals) / rate.rate);
     }

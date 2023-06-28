@@ -2,12 +2,11 @@ use anyhow::{Context, Result};
 
 use ic_cdk::export::candid::Nat;
 use ic_cdk_macros::update;
-use ic_utils::logger::log_message;
 
 use crate::{
     jobs::{publisher, withdraw},
     log,
-    types::{balance::Balances, timer::Timer},
+    types::{balance::Balances, timer::Timer, logger::CONTROLLERS},
     update_state,
     utils::{address, canister, validator, web3},
     PythiaError,
@@ -30,7 +29,7 @@ pub fn update_tx_fee(tx_fee: Nat) -> Result<(), String> {
 pub fn _update_tx_fee(tx_fee: Nat) -> Result<()> {
     validator::caller()?;
     update_state!(tx_fee, tx_fee.clone());
-    log_message(format!("[CONTROLLERS] tx fee updated: {tx_fee}"));
+    log!("[{CONTROLLERS}] tx fee updated: {tx_fee}");
     Ok(())
 }
 
@@ -52,7 +51,7 @@ pub fn update_subs_limit_wallet(limit: Nat) -> Result<(), String> {
 fn _update_subs_limit_wallet(limit: Nat) -> Result<()> {
     validator::caller()?;
     update_state!(subs_limit_wallet, limit.clone());
-    log!("[CONTROLLERS] subscriptions limit for a wallet updated: {limit}");
+    log!("[{CONTROLLERS}] subscriptions limit for a wallet updated: {limit}");
     Ok(())
 }
 
@@ -74,7 +73,7 @@ pub fn update_subs_limit_total(limit: Nat) -> Result<(), String> {
 fn _update_subs_limit_total(limit: Nat) -> Result<()> {
     validator::caller()?;
     update_state!(subs_limit_total, limit.clone());
-    log!("[CONTROLLERS] subscriptions limit: {limit}");
+    log!("[{CONTROLLERS}] subscriptions limit: {limit}");
     Ok(())
 }
 
@@ -96,7 +95,7 @@ pub fn update_timer_frequency(frequency: Nat) -> Result<(), String> {
 fn _update_timer_frequency(frequency: Nat) -> Result<()> {
     validator::caller()?;
     update_state!(timer_frequency, frequency.clone());
-    log!("[CONTROLLERS] the timer frequency updated: {frequency}");
+    log!("[{CONTROLLERS}] the timer frequency updated: {frequency}");
     Ok(())
 }
 
@@ -113,7 +112,7 @@ pub fn execute_withdraw_job() -> Result<(), String> {
 fn _execute_withdraw_job() -> Result<()> {
     validator::caller()?;
     withdraw::execute();
-    log!("[CONTROLLERS] withdraw job forcefully executed");
+    log!("[{CONTROLLERS}] withdraw job forcefully executed");
     Ok(())
 }
 
@@ -130,7 +129,7 @@ pub fn execute_publisher_job() -> Result<(), String> {
 fn _execute_publisher_job() -> Result<()> {
     validator::caller()?;
     publisher::execute();
-    log!("[CONTROLLERS] publisher job forcefully executed");
+    log!("[{CONTROLLERS}] publisher job forcefully executed");
     Ok(())
 }
 
@@ -161,7 +160,7 @@ async fn _withdraw_fee(chain_id: Nat, receiver: String) -> Result<()> {
         .context(PythiaError::UnableToTransferFunds)?;
     Balances::reduce(&chain_id, &pma, &value).context(PythiaError::UnableToReduceBalance)?;
 
-    log!("[CONTROLLERS] fees were withdrawn to: {receiver}");
+    log!("[] fees were withdrawn to: {receiver}");
     Ok(())
 }
 
@@ -190,7 +189,7 @@ async fn _withdraw_all_balance(chain_id: Nat, receiver: String) -> Result<()> {
         .await
         .context(PythiaError::UnableToTransferFunds)?;
 
-    log!("[CONTROLLERS] all balance was withdrawn to: {receiver}");
+    log!("[{CONTROLLERS}] all balance was withdrawn to: {receiver}");
     Ok(())
 }
 
@@ -207,6 +206,6 @@ pub fn stop_timer() -> Result<(), String> {
 fn _stop_timer() -> Result<()> {
     validator::caller()?;
     Timer::deactivate().context(PythiaError::UnableToDeactivateTimer)?;
-    log!("[CONTROLLERS] timer was stopped");
+    log!("[{CONTROLLERS}] timer was stopped");
     Ok(())
 }

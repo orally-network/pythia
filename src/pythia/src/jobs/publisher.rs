@@ -1,4 +1,4 @@
-use std::{time::Duration, vec};
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use ic_cdk::export::candid::Nat;
@@ -15,6 +15,7 @@ use crate::{
         errors::PythiaError,
         subscription::{Subscription, Subscriptions},
         timer::Timer,
+        logger::PUBLISHER,
     },
     utils::{
         abi, address, canister,
@@ -26,38 +27,34 @@ use crate::{
 pub fn execute() {
     ic_cdk::spawn(async {
         if let Err(e) = _execute().await {
-            log!("error while executing publisher job: {e:?}");
+            log!("[{PUBLISHER}] error while executing publisher job: {e:?}");
         }
     })
 }
 
 async fn _execute() -> Result<()> {
-    log!("[PUBLISHER] publisher job started");
+    log!("[{PUBLISHER}] publisher job started");
     Timer::activate().context(PythiaError::UnableToActivateTimer)?;
 
     Subscriptions::stop_insufficients()
         .context(PythiaError::UnableToStopInsufficientSubscriptions)?;
 
-    let mut futures = vec![];
     let (publishable_subs, is_active) = Subscriptions::get_publishable();
-    publishable_subs.iter().for_each(|(chain_id, subs)| {
-        if subs.is_empty() {
-            return;
-        }
-
-        futures.push(publish_on_chain(chain_id.clone(), subs.clone()));
-    });
+    let futures = publishable_subs.into_iter()
+        .filter(|(_, subs)| subs.is_empty())
+        .map(|(chain_id, subs)| publish_on_chain(chain_id, subs))
+        .collect::<Vec<_>>();
 
     if !is_active {
         withdraw::withdraw().await;
         Timer::deactivate().context(PythiaError::UnableToDeactivateTimer)?;
-        log!("[PUBLISHER] publisher job stopped");
+        log!("[{PUBLISHER}] publisher job stopped");
         return Ok(());
     }
 
     join_all(futures).await.iter().for_each(|e| {
         if let Err(e) = e {
-            log!("[PUBLISHER] error while publishing: {e:?}");
+            log!("[{PUBLISHER}] error while publishing: {e:?}");
         }
     });
 
@@ -70,17 +67,17 @@ async fn _execute() -> Result<()> {
 
     Timer::update(timer_id).context(PythiaError::UnableToUpdateTimer)?;
 
-    log!("[PUBLISHER] publisher job executed");
+    log!("[{PUBLISHER}] publisher job executed");
     Ok(())
 }
 
 async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -> Result<()> {
-    log!("[PUBLISHER] chain: {}, publishing", chain_id);
+    log!("[{PUBLISHER}] chain: {}, publishing", chain_id);
     let w3 = web3::instance(&chain_id)?;
     let pma = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
     while !subscriptions.is_empty() {
         log!(
-            "[PUBLISHER] chain: {}, subscriptions left: {}",
+            "[{PUBLISHER}] chain: {}, subscriptions left: {}",
             chain_id,
             subscriptions.len()
         );
@@ -102,7 +99,7 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
 
         if multicall_results.is_empty() {
             log!(
-                "[PUBLISHER] chain: {}, no results from multicall, corruption detected",
+                "[{PUBLISHER}] chain: {}, no results from multicall, corruption detected",
                 chain_id
             );
             continue;
@@ -111,19 +108,14 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
         subscriptions = multicall_results
             .iter()
             .zip(subscriptions)
-            .filter(|(result, sub)| {
-                if nat::from_u256(&result.used_gas) > sub.method.gas_limit {
-                    log!(
-                        "[PUBLISHER] chain: {}, gas limit exceeded for sub {}",
-                        chain_id,
-                        sub.id
-                    );
-                    Subscriptions::stop(&chain_id, &sub.owner, &sub.id).expect("should stop sub");
-                    return false;
+            .filter_map(|(result, sub)| {
+                if result.used_gas == 0.into() {
+                    return Some(sub);
                 }
 
-                if result.used_gas == 0.into() {
-                    return true;
+                if nat::from_u256(&result.used_gas) > sub.method.gas_limit {
+                    log!("[{PUBLISHER}] chain: {}, gas limit exceeded for sub {}", chain_id, sub.id);
+                    Subscriptions::stop(&chain_id, &sub.owner, &sub.id).expect("should stop sub");
                 }
 
                 Subscriptions::update_last_update(&chain_id, &sub.id);
@@ -132,11 +124,10 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                 Balances::reduce(&chain_id, &sub.owner, &amount).expect("should reduce balance");
                 canister::collect_fee(&chain_id, &pma, &fee).expect("should collect fee");
 
-                false
+                None
             })
-            .map(|(_, subscription)| subscription)
             .collect();
     }
-    log!("[PUBLISHER] chain: {}, published", chain_id);
+    log!("[{PUBLISHER}] chain: {}, published", chain_id);
     Ok(())
 }
