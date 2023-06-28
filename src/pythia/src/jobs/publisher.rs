@@ -41,7 +41,7 @@ async fn _execute() -> Result<()> {
     let (publishable_subs, is_active) = Subscriptions::get_publishable();
     let futures = publishable_subs
         .into_iter()
-        .filter(|(_, subs)| subs.is_empty())
+        .filter(|(_, subs)| !subs.is_empty())
         .map(|(chain_id, subs)| publish_on_chain(chain_id, subs))
         .collect::<Vec<_>>();
 
