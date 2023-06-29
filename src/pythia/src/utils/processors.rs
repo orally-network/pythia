@@ -10,16 +10,14 @@ pub struct RawTxExecutionTransformProcessor {
 
 impl TransformProcessor for RawTxExecutionTransformProcessor {
     fn process_body(&self, body: &[u8]) -> Vec<u8> {
-        let mut body: Value = serde_json::from_slice(body)
-            .expect("Should be valid json");
+        let mut body: Value = serde_json::from_slice(body).expect("Should be valid json");
 
         let result = body
             .get_mut("result")
             .expect("Should have result field")
             .as_array_mut();
         if result.is_none() {
-            return serde_json::to_vec(&body)
-                .expect("Should be valid json");
+            return serde_json::to_vec(&body).expect("Should be valid json");
         }
 
         let elements = result.expect("Should be valid json");

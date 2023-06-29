@@ -9,7 +9,7 @@ use ic_cdk::export::{
 };
 
 use super::errors::PythiaError;
-use crate::{STATE};
+use crate::STATE;
 
 #[derive(Clone, Debug, Deserialize, Serialize, CandidType, Default)]
 pub struct Chain {

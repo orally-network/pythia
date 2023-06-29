@@ -9,8 +9,9 @@ use ic_cdk::export::{
 use anyhow::{anyhow, Context, Result};
 
 use crate::{
+    dig, dig_mut,
     utils::{address, multicall::GAS_PER_TRANSFER},
-    STATE, dig, dig_mut,
+    STATE,
 };
 
 use super::{chains::Chains, errors::PythiaError};
@@ -52,7 +53,7 @@ impl Balances {
                 .balances
                 .0
                 .get_mut(chain_id)
-                .context(PythiaError::ChainDoesNotExist)?;                
+                .context(PythiaError::ChainDoesNotExist)?;
 
             if balances.contains_key(&address) {
                 return Err(PythiaError::BalanceAlreadyExists.into());

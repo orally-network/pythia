@@ -46,7 +46,7 @@ async fn send_funds(chain_id: &Nat, reqs: &[WithdrawRequest]) -> Result<()> {
             value: nat::to_u256(&req.amount),
         })
         .collect();
-    
+
     for transfers_chunk in transfers.chunks(MAX_TRANSFERS) {
         multicall::multitransfer(
             &web3::instance(chain_id)?,

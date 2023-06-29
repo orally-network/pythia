@@ -30,7 +30,7 @@ macro_rules! dig {
             .$field
             .0
             .get($chain_id)
-            .context(crate::types::errors::PythiaError::ChainDoesNotExist)?
+            .context($crate::types::errors::PythiaError::ChainDoesNotExist)?
             .get($key)
     };
 }
@@ -42,7 +42,7 @@ macro_rules! dig_mut {
             .$field
             .0
             .get_mut($chain_id)
-            .context(crate::types::errors::PythiaError::ChainDoesNotExist)?
+            .context($crate::types::errors::PythiaError::ChainDoesNotExist)?
             .get_mut($key)
     };
 }

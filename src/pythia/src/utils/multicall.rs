@@ -167,7 +167,8 @@ pub async fn multicall<T: Transport>(
             &contract,
             &current_calls_batch,
             chain_id,
-        ).await?;
+        )
+        .await?;
 
         result.append(
             &mut results
@@ -191,7 +192,7 @@ async fn execute_multicall_batch<T: Transport>(
     chain_id: &Nat,
 ) -> Result<Vec<Token>> {
     let options = Options {
-        gas_price: Some(gas_price.clone()),
+        gas_price: Some(*gas_price),
         gas: Some(
             batch
                 .iter()
@@ -207,10 +208,7 @@ async fn execute_multicall_batch<T: Transport>(
         ..Default::default()
     };
 
-    let params: Vec<Token> = batch
-        .iter()
-        .map(|c| c.clone().into_token())
-        .collect();
+    let params: Vec<Token> = batch.iter().map(|c| c.clone().into_token()).collect();
     let signed_call = contract
         .sign(
             MULTICALL_CALL_FUNCTION,

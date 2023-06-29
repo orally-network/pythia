@@ -164,8 +164,7 @@ impl Subscriptions {
             }
 
             if let Some(owner) = owner {
-                let owner = address::normalize(&owner)
-                    .expect("should be valid address format");
+                let owner = address::normalize(&owner).expect("should be valid address format");
                 subscriptions = subscriptions
                     .into_iter()
                     .filter(|sub| sub.owner == owner)
@@ -380,12 +379,11 @@ impl Subscriptions {
                 .subscriptions
                 .0
                 .values()
-                .map(|subs| {
+                .flat_map(|subs| {
                     subs.iter()
                         .map(|sub| sub.owner.clone())
                         .collect::<Vec<String>>()
                 })
-                .flatten()
                 .collect::<Vec<String>>();
 
             if owners.len() as u64 > state.subs_limit_total {
