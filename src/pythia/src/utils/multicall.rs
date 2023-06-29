@@ -237,8 +237,6 @@ pub async fn multicall<T: Transport>(
             .into_array()
             .context(PythiaError::InvalidMulticallResult)?;
 
-        log!("[{PUBLISHER}] chain: {}, result: {:?}", chain_id, results);
-
         result.append(
             &mut results
                 .iter()
