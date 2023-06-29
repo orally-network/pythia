@@ -48,6 +48,7 @@ pub async fn deposit(
         .map_err(|e| format!("failed to deposit: {e:?}"))
 }
 
+#[inline]
 async fn _deposit(chain_id: Nat, tx_hash: String, msg: String, sig: String) -> Result<()> {
     let address = siwe::recover(&msg, &sig)
         .await
@@ -110,6 +111,7 @@ pub async fn withdraw(
         .map_err(|e| format!("failed to withdraw: {e:?}"))
 }
 
+#[inline]
 async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) -> Result<()> {
     let address = siwe::recover(&msg, &sig)
         .await
@@ -146,6 +148,7 @@ pub fn get_balance(chain_id: Nat, address: String) -> Result<Nat, String> {
     _get_balance(chain_id, address).map_err(|e| format!("failed to get balance: {e:?}"))
 }
 
+#[inline]
 fn _get_balance(chain_id: Nat, address: String) -> Result<Nat> {
     let address = address::normalize(&address).context(PythiaError::InvalidAddressFormat)?;
     Balances::get(&chain_id, &address).context(PythiaError::UnableToGetBalance)

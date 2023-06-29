@@ -164,7 +164,8 @@ impl Subscriptions {
             }
 
             if let Some(owner) = owner {
-                let owner = address::normalize(&owner).unwrap();
+                let owner = address::normalize(&owner)
+                    .expect("should be valid address format");
                 subscriptions = subscriptions
                     .into_iter()
                     .filter(|sub| sub.owner == owner)
@@ -214,7 +215,7 @@ impl Subscriptions {
                         }
                     }
 
-                    subs.retain_mut(|sub| {
+                    subs.retain(|sub| {
                         if let Some(owner) = owner.clone() {
                             if owner != sub.owner.clone() {
                                 return true;
@@ -384,10 +385,8 @@ impl Subscriptions {
                         .map(|sub| sub.owner.clone())
                         .collect::<Vec<String>>()
                 })
-                .fold(Vec::<String>::new(), |mut result, owners| {
-                    result.extend(owners);
-                    result
-                });
+                .flatten()
+                .collect::<Vec<String>>();
 
             if owners.len() as u64 > state.subs_limit_total {
                 return Err(PythiaError::TotalSubscriptionsLimitReached.into());

@@ -92,6 +92,7 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
 
         let fee = canister::fee(&chain_id).await?;
         let mut gas_price = retry_until_success!(w3.eth().gas_price(canister::transform_ctx()))?;
+        // multiply the gas_price to 1.2 to avoid long transaction confirmation
         gas_price = (gas_price / 10) * 12;
         let multicall_results = multicall(&w3, &chain_id, calls.clone(), gas_price)
             .await

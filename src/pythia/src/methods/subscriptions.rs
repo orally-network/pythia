@@ -32,6 +32,7 @@ pub async fn subscribe(req: SubsribeRequest) -> Result<Nat, String> {
         .map_err(|e| format!("failed to subsribe: {e:?}"))
 }
 
+#[inline]
 async fn _subscribe(req: SubsribeRequest) -> Result<Nat> {
     let address = siwe::recover(&req.msg, &req.sig)
         .await
@@ -94,6 +95,7 @@ pub async fn stop_subscription(
         .map_err(|e| format!("failed to stop a subscription: {e:?}"))
 }
 
+#[inline]
 pub async fn _stop_subscription(
     chain_id: Nat,
     sub_id: Nat,
@@ -138,6 +140,7 @@ pub async fn start_subscription(
         .map_err(|e| format!("failed to start a subscription: {e:?}"))
 }
 
+#[inline]
 pub async fn _start_subscription(
     chain_id: Nat,
     sub_id: Nat,
@@ -181,6 +184,7 @@ pub async fn update_subscription(req: UpdateSubscriptionRequest) -> Result<(), S
         .map_err(|e| format!("failed to update a subscription: {e:?}"))
 }
 
+#[inline]
 async fn _update_subscription(req: UpdateSubscriptionRequest) -> Result<()> {
     let address = siwe::recover(&req.msg, &req.sig)
         .await
@@ -205,6 +209,7 @@ pub fn stop_subscriptions() -> Result<(), String> {
     _stop_subscriptions().map_err(|e| format!("failed to stop subscriptions: {e:?}"))
 }
 
+#[inline]
 fn _stop_subscriptions() -> Result<()> {
     validator::caller()?;
     Subscriptions::stop_all(None, vec![], None).context(PythiaError::UnableToStopSubscriptions)?;
@@ -223,6 +228,7 @@ pub fn remove_subscriptions() -> Result<(), String> {
     _remove_subscriptions().map_err(|e| format!("{e:?}"))
 }
 
+#[inline]
 pub fn _remove_subscriptions() -> Result<()> {
     validator::caller()?;
     Subscriptions::remove_all(None, vec![], None)
@@ -246,6 +252,7 @@ pub fn remove_subscription(id: Nat) -> Result<(), String> {
     _remove_subscription(id).map_err(|e| format!("{e:?}"))
 }
 
+#[inline]
 pub fn _remove_subscription(id: Nat) -> Result<()> {
     validator::caller()?;
     Subscriptions::remove_all(None, vec![id.clone()], None)

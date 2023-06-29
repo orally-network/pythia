@@ -39,19 +39,19 @@ async fn send_funds(chain_id: &Nat, reqs: &[WithdrawRequest]) -> Result<()> {
         return Ok(());
     }
 
-    let mut transfers: Vec<Transfer> = reqs
+    let transfers: Vec<Transfer> = reqs
         .iter()
         .map(|req| Transfer {
             target: H160::from_str(&req.receiver).expect("should be valid address"),
             value: nat::to_u256(&req.amount),
         })
         .collect();
-
-    while !transfers.is_empty() {
-        multicall::multitranfer(
+    
+    for transfers_chunk in transfers.chunks(MAX_TRANSFERS) {
+        multicall::multitransfer(
             &web3::instance(chain_id)?,
             chain_id,
-            transfers.split_off((transfers.len() - 1) % MAX_TRANSFERS),
+            transfers_chunk.to_vec(),
         )
         .await
         .context(PythiaError::UnableToTransferFunds)?;

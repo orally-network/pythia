@@ -57,6 +57,7 @@ pub async fn gas_price(chain_id: &Nat) -> Result<Nat> {
         .gas_price(canister::transform_ctx()))?))
 }
 
+#[inline(always)]
 pub fn key_info() -> KeyInfo {
     KeyInfo {
         derivation_path: vec![vec![]],
@@ -117,6 +118,7 @@ pub async fn transfer_all(chain_id: &Nat, to: &str) -> Result<()> {
         canister::transform_ctx()
     ))?;
     let mut gas_price = retry_until_success!(w3.eth().gas_price(canister::transform_ctx()))?;
+    // multiply the gas_price to 1.2 to avoid long transaction confirmation
     gas_price = (gas_price / 10) * 12;
     let mut value =
         retry_until_success!(w3.eth().balance(from_h160, None, canister::transform_ctx()))?;

@@ -9,7 +9,7 @@ use ic_cdk::export::{
 };
 
 use super::errors::PythiaError;
-use crate::STATE;
+use crate::{STATE};
 
 #[derive(Clone, Debug, Deserialize, Serialize, CandidType, Default)]
 pub struct Chain {
@@ -171,7 +171,7 @@ impl Chains {
                 .get(id)
                 .ok_or(PythiaError::ChainDoesNotExist)?;
 
-            Ok(chain.fee.clone().unwrap())
+            Ok(chain.fee.clone().expect("fee should be set"))
         })
     }
 
@@ -184,7 +184,7 @@ impl Chains {
                 .get(id)
                 .ok_or(PythiaError::ChainDoesNotExist)?;
 
-            Ok(chain.symbol.clone().unwrap())
+            Ok(chain.symbol.clone().expect("symbol should be set"))
         })
     }
 

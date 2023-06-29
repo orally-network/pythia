@@ -26,6 +26,7 @@ const MULTICALL_CALL_FUNCTION: &str = "multicall";
 const MULTICALL_TRANSFER_FUNCTION: &str = "multitransfer";
 const BASE_GAS: u64 = 27_000;
 pub const GAS_PER_TRANSFER: u64 = 7_900;
+const GAS_FOR_OPS: u64 = 10_000;
 const TX_TIMEOUT: u64 = 60 * 5;
 
 #[derive(Debug, Clone, Default)]
@@ -152,90 +153,21 @@ pub async fn multicall<T: Transport>(
     let contract = Contract::from_json(w3.eth(), contract_addr, MULTICALL_ABI)
         .context(PythiaError::InvalidContractABI)?;
     let from = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
-    let key_info = web3::key_info();
+    // multiply the gas_price to 1.2 to avoid long transaction confirmation
     let gas_price = (gas_price / 10) * 12;
 
     while !calls.is_empty() {
         let (current_calls_batch, _calls) = get_current_calls_batch(&calls, &chain);
         calls = _calls;
-        let options = Options {
-            gas_price: Some(gas_price),
-            gas: Some(
-                current_calls_batch
-                    .iter()
-                    .fold(U256::from(BASE_GAS + 10000), |result, call| {
-                        result + call.gas_limit
-                    }),
-            ),
-            nonce: Some(retry_until_success!(w3.eth().transaction_count(
-                H160::from_str(&from)?,
-                None,
-                canister::transform_ctx()
-            ))?),
-            ..Default::default()
-        };
 
-        let params: Vec<Token> = current_calls_batch
-            .iter()
-            .map(|c| c.clone().into_token())
-            .collect();
-        let signed_call = contract
-            .sign(
-                MULTICALL_CALL_FUNCTION,
-                vec![params.clone()],
-                options.clone(),
-                from.clone(),
-                key_info.clone(),
-                nat::to_u64(chain_id),
-            )
-            .await
-            .context(PythiaError::UnableToSignContractCall)?;
-        log!("[{PUBLISHER}] chain: {}, tx was signed", chain_id);
-        let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(
-            signed_call.raw_transaction.clone(),
-            canister::transform_ctx()
-        ))
-        .context(PythiaError::UnableToExecuteRawTx)?;
-
-        log!("[{PUBLISHER}] chain: {}, tx was sent", chain_id);
-        let tx_receipt = web3::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
-            .await
-            .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
-        log!("[{PUBLISHER}] chain: {}, tx was executed", chain_id);
-        let data = contract
-            .abi()
-            .function(MULTICALL_CALL_FUNCTION)
-            .and_then(|f| f.encode_input(&[params.into_token()]))
-            .context(PythiaError::UnableToFormCallData)?;
-        let call_request = CallRequest {
-            from: Some(tx_receipt.from),
-            to: tx_receipt.to,
-            data: Some(Bytes::from(data)),
-            ..Default::default()
-        };
-        let block_number = BlockId::from(
-            tx_receipt
-                .block_number
-                .expect("block number should be valid"),
-        );
-        let raw_result = retry_until_success!(w3.eth().call(
-            call_request.clone(),
-            Some(block_number),
-            canister::transform_ctx()
-        ))?;
-        log!("[{PUBLISHER}] chain: {}, tx result was received", chain_id);
-        let call_result: Vec<Token> = contract
-            .abi()
-            .function(MULTICALL_CALL_FUNCTION)
-            .and_then(|f| f.decode_output(&raw_result.0))
-            .context(PythiaError::UnableToDecodeOutputs)?;
-
-        let results = call_result
-            .first()
-            .context(PythiaError::InvalidMulticallResult)?
-            .clone()
-            .into_array()
-            .context(PythiaError::InvalidMulticallResult)?;
+        let results = execute_multicall_batch(
+            w3,
+            &from,
+            &gas_price,
+            &contract,
+            &current_calls_batch,
+            chain_id,
+        ).await?;
 
         result.append(
             &mut results
@@ -250,6 +182,94 @@ pub async fn multicall<T: Transport>(
     Ok(result)
 }
 
+async fn execute_multicall_batch<T: Transport>(
+    w3: &Web3<T>,
+    from: &str,
+    gas_price: &U256,
+    contract: &Contract<T>,
+    batch: &[Call],
+    chain_id: &Nat,
+) -> Result<Vec<Token>> {
+    let options = Options {
+        gas_price: Some(gas_price.clone()),
+        gas: Some(
+            batch
+                .iter()
+                .fold(U256::from(BASE_GAS + GAS_FOR_OPS), |result, call| {
+                    result + call.gas_limit
+                }),
+        ),
+        nonce: Some(retry_until_success!(w3.eth().transaction_count(
+            H160::from_str(from)?,
+            None,
+            canister::transform_ctx()
+        ))?),
+        ..Default::default()
+    };
+
+    let params: Vec<Token> = batch
+        .iter()
+        .map(|c| c.clone().into_token())
+        .collect();
+    let signed_call = contract
+        .sign(
+            MULTICALL_CALL_FUNCTION,
+            vec![params.clone()],
+            options.clone(),
+            from.to_string(),
+            web3::key_info(),
+            nat::to_u64(chain_id),
+        )
+        .await
+        .context(PythiaError::UnableToSignContractCall)?;
+    log!("[{PUBLISHER}] chain: {}, tx was signed", chain_id);
+    let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(
+        signed_call.raw_transaction.clone(),
+        canister::transform_ctx()
+    ))
+    .context(PythiaError::UnableToExecuteRawTx)?;
+
+    log!("[{PUBLISHER}] chain: {}, tx was sent", chain_id);
+    let tx_receipt = web3::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
+        .await
+        .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
+    log!("[{PUBLISHER}] chain: {}, tx was executed", chain_id);
+    let data = contract
+        .abi()
+        .function(MULTICALL_CALL_FUNCTION)
+        .and_then(|f| f.encode_input(&[params.into_token()]))
+        .context(PythiaError::UnableToFormCallData)?;
+    let call_request = CallRequest {
+        from: Some(tx_receipt.from),
+        to: tx_receipt.to,
+        data: Some(Bytes::from(data)),
+        ..Default::default()
+    };
+    let block_number = BlockId::from(
+        tx_receipt
+            .block_number
+            .expect("block number should be valid"),
+    );
+    let raw_result = retry_until_success!(w3.eth().call(
+        call_request.clone(),
+        Some(block_number),
+        canister::transform_ctx()
+    ))?;
+    log!("[{PUBLISHER}] chain: {}, tx result was received", chain_id);
+    let call_result: Vec<Token> = contract
+        .abi()
+        .function(MULTICALL_CALL_FUNCTION)
+        .and_then(|f| f.decode_output(&raw_result.0))
+        .context(PythiaError::UnableToDecodeOutputs)?;
+
+    call_result
+        .first()
+        .context(PythiaError::InvalidMulticallResult)?
+        .clone()
+        .into_array()
+        .context(PythiaError::InvalidMulticallResult)
+}
+
 fn get_current_calls_batch(calls: &[Call], chain: &Chain) -> (Vec<Call>, Vec<Call>) {
     let mut gas_counter = Nat::from(BASE_GAS + 1000);
     for (i, call) in calls.iter().enumerate() {
@@ -262,7 +282,7 @@ fn get_current_calls_batch(calls: &[Call], chain: &Chain) -> (Vec<Call>, Vec<Cal
     (calls.to_vec(), vec![])
 }
 
-pub async fn multitranfer<T: Transport>(
+pub async fn multitransfer<T: Transport>(
     w3: &Web3<T>,
     chain_id: &Nat,
     transfers: Vec<Transfer>,

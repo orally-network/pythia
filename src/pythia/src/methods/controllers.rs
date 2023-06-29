@@ -25,6 +25,7 @@ pub fn update_tx_fee(tx_fee: Nat) -> Result<(), String> {
     _update_tx_fee(tx_fee).map_err(|e| format!("failed to update the tx fee{e:?}"))
 }
 
+#[inline]
 pub fn _update_tx_fee(tx_fee: Nat) -> Result<()> {
     validator::caller()?;
     update_state!(tx_fee, tx_fee.clone());
@@ -47,6 +48,7 @@ pub fn update_subs_limit_wallet(limit: Nat) -> Result<(), String> {
         .map_err(|e| format!("failed to update the subscriptions limit for a wallet: {e:?}"))
 }
 
+#[inline]
 fn _update_subs_limit_wallet(limit: Nat) -> Result<()> {
     validator::caller()?;
     update_state!(subs_limit_wallet, limit.clone());
@@ -69,6 +71,7 @@ pub fn update_subs_limit_total(limit: Nat) -> Result<(), String> {
         .map_err(|e| format!("failed to update the subscriptions limit: {e:?}"))
 }
 
+#[inline]
 fn _update_subs_limit_total(limit: Nat) -> Result<()> {
     validator::caller()?;
     update_state!(subs_limit_total, limit.clone());
@@ -91,6 +94,7 @@ pub fn update_timer_frequency(frequency: Nat) -> Result<(), String> {
         .map_err(|e| format!("failed to update the timer frequency: {e:?}"))
 }
 
+#[inline]
 fn _update_timer_frequency(frequency: Nat) -> Result<()> {
     validator::caller()?;
     update_state!(timer_frequency, frequency.clone());
@@ -108,6 +112,7 @@ pub fn execute_withdraw_job() -> Result<(), String> {
     _execute_withdraw_job().map_err(|e| format!("failed to execute the withdraw job: {e:?}"))
 }
 
+#[inline]
 fn _execute_withdraw_job() -> Result<()> {
     validator::caller()?;
     withdraw::execute();
@@ -125,6 +130,7 @@ pub fn execute_publisher_job() -> Result<(), String> {
     _execute_publisher_job().map_err(|e| format!("failed to execute the publisher job: {e:?}"))
 }
 
+#[inline]
 fn _execute_publisher_job() -> Result<()> {
     validator::caller()?;
     publisher::execute();
@@ -149,6 +155,7 @@ pub async fn withdraw_fee(chain_id: Nat, receiver: String) -> Result<(), String>
         .map_err(|e| format!("failed to withdraw the fee: {e:?}"))
 }
 
+#[inline]
 async fn _withdraw_fee(chain_id: Nat, receiver: String) -> Result<()> {
     validator::caller()?;
     let receiver = address::normalize(&receiver).context(PythiaError::InvalidAddressFormat)?;
@@ -180,6 +187,7 @@ pub async fn withdraw_all_balance(chain_id: Nat, receiver: String) -> Result<(),
         .map_err(|e| format!("failed to withdraw all balance: {e:?}"))
 }
 
+#[inline]
 async fn _withdraw_all_balance(chain_id: Nat, receiver: String) -> Result<()> {
     validator::caller()?;
     let receiver = address::normalize(&receiver).context(PythiaError::InvalidAddressFormat)?;
@@ -202,6 +210,7 @@ pub fn stop_timer() -> Result<(), String> {
     _stop_timer().map_err(|e| format!("failed to stop the timer: {e:?}"))
 }
 
+#[inline]
 fn _stop_timer() -> Result<()> {
     validator::caller()?;
     Timer::deactivate().context(PythiaError::UnableToDeactivateTimer)?;

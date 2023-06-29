@@ -31,6 +31,7 @@ pub async fn add_chain(req: CreateChainRequest) -> Result<(), String> {
         .map_err(|e| format!("failed to add a chain: {e:?}"))
 }
 
+#[inline]
 async fn _add_chain(req: CreateChainRequest) -> Result<()> {
     validator::caller()?;
     if Chains::is_exists(&req.chain_id) {
@@ -64,11 +65,12 @@ pub fn remove_chain(chain_id: Nat) -> Result<(), String> {
     _remove_chain(chain_id).map_err(|e| format!("failed to remove a chain: {e:?}"))
 }
 
+#[inline]
 fn _remove_chain(chain_id: Nat) -> Result<()> {
     validator::caller()?;
     Chains::remove(&chain_id).context(PythiaError::UnableToRemoveChain)?;
 
-    Balances::deinit_chain(&chain_id).context(PythiaError::UnableToRemoveChain)?;
+    Balances::remove_chain(&chain_id).context(PythiaError::UnableToRemoveChain)?;
     Subscriptions::deinit_chain(&chain_id).context(PythiaError::UnableToRemoveChain)?;
     WithdrawRequests::deinit_chain(&chain_id).context(PythiaError::UnableToRemoveChain)?;
 
@@ -91,6 +93,7 @@ pub fn update_chain_rpc(chain_id: Nat, rpc: String) -> Result<(), String> {
     _update_chain_rpc(chain_id, rpc).map_err(|e| format!("failed to update a chain RPC: {e:?}"))
 }
 
+#[inline]
 fn _update_chain_rpc(chain_id: Nat, rpc: String) -> Result<()> {
     validator::caller()?;
     Chains::update(
@@ -122,6 +125,7 @@ pub fn update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<(), S
         .map_err(|e| format!("failed to update a chain minimum balance: {e:?}"))
 }
 
+#[inline]
 fn _update_chain_min_balance(chain_id: Nat, min_balance: Nat) -> Result<()> {
     validator::caller()?;
     Chains::update(
@@ -154,6 +158,7 @@ pub fn update_chain_fee_and_symbol(chain_id: Nat, fee: Nat, symbol: String) -> R
         .map_err(|e| format!("failed to update a chain fee and symbol: {e:?}"))
 }
 
+#[inline]
 fn _update_chain_fee_and_symbol(chain_id: Nat, fee: Nat, symbol: String) -> Result<()> {
     validator::caller()?;
     Chains::update(
@@ -184,6 +189,7 @@ pub fn get_chain_rpc(chain_id: Nat) -> Result<String, String> {
     _get_chain_rpc(chain_id).map_err(|e| format!("failed to get a chain RPC{e:?}"))
 }
 
+#[inline]
 fn _get_chain_rpc(chain_id: Nat) -> Result<String> {
     validator::caller()?;
     Chains::get_rpc(&chain_id).context(PythiaError::UnableToGetChainRPC)

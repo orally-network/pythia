@@ -31,7 +31,7 @@ fn post_upgrade() {
 
     let timer_id = set_timer(Duration::from_secs(10), publisher::execute);
     let timer = Timer {
-        id: serde_json::to_string(&timer_id).unwrap(),
+        id: serde_json::to_string(&timer_id).expect("should be valid timer id"),
         is_active: true,
     };
 

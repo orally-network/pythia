@@ -24,6 +24,30 @@ macro_rules! log {
 }
 
 #[macro_export]
+macro_rules! dig {
+    ($state:ident, $field:ident, $chain_id:ident, $key:ident) => {
+        $state
+            .$field
+            .0
+            .get($chain_id)
+            .context(crate::types::errors::PythiaError::ChainDoesNotExist)?
+            .get($key)
+    };
+}
+
+#[macro_export]
+macro_rules! dig_mut {
+    ($state:ident, $field:ident, $chain_id:ident, $key:ident) => {
+        $state
+            .$field
+            .0
+            .get_mut($chain_id)
+            .context(crate::types::errors::PythiaError::ChainDoesNotExist)?
+            .get_mut($key)
+    };
+}
+
+#[macro_export]
 macro_rules! retry_until_success {
     ($func:expr) => {{
         let mut attempts = 1;

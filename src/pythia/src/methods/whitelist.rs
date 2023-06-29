@@ -26,6 +26,7 @@ fn add_to_whitelist(address: String) -> Result<(), String> {
     _add_to_whitelist(address).map_err(|e| format!("failed to add to the whitelist: {e:?}"))
 }
 
+#[inline]
 fn _add_to_whitelist(address: String) -> Result<()> {
     validator::caller()?;
 
@@ -51,6 +52,7 @@ fn remove_from_whitelist(address: String) -> Result<(), String> {
         .map_err(|e| format!("failed to remove from the whitelist: {e:?}"))
 }
 
+#[inline]
 fn _remove_from_whitelist(address: String) -> Result<()> {
     validator::caller()?;
 
@@ -77,6 +79,7 @@ fn blacklist(address: String) -> Result<(), String> {
     _blacklist(address).map_err(|e| format!("failed to blacklist user: {e:?}"))
 }
 
+#[inline]
 fn _blacklist(address: String) -> Result<()> {
     validator::caller()?;
 
@@ -103,6 +106,7 @@ fn unblacklist(address: String) -> Result<(), String> {
     _unblacklist(address).map_err(|e| format!("failed to unblacklist user: {e:?}"))
 }
 
+#[inline]
 fn _unblacklist(address: String) -> Result<()> {
     validator::caller()?;
 
@@ -128,6 +132,7 @@ fn is_whitelisted(address: String) -> Result<bool, String> {
         .map_err(|e| format!("failed to check if address is whitelisted: {e:?}"))
 }
 
+#[inline]
 fn _is_whitelisted(address: String) -> Result<bool> {
     let address = address::normalize(&address).context(PythiaError::InvalidAddressFormat)?;
     Ok(whitelist::is_whitelisted(&address))
@@ -143,6 +148,7 @@ fn get_whitelist() -> Result<Whitelist, String> {
     _get_whitelist().map_err(|e| format!("failed to get the whitelist: {e:?}"))
 }
 
+#[inline]
 fn _get_whitelist() -> Result<Whitelist> {
     validator::caller()?;
     Ok(whitelist::get_list())
