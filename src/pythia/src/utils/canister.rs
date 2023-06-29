@@ -18,7 +18,6 @@ use crate::{
 };
 
 const DECIMALS: &str = "1000000000000000000";
-const FEE_IN_USDT: &str = "67500";
 
 pub async fn pma() -> Result<String> {
     if let Some(pma) = clone_with_state!(pma) {
@@ -47,7 +46,7 @@ pub async fn fee(chain_id: &Nat) -> Result<Nat> {
             .await
             .context(PythiaError::UnableToGetAssetData)?;
         let decimals = Nat::from_str(DECIMALS)?;
-        let fee_in_usdt = Nat::from_str(FEE_IN_USDT)?;
+        let fee_in_usdt = clone_with_state!(tx_fee);
 
         return Ok((fee_in_usdt * decimals) / rate.rate);
     }

@@ -3,7 +3,6 @@ use anyhow::{Context, Result};
 use ic_cdk::{export::candid::Nat, query, update};
 
 use crate::{
-    clone_with_state,
     jobs::withdraw,
     log,
     types::{
@@ -74,7 +73,7 @@ async fn _deposit(chain_id: Nat, tx_hash: String, msg: String, sig: String) -> R
     Balances::save_nonce(&chain_id, &address, &nat::from_u256(&tx.nonce))
         .context(PythiaError::UnableToSaveNonce)?;
 
-    let amount = nat::from_u256(&tx.value) - clone_with_state!(tx_fee);
+    let amount = nat::from_u256(&tx.value);
     #[allow(clippy::cmp_owned)]
     if amount <= Nat::from(0) {
         return Ok(());
