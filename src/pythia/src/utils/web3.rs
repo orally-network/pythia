@@ -19,7 +19,7 @@ use crate::{
 };
 
 const ECDSA_SIGN_CYCLES: u64 = 23_000_000_000;
-const TRANSFER_GAS_LIMIT: u64 = 21_000;
+pub const TRANSFER_GAS_LIMIT: u64 = 21_000;
 const TX_SUCCESS_STATUS: u64 = 1;
 
 pub fn instance(chain_id: &Nat) -> Result<Web3<ICHttp>> {

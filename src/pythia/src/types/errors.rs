@@ -132,4 +132,6 @@ pub enum PythiaError {
     TxTimeout,
     #[error("Unable to get tx receipt")]
     UnableToGetTxReceipt,
+    #[error("Subscription frequency is too low")]
+    SubscriptionFrequencyIsTooLow,
 }

@@ -20,6 +20,9 @@ All notable changes to this project will be documented in this file.
 - A method to transfer all funds from chains from controllers
 - A method to remove a subscription
 - A method to stop the main timer
+- Subscruitions executions counter
+- Subscriptions frequency validation
+- Subscriptions stopping on 5 failed executions
 
 ### Fixed
 

@@ -5,6 +5,11 @@ use ic_cdk::api::is_controller;
 use crate::{clone_with_state, PythiaError};
 
 pub fn subscription_frequency(frequency: &Nat) -> Result<()> {
+    #[allow(clippy::cmp_owned)]
+    if frequency.clone() < Nat::from(60 * 30) {
+        return Err(PythiaError::SubscriptionFrequencyIsTooLow.into());
+    }
+
     if frequency.clone() < clone_with_state!(timer_frequency) {
         return Err(PythiaError::TimerFrequencyIsGreaterThanSubscriptionFrequency.into());
     }

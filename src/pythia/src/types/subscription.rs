@@ -8,11 +8,13 @@ use ic_web3_rs::ethabi::Function;
 
 use anyhow::{Context, Error, Result};
 
-use super::{errors::PythiaError, methods::Method};
+use super::{errors::PythiaError, methods::Method, logger::PUBLISHER};
 use crate::{
-    utils::{abi, address, sybil, time, validator},
-    STATE,
+    utils::{abi, address, sybil, time, validator, nat},
+    STATE, log,
 };
+
+const SUBSCRIPTIONS_FAILURES_LIMIT: u64 = 5;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct SubscriptionsIndexer(Nat);
@@ -42,6 +44,7 @@ pub struct SubscriptionStatus {
     pub is_active: bool,
     pub last_update: Nat,
     pub executions_counter: Nat,
+    pub failures_counter: Option<Nat>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
@@ -427,7 +430,7 @@ impl Subscriptions {
         })
     }
 
-    pub fn update_last_update(chain_id: &Nat, sub_id: &Nat) {
+    pub fn update_last_update(chain_id: &Nat, sub_id: &Nat, is_failed: bool) {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
             let mut subscription = state
@@ -441,6 +444,18 @@ impl Subscriptions {
 
             subscription.status.last_update = time::in_seconds().into();
             subscription.status.executions_counter += 1;
+            if is_failed {
+                if let Some(failures_counter) = subscription.status.failures_counter.as_mut() {
+                    *failures_counter += 1;
+
+                    if nat::to_u64(failures_counter) >= SUBSCRIPTIONS_FAILURES_LIMIT {
+                        subscription.status.is_active = false;
+                        log!("[{PUBLISHER}] subscription {sub_id} on chain {chain_id} has reached failures limit, stopping it");
+                    }
+                } else {
+                    subscription.status.failures_counter = Some(1.into());
+                }
+            }
         })
     }
 

@@ -13,7 +13,7 @@ use crate::{
         balance::Balances,
         errors::PythiaError,
         logger::PUBLISHER,
-        subscription::{Subscription, Subscriptions},
+        subscription::{Subscription, Subscriptions, UpdateSubscriptionRequest},
         timer::Timer,
     },
     utils::{
@@ -110,21 +110,32 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             .iter()
             .zip(subscriptions)
             .filter_map(|(result, sub)| {
-                if result.used_gas == 0.into() {
+                let mut used_gas = nat::from_u256(&result.used_gas);
+                if used_gas == Nat::from(0) {
                     return Some(sub);
                 }
 
-                if nat::from_u256(&result.used_gas) > sub.method.gas_limit {
+                if used_gas > sub.method.gas_limit {
                     log!(
                         "[{PUBLISHER}] chain: {}, gas limit exceeded for sub {}",
                         chain_id,
                         sub.id
                     );
                     Subscriptions::stop(&chain_id, &sub.owner, &sub.id).expect("should stop sub");
+                    // inscrease gas limit by 30 persent
+                    let new_gas_limit = (used_gas.clone() / 10) / 13;
+                    Subscriptions::update(&UpdateSubscriptionRequest {
+                        chain_id: chain_id.clone(),
+                        id: sub.id.clone(),
+                        gas_limit: Some(new_gas_limit),
+                        ..Default::default()
+                    }, &sub.owner).expect("should update sub");
                 }
 
-                Subscriptions::update_last_update(&chain_id, &sub.id);
-                let mut amount = nat::from_u256(&gas_price) * (sub.method.gas_limit.clone() + 100);
+                Subscriptions::update_last_update(&chain_id, &sub.id, !result.success);
+                let gas_for_tx = (web3::TRANSFER_GAS_LIMIT / multicall_results.len() as u64) + 100;
+                used_gas += gas_for_tx;
+                let mut amount = nat::from_u256(&gas_price) * (used_gas);
                 amount += fee.clone();
                 Balances::reduce(&chain_id, &sub.owner, &amount).expect("should reduce balance");
                 canister::collect_fee(&chain_id, &pma, &fee).expect("should collect fee");

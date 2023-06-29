@@ -38,6 +38,7 @@ type Method = record {
 type SubscriptionStatus = record {
     is_active : bool;
     last_update : nat;
+    executions_counter : nat;
 };
 type Subscription = record {
     id : nat;
