@@ -111,6 +111,7 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             .zip(subscriptions)
             .filter_map(|(result, sub)| {
                 let mut used_gas = nat::from_u256(&result.used_gas);
+                #[allow(clippy::cmp_owned)]
                 if used_gas == Nat::from(0) {
                     return Some(sub);
                 }
@@ -124,12 +125,16 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                     Subscriptions::stop(&chain_id, &sub.owner, &sub.id).expect("should stop sub");
                     // inscrease gas limit by 30 persent
                     let new_gas_limit = (used_gas.clone() / 10) / 13;
-                    Subscriptions::update(&UpdateSubscriptionRequest {
-                        chain_id: chain_id.clone(),
-                        id: sub.id.clone(),
-                        gas_limit: Some(new_gas_limit),
-                        ..Default::default()
-                    }, &sub.owner).expect("should update sub");
+                    Subscriptions::update(
+                        &UpdateSubscriptionRequest {
+                            chain_id: chain_id.clone(),
+                            id: sub.id.clone(),
+                            gas_limit: Some(new_gas_limit),
+                            ..Default::default()
+                        },
+                        &sub.owner,
+                    )
+                    .expect("should update sub");
                 }
 
                 Subscriptions::update_last_update(&chain_id, &sub.id, !result.success);

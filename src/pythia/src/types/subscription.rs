@@ -8,10 +8,11 @@ use ic_web3_rs::ethabi::Function;
 
 use anyhow::{Context, Error, Result};
 
-use super::{errors::PythiaError, methods::Method, logger::PUBLISHER};
+use super::{errors::PythiaError, logger::PUBLISHER, methods::Method};
 use crate::{
-    utils::{abi, address, sybil, time, validator, nat},
-    STATE, log,
+    log,
+    utils::{abi, address, nat, sybil, time, validator},
+    STATE,
 };
 
 const SUBSCRIPTIONS_FAILURES_LIMIT: u64 = 5;
