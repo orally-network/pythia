@@ -95,6 +95,8 @@ service : {
     remove_chain : (chain_id : nat) -> (Error);
     update_chain_rpc : (chain_id : nat, rpc : text) -> (Error);
     update_chain_min_balance : (chain_id : nat, min_balance : nat) -> (Error);
+    update_chain_fee_and_symbol : (chain_id : nat, fee : nat, symbol : text) -> (Error);
+    update_chain_block_gas_limit : (chain_id : nat, block_gas_limit : nat) -> (Error);
     get_chain_rpc : (chain_id : nat) -> (GetChainRPCResponse);
     get_chains : () -> (vec Chain);
     // Controllers
@@ -104,7 +106,6 @@ service : {
     update_subs_limit_wallet : (limit : nat) -> (Error);
     update_subs_limit_total : (limit : nat) -> (Error);
     update_timer_frequency : (frequency : nat) -> (Error);
-    update_chain_fee_and_symbol : (chain_id : nat, fee : nat, symbol : text) -> (Error);
     withdraw_fee : (chain_id : nat, receiver : text) -> (Error);
     withdraw_all_balance : (chain_id : nat, receiver : text) -> (Error);
     stop_timer : () -> (Error);

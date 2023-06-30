@@ -175,6 +175,38 @@ fn _update_chain_fee_and_symbol(chain_id: Nat, fee: Nat, symbol: String) -> Resu
     Ok(())
 }
 
+/// Update a chain block gas limit
+/// 
+/// # Arguments
+/// 
+/// * `chain_id` - Unique identifier of the chain, for example Ethereum Mainnet is 1
+/// * `block_gas_limit` - Block gas limit for the chain.
+/// 
+/// # Returns
+/// 
+/// Returns a result that can contain an error message
+#[update]
+pub fn update_chain_block_gas_limit(chain_id: Nat, block_gas_limit: Nat) -> Result<(), String> {
+    _update_chain_block_gas_limit(chain_id, block_gas_limit)
+        .map_err(|e| format!("failed to update a chain block gas limit: {e:?}"))
+}
+
+#[inline]
+fn _update_chain_block_gas_limit(chain_id: Nat, block_gas_limit: Nat) -> Result<()> {
+    validator::caller()?;
+    Chains::update(
+        &chain_id,
+        ChainUpdator {
+            block_gas_limit: Some(block_gas_limit.clone()),
+            ..Default::default()
+        },
+    )
+    .context(PythiaError::UnableToUpdateChain)?;
+
+    log!("[{CHAINS}] block gas limit updated: {block_gas_limit}, id: {chain_id}");
+    Ok(())
+}
+
 /// Get a chain RPC from the state.
 ///
 /// # Arguments

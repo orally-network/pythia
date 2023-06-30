@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.1.0] - 2023-06-29
 
 ### Changed
 
@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - Subscruitions executions counter
 - Subscriptions frequency validation
 - Subscriptions stopping on 5 failed executions
+- A method to change chain block gas limit
 
 ### Fixed
 
