@@ -1,4 +1,6 @@
+use ic_cdk::api::time;
 use std::str::FromStr;
+use std::time::Duration;
 
 #[allow(unused_imports)]
 use siwe::{Message, VerificationOpts};
@@ -13,9 +15,10 @@ pub async fn get_signer(msg: String, sig: String) -> String {
 
     let sig = hex::decode(sig).expect("must be valid hex");
 
-    let timestamp =
-        OffsetDateTime::from_unix_timestamp((ic_cdk::api::time() / 1_000_000_000) as i64)
-            .expect("must be valid timestamp");
+    let timestamp = OffsetDateTime::from_unix_timestamp(
+        (Duration::from_nanos(time()).as_secs() / 1_000_000_000) as i64,
+    )
+    .expect("must be valid timestamp");
 
     let opts = VerificationOpts {
         timestamp: Some(timestamp),
