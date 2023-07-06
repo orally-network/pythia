@@ -6,7 +6,7 @@ use ic_cdk_timers::set_timer;
 
 use futures::future::join_all;
 
-use super::withdraw;
+use super::{withdraw, subscriptions_grouper};
 use crate::{
     clone_with_state, log, retry_until_success,
     types::{
@@ -149,6 +149,9 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             })
             .collect();
     }
+
+    subscriptions_grouper::execute();
+
     log!("[{PUBLISHER}] chain: {}, published", chain_id);
     Ok(())
 }
