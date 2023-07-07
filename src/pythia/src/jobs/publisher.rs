@@ -35,6 +35,8 @@ async fn _execute() -> Result<()> {
     log!("[{PUBLISHER}] publisher job started");
     Timer::activate().context(PythiaError::UnableToActivateTimer)?;
 
+    subscriptions_grouper::execute();
+
     Subscriptions::stop_insufficients()
         .context(PythiaError::UnableToStopInsufficientSubscriptions)?;
 
@@ -149,8 +151,6 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             })
             .collect();
     }
-
-    subscriptions_grouper::execute();
 
     log!("[{PUBLISHER}] chain: {}, published", chain_id);
     Ok(())
