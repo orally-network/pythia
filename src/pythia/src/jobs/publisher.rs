@@ -35,7 +35,7 @@ async fn _execute() -> Result<()> {
     log!("[{PUBLISHER}] publisher job started");
     Timer::activate().context(PythiaError::UnableToActivateTimer)?;
 
-    subscriptions_grouper::execute();
+    subscriptions_grouper::group()?;
 
     Subscriptions::stop_insufficients()
         .context(PythiaError::UnableToStopInsufficientSubscriptions)?;

@@ -4,15 +4,16 @@ use std::collections::HashMap;
 
 use crate::{STATE, log, types::logger::PUBLISHER, types::subscription::Subscription};
 
+#[allow(dead_code)]
 pub fn execute() {
     ic_cdk::spawn(async {
-        if let Err(e) = _execute() {
+        if let Err(e) = group() {
             log!("[{PUBLISHER}] error while executing publisher job: {e:?}");
         }
     })
 }
 
-fn _execute() -> Result<()> {
+pub fn group() -> Result<()> {
     STATE.with(|state| {
         let mut state = state.borrow_mut();
         for (_, subscriptions) in state.subscriptions.0.iter_mut() {
