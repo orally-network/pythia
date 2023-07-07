@@ -413,13 +413,14 @@ impl Subscriptions {
             let balances = state.balances.0.clone();
             let chains = state.chains.0.clone();
             for (chain_id, subs) in state.subscriptions.0.iter_mut() {
-                let chain = chains.get(chain_id).expect("chain should exist");
+                let chain = chains.get(chain_id)
+                    .context(PythiaError::ChainDoesNotExist)?;
                 for sub in subs {
                     let balance = balances
                         .get(chain_id)
-                        .expect("chain should exist")
+                        .context(PythiaError::ChainDoesNotExist)?
                         .get(&sub.owner)
-                        .expect("user should exist")
+                        .context(PythiaError::UnableToGetBalance)?
                         .clone();
                     if balance.amount < chain.min_balance {
                         sub.status.is_active = false;

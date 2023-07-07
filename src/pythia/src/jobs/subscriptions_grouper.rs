@@ -19,6 +19,9 @@ pub fn group() -> Result<()> {
         for (_, subscriptions) in state.subscriptions.0.iter_mut() {
             group_subscriptions(subscriptions);
         }
+
+        log!("[SUBSCRIPTIONS GROUPER] grouped");
+
         Ok(())
     })
 }
