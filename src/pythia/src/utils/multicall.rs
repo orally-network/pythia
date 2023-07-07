@@ -21,7 +21,7 @@ use crate::{
 };
 
 const MULTICALL_ABI: &[u8] = include_bytes!("../../assets/MulticallABI.json");
-const MULTICALL_CONTRACT_ADDRESS: &str = "0x9bcFfF5a4cc937465db4C2D05258a773305FAb6D";
+const MULTICALL_CONTRACT_ADDRESS: &str = "0x51324081c6483E6170379289a0A3CCC161835b39";
 const MULTICALL_CALL_FUNCTION: &str = "multicall";
 const MULTICALL_TRANSFER_FUNCTION: &str = "multitransfer";
 const BASE_GAS: u64 = 27_000;
