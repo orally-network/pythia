@@ -6,7 +6,7 @@ use ic_cdk_timers::set_timer;
 
 use futures::future::join_all;
 
-use super::{withdraw, subscriptions_grouper};
+use super::{subscriptions_grouper, withdraw};
 use crate::{
     clone_with_state, log, retry_until_success,
     types::{
@@ -33,8 +33,7 @@ pub fn execute() {
 
 async fn _execute() -> Result<()> {
     log!("[{PUBLISHER}] publisher job started");
-    Timer::activate()
-        .context(PythiaError::UnableToActivateTimer)?;
+    Timer::activate().context(PythiaError::UnableToActivateTimer)?;
 
     subscriptions_grouper::group()?;
 
@@ -88,7 +87,8 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
         let mut calls = vec![];
         for sub in subscriptions.iter() {
             let call = Call {
-                target: address::to_h160(&sub.contract_addr).context(PythiaError::InvalidAddressFormat)?,
+                target: address::to_h160(&sub.contract_addr)
+                    .context(PythiaError::InvalidAddressFormat)?,
                 call_data: abi::get_call_data(&sub.method)
                     .await
                     .context(PythiaError::UnableToFormCallData)?,
@@ -98,13 +98,15 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             calls.push(call);
         }
 
-        let fee = canister::fee(&chain_id)
-            .await
-            .context("Unable to get fe")?;
+        let fee = canister::fee(&chain_id).await.context("Unable to get fe")?;
         let mut gas_price = retry_until_success!(w3.eth().gas_price(canister::transform_ctx()))?;
         // multiply the gas_price to 1.2 to avoid long transaction confirmation
         gas_price = (gas_price / 10) * 12;
-        log!("[PUBLISHER] chain_id: {}, gas price: {}", chain_id, gas_price);
+        log!(
+            "[PUBLISHER] chain_id: {}, gas price: {}",
+            chain_id,
+            gas_price
+        );
         let multicall_results = multicall(&w3, &chain_id, calls.clone(), gas_price)
             .await
             .context(PythiaError::UnableToExecuteMulticall)?;

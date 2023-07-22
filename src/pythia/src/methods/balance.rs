@@ -144,8 +144,8 @@ async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) ->
 ///
 /// Returns a result with address's balance
 #[query]
-pub fn get_balance(chain_id: Nat, address: String) -> Result<Nat, String> {
-    _get_balance(chain_id, address).map_err(|e| format!("failed to get balance: {e:?}"))
+pub fn get_balance(chain_id: Nat, address: String) -> Nat {
+    _get_balance(chain_id, address).unwrap_or_default()
 }
 
 #[inline]

@@ -340,7 +340,7 @@ impl Subscriptions {
     pub fn update(req: &UpdateSubscriptionRequest, address: &str) -> Result<()> {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
-            let mut subscription = state
+            let subscription = state
                 .subscriptions
                 .0
                 .get_mut(&req.chain_id)
@@ -413,7 +413,8 @@ impl Subscriptions {
             let balances = state.balances.0.clone();
             let chains = state.chains.0.clone();
             for (chain_id, subs) in state.subscriptions.0.iter_mut() {
-                let chain = chains.get(chain_id)
+                let chain = chains
+                    .get(chain_id)
                     .context(PythiaError::ChainDoesNotExist)?;
                 for sub in subs {
                     let balance = balances
@@ -435,7 +436,7 @@ impl Subscriptions {
     pub fn update_last_update(chain_id: &Nat, sub_id: &Nat, is_failed: bool) {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
-            let mut subscription = state
+            let subscription = state
                 .subscriptions
                 .0
                 .get_mut(chain_id)

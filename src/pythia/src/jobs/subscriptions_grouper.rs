@@ -1,8 +1,8 @@
-use candid::Nat;
 use anyhow::Result;
+use candid::Nat;
 use std::collections::HashMap;
 
-use crate::{STATE, log, types::logger::PUBLISHER, types::subscription::Subscription};
+use crate::{log, types::logger::PUBLISHER, types::subscription::Subscription, STATE};
 
 #[allow(dead_code)]
 pub fn execute() {
@@ -26,10 +26,13 @@ pub fn group() -> Result<()> {
     })
 }
 
-fn group_subscriptions(subscriptions: &mut Vec<Subscription>) {
+fn group_subscriptions(subscriptions: &mut [Subscription]) {
     let mut frequency_map = HashMap::new();
     for subscription in subscriptions.iter_mut() {
-        frequency_map.entry(subscription.frequency.clone()).or_insert(Vec::new()).push(subscription);
+        frequency_map
+            .entry(subscription.frequency.clone())
+            .or_insert(Vec::new())
+            .push(subscription);
     }
 
     for (_, group) in frequency_map.iter_mut() {
