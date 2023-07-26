@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 
+use itertools::Itertools;
+
+use futures::future::join_all;
 use ic_cdk::export::{
     candid::{CandidType, Nat},
     serde::{Deserialize, Serialize},
@@ -11,7 +14,7 @@ use anyhow::{Context, Error, Result};
 use super::{errors::PythiaError, logger::PUBLISHER, methods::Method};
 use crate::{
     log,
-    utils::{abi, address, nat, sybil, time, validator},
+    utils::{abi, address, nat, sybil, time, validator, web3, canister},
     STATE,
 };
 
@@ -407,24 +410,60 @@ impl Subscriptions {
         })
     }
 
-    pub fn stop_insufficients() -> Result<()> {
+    pub async fn stop_insufficients() -> Result<()> {
+        let chains_to_check = STATE.with(|state| {
+            state.borrow()
+                .subscriptions
+                .0
+                .iter()
+                .filter_map(|(chain_id, subs)| {
+                    if subs.iter().any(|sub| sub.status.is_active) {
+                        return Some(chain_id.clone());
+                    }
+
+                    None
+                })
+                .collect::<Vec<Nat>>()
+        });
+
+        let futures = chains_to_check.iter().map(|chain_id| web3::gas_price(chain_id)).collect::<Vec<_>>();
+        let gas_prices = join_all(futures).await.into_iter().collect::<Result<Vec<Nat>>>()
+            .context("failed to get gas prices")?;
+
+        let futures = chains_to_check.iter().map(|chain_id| canister::fee(chain_id)).collect::<Vec<_>>();
+        let fees = join_all(futures).await.into_iter().collect::<Result<Vec<Nat>>>()
+            .context("failed to get fees")?;
+
         STATE.with(|state| {
             let mut state = state.borrow_mut();
             let balances = state.balances.0.clone();
             let chains = state.chains.0.clone();
-            for (chain_id, subs) in state.subscriptions.0.iter_mut() {
-                let chain = chains
+            let subscriptions = &mut state.subscriptions.0;
+            for (i, (chain_id, subs)) in subscriptions.iter_mut().enumerate() {
+                if !chains_to_check.contains(chain_id) {
+                    continue;
+                }
+                
+                let gas_price = gas_prices.get(i).context("gas price not found")?;
+                let fee = fees.get(i).context("fee not found")?;
+                let chain_min_balance = &chains
                     .get(chain_id)
-                    .context(PythiaError::ChainDoesNotExist)?;
-                for sub in subs {
+                    .context(PythiaError::ChainDoesNotExist)?
+                    .min_balance;
+
+                for (owner, subs) in &subs.iter_mut().group_by(|sub| sub.owner.clone()) {
+                    let subs = subs.collect::<Vec<&mut Subscription>>();
                     let balance = balances
                         .get(chain_id)
                         .context(PythiaError::ChainDoesNotExist)?
-                        .get(&sub.owner)
-                        .context(PythiaError::UnableToGetBalance)?
-                        .clone();
-                    if balance.amount < chain.min_balance {
-                        sub.status.is_active = false;
+                        .get(&owner)
+                        .context(PythiaError::UnableToGetBalance)?;
+
+                    let mut need_funds = subs.iter().fold(Nat::from(0), |res, sub| res + (sub.method.gas_limit.clone() * gas_price.clone()) + fee.clone());
+                    need_funds += chain_min_balance.clone();
+                
+                    if balance.amount < need_funds {
+                        subs.into_iter().for_each(|sub| sub.status.is_active = false);
                     }
                 }
             }
@@ -445,7 +484,7 @@ impl Subscriptions {
                 .find(|sub| sub.id == *sub_id)
                 .expect("sub should exist");
 
-            subscription.status.last_update = time::in_seconds().into();
+            subscription.status.last_update += subscription.frequency.clone();
             subscription.status.executions_counter += 1;
             if is_failed {
                 if let Some(failures_counter) = subscription.status.failures_counter.as_mut() {

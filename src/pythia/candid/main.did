@@ -11,7 +11,6 @@ type Chain = record {
     fee : opt nat;
     symbol : opt text;
 };
-
 type CreateChainRequest = record {
     chain_id : nat;
     rpc : text;
@@ -58,9 +57,7 @@ type SubscribeRequest = record {
     msg : text;
     sig : text;
 };
-
 type SubscribeResponse = variant { Ok : nat; Err : text };
-
 type UpdateSubscriptionRequest = record {
     chain_id : nat;
     id : nat;

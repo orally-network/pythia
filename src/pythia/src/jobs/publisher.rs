@@ -37,10 +37,10 @@ async fn _execute() -> Result<()> {
 
     subscriptions_grouper::group()?;
 
-    Subscriptions::stop_insufficients()
-        .context(PythiaError::UnableToStopInsufficientSubscriptions)?;
-
     let (publishable_subs, is_active) = Subscriptions::get_publishable();
+
+    let should_stop_insufficient_subs = !publishable_subs.is_empty();
+
     let futures = publishable_subs
         .into_iter()
         .filter(|(_, subs)| !subs.is_empty())
@@ -59,6 +59,12 @@ async fn _execute() -> Result<()> {
             log!("[{PUBLISHER}] error while publishing: {e:?}");
         }
     });
+
+    if should_stop_insufficient_subs {
+        Subscriptions::stop_insufficients()
+            .await
+            .context(PythiaError::UnableToStopInsufficientSubscriptions)?;
+    }
 
     withdraw::withdraw().await;
 
@@ -102,11 +108,6 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
         let mut gas_price = retry_until_success!(w3.eth().gas_price(canister::transform_ctx()))?;
         // multiply the gas_price to 1.2 to avoid long transaction confirmation
         gas_price = (gas_price / 10) * 12;
-        log!(
-            "[PUBLISHER] chain_id: {}, gas price: {}",
-            chain_id,
-            gas_price
-        );
         let multicall_results = multicall(&w3, &chain_id, calls.clone(), gas_price)
             .await
             .context(PythiaError::UnableToExecuteMulticall)?;
@@ -153,8 +154,10 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                 Subscriptions::update_last_update(&chain_id, &sub.id, !result.success);
                 let gas_for_tx = (web3::TRANSFER_GAS_LIMIT / multicall_results.len() as u64) + 100;
                 used_gas += gas_for_tx;
+
                 let mut amount = nat::from_u256(&gas_price) * (used_gas);
                 amount += fee.clone();
+
                 Balances::reduce(&chain_id, &sub.owner, &amount).expect("should reduce balance");
                 canister::collect_fee(&chain_id, &pma, &fee).expect("should collect fee");
 
