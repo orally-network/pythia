@@ -472,7 +472,7 @@ impl Subscriptions {
         })
     }
 
-    pub fn update_last_update(chain_id: &Nat, sub_id: &Nat, is_failed: bool) {
+    pub fn update_last_update(chain_id: &Nat, sub_id: &Nat, is_failed: bool, last_update: u64) {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
             let subscription = state
@@ -484,7 +484,7 @@ impl Subscriptions {
                 .find(|sub| sub.id == *sub_id)
                 .expect("sub should exist");
 
-            subscription.status.last_update += subscription.frequency.clone();
+            subscription.status.last_update = Nat::from(last_update);
             subscription.status.executions_counter += 1;
             if is_failed {
                 if let Some(failures_counter) = subscription.status.failures_counter.as_mut() {

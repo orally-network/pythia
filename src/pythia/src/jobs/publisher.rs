@@ -19,7 +19,7 @@ use crate::{
     utils::{
         abi, address, canister,
         multicall::{multicall, Call},
-        nat, web3,
+        nat, web3, time,
     },
 };
 
@@ -80,6 +80,7 @@ async fn _execute() -> Result<()> {
 }
 
 async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -> Result<()> {
+    let publishing_time = time::in_seconds();
     log!("[{PUBLISHER}] chain: {}, publishing", chain_id);
     let w3 = web3::instance(&chain_id)?;
     let pma = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
@@ -151,7 +152,7 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                     .expect("should update sub");
                 }
 
-                Subscriptions::update_last_update(&chain_id, &sub.id, !result.success);
+                Subscriptions::update_last_update(&chain_id, &sub.id, !result.success, publishing_time);
                 let gas_for_tx = (web3::TRANSFER_GAS_LIMIT / multicall_results.len() as u64) + 100;
                 used_gas += gas_for_tx;
 
