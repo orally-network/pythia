@@ -37,15 +37,15 @@ async fn _execute() -> Result<()> {
 
     subscriptions_grouper::group()?;
 
-    let (publishable_subs, is_active) = Subscriptions::get_publishable();
-
-    let should_stop_insufficient_subs = !publishable_subs.is_empty();
+    let (publishable_subs, is_active) = Subscriptions::get_publishable();    
 
     let futures = publishable_subs
         .into_iter()
         .filter(|(_, subs)| !subs.is_empty())
         .map(|(chain_id, subs)| publish_on_chain(chain_id, subs))
         .collect::<Vec<_>>();
+
+    let should_stop_insufficient_subs = !futures.is_empty();
 
     if !is_active {
         withdraw::withdraw().await;

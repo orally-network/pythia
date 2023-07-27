@@ -439,11 +439,13 @@ impl Subscriptions {
             let balances = state.balances.0.clone();
             let chains = state.chains.0.clone();
             let subscriptions = &mut state.subscriptions.0;
-            for (i, (chain_id, subs)) in subscriptions.iter_mut().enumerate() {
+
+            let mut i = 0;
+            for (chain_id, subs) in subscriptions.iter_mut() {
                 if !chains_to_check.contains(chain_id) {
                     continue;
                 }
-                
+            
                 let gas_price = gas_prices.get(i).context("gas price not found")?;
                 let fee = fees.get(i).context("fee not found")?;
                 let chain_min_balance = &chains
@@ -466,6 +468,7 @@ impl Subscriptions {
                         subs.into_iter().for_each(|sub| sub.status.is_active = false);
                     }
                 }
+                i += 1;
             }
 
             Ok(())
