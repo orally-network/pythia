@@ -293,8 +293,8 @@ impl Subscriptions {
     pub fn start(chain_id: &Nat, owner: &str, id: &Nat) -> Result<()> {
         let id = id.clone();
         STATE.with(|state| {
-            state
-                .borrow_mut()
+            let mut state = state.borrow_mut();
+            let subscription_status = &mut state
                 .subscriptions
                 .0
                 .get_mut(chain_id)
@@ -302,8 +302,10 @@ impl Subscriptions {
                 .iter_mut()
                 .find(|s| s.id == id && s.owner == owner)
                 .context(PythiaError::SubscriptionDoesNotExist)?
-                .status
-                .is_active = true;
+                .status;
+            
+            subscription_status.is_active = true;
+            subscription_status.failures_counter = None;
 
             Ok(())
         })

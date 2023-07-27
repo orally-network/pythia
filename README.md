@@ -19,13 +19,13 @@ dfx canister install --network ic --mode upgrade --wasm ./.dfx/ic/canisters/pyth
 ## Enviroment
 
 ```sh
-CHAIN_ID=11155111
+CHAIN_ID=1313161554
 UPDATE_TIME_FREQUENCY=60
-RPC="https://sepolia.infura.io/v3/d20be327500c45819a1a3b850daec0e2"
-MIN_BALANCE=10000000000000000
+RPC="https://testnet.aurora.dev"
+MIN_BALANCE=1000000000
 BLOCK_GAS_LIMIT=30000000
-PLATFORM_FEE=1000
-CHAIN_SYMBOL="SepoliaETH"
+PLATFORM_FEE=1
+CHAIN_SYMBOL="ETH"
 ADDRESS="e86c4a45c1da21f8838a1ea26fc852bd66489ce9"
 SIWE_MSG="service.org wants you to sign in with your Ethereum account:
 0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9

@@ -1,5 +1,6 @@
 // General
 type Error = variant { Ok : null; Err : text };
+type NatResponse = variant { Ok : nat; Err: text };
 // Balances
 type GetPMAResponse = variant { Ok : text; Err : text };
 // Chains
@@ -37,6 +38,7 @@ type SubscriptionStatus = record {
     is_active : bool;
     last_update : nat;
     executions_counter : nat;
+    failures_counter : opt nat;
 };
 type Subscription = record {
     id : nat;
@@ -85,7 +87,7 @@ service : {
     get_pma : () -> (GetPMAResponse);
     deposit : (chain_id : nat, tx_hash : text, msg : text, sig : text) -> (Error);
     withdraw : (chain_id : nat, msg : text, sig : text, receiver: text) -> (Error);
-    get_balance : (chain_id : nat, address : text) -> (nat);
+    get_balance : (chain_id : nat, address : text) -> (NatResponse);
     // Chains
     add_chain : (req: CreateChainRequest) -> (Error);
     remove_chain : (chain_id : nat) -> (Error);
