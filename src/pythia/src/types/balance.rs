@@ -32,7 +32,7 @@ impl Balances {
     pub fn get_value_for_witndraw(chain_id: &Nat, address: &str, gas_price: &Nat) -> Result<Nat> {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
-            let mut balance = dig_mut!(state, balances, chain_id, address)
+            let balance = dig_mut!(state, balances, chain_id, address)
                 .context(PythiaError::BalanceDoesNotExist)?;
 
             let gas = Nat::from(ETH_TRANSFER_GAS_LIMIT) * gas_price.clone();

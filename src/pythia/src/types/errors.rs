@@ -134,4 +134,8 @@ pub enum PythiaError {
     UnableToGetTxReceipt,
     #[error("Subscription frequency is too low")]
     SubscriptionFrequencyIsTooLow,
+    #[error("Unable to get input")]
+    UnableToGetInput,
+    #[error("Unable to encode call")]
+    UnableToEncodeCall,
 }

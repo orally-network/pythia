@@ -24,7 +24,7 @@ UPDATE_TIME_FREQUENCY=60
 RPC="https://sepolia.infura.io/v3/d20be327500c45819a1a3b850daec0e2"
 MIN_BALANCE=10000000000000000
 BLOCK_GAS_LIMIT=30000000
-PLATFORM_FEE=1000
+PLATFORM_FEE=1
 CHAIN_SYMBOL="SepoliaETH"
 ADDRESS="e86c4a45c1da21f8838a1ea26fc852bd66489ce9"
 SIWE_MSG="service.org wants you to sign in with your Ethereum account:
@@ -40,6 +40,9 @@ SIWE_SIG="fa7b336d271b7ed539b6db3034d57be294ef889b42534fa95689afd0989ab6d27878c8
 CONTRACT_ADDR="5615156085DEC243767B19d9C914d4413b42e2CF"
 METHOD_ABI="increment_counter()"
 GAS_LIMIT=50000
+MUTATION_RATE=1
+CONDITION_PRICE_ID="ETH/USD"
+MUTATION_TYPE="Both"
 ```
 
 ## Usage
@@ -56,6 +59,8 @@ dfx canister call pythia get_pma
 # deposit a funds to the pma
 read -p "Tx hash: " TX_HASH
 dfx canister call pythia deposit "(${CHAIN_ID}:nat, \"${TX_HASH}\", \"${SIWE_MSG}\", \"${SIWE_SIG}\")"
-# create a subscription
-dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; frequency=${UPDATE_TIME_FREQUENCY}:nat; is_random=false; gas_limit=${GAS_LIMIT}:nat; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+# create a subscription with a frequency condition
+dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_cond_req=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+# create a subscription with a price mutation condition
+dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=null; price_mutation_cond_req=opt record {mutation_rate=${MUTATION_RATE}; pair_id=\"${CONDITION_PRICE_ID}\"; price_mutation_type=variant {${MUTATION_TYPE}}}; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
 ```
