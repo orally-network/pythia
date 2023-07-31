@@ -21,7 +21,7 @@ use crate::{
 };
 
 const MULTICALL_ABI: &[u8] = include_bytes!("../../assets/MulticallABI.json");
-const MULTICALL_CONTRACT_ADDRESS: &str = "0xa27a3A7702Bc1010be95f73A2c64873d21D6D027";
+const MULTICALL_CONTRACT_ADDRESS: &str = "0x88e33D0d7f9d130c85687FC73655457204E29467";
 const MULTICALL_CALL_FUNCTION: &str = "multicall";
 const MULTICALL_TRANSFER_FUNCTION: &str = "multitransfer";
 const BASE_GAS: u64 = 27_000;
@@ -246,7 +246,7 @@ async fn execute_multicall_batch<T: Transport>(
     let block_number = BlockId::from(
         tx_receipt
             .block_number
-            .expect("block number should be valid"),
+            .context("block number should be present")?,
     );
     let raw_result = retry_until_success!(w3.eth().call(
         call_request.clone(),
@@ -293,7 +293,7 @@ pub async fn multitransfer<T: Transport>(
     let key_info = web3::key_info();
 
     let gas_price = retry_until_success!(w3.eth().gas_price(canister::transform_ctx()))?;
-    let gas_limit = BASE_GAS + (GAS_PER_TRANSFER * transfers.len() as u64);
+    let gas_limit = BASE_GAS + (GAS_PER_TRANSFER * transfers.len() as u64) + 7000;
     let value = transfers.iter().fold(U256::from(0), |sum, t| sum + t.value);
     let nonce = retry_until_success!(w3.eth().transaction_count(
         H160::from_str(&from)?,

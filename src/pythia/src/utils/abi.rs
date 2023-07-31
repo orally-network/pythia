@@ -153,15 +153,15 @@ pub fn cast_to_param_type(value: u64, kind: &str) -> Option<Token> {
     None
 }
 
-pub async fn get_call_data(method: &Method) -> Vec<u8> {
+pub async fn get_call_data(method: &Method) -> Result<Vec<u8>> {
     let input = get_input(&method.method_type)
         .await
-        .expect("should be valid input");
+        .context(PythiaError::UnableToGetInput)?;
 
     serde_json::from_str::<Function>(&method.abi)
-        .expect("should be valid abi")
+        .context(PythiaError::InvalidContractABI)?
         .encode_input(&input)
-        .expect("should encode")
+        .context(PythiaError::UnableToEncodeCall)
 }
 
 pub async fn get_input(method_type: &MethodType) -> Result<Vec<Token>> {

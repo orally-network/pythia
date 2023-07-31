@@ -6,7 +6,7 @@ use ic_cdk_timers::set_timer;
 
 use futures::future::join_all;
 
-use super::withdraw;
+use super::{subscriptions_grouper, withdraw};
 use crate::{
     clone_with_state, log, retry_until_success,
     types::{
@@ -19,7 +19,7 @@ use crate::{
     utils::{
         abi, address, canister,
         multicall::{multicall, Call},
-        nat, web3,
+        nat, time, web3,
     },
 };
 
@@ -35,15 +35,17 @@ async fn _execute() -> Result<()> {
     log!("[{PUBLISHER}] publisher job started");
     Timer::activate().context(PythiaError::UnableToActivateTimer)?;
 
-    Subscriptions::stop_insufficients()
-        .context(PythiaError::UnableToStopInsufficientSubscriptions)?;
+    subscriptions_grouper::group()?;
 
-    let (publishable_subs, is_active) = Subscriptions::get_publishable();
+    let (publishable_subs, is_active) = Subscriptions::get_publishable().await;
+
     let futures = publishable_subs
         .into_iter()
         .filter(|(_, subs)| !subs.is_empty())
         .map(|(chain_id, subs)| publish_on_chain(chain_id, subs))
         .collect::<Vec<_>>();
+
+    let should_stop_insufficient_subs = !futures.is_empty();
 
     if !is_active {
         withdraw::withdraw().await;
@@ -57,6 +59,12 @@ async fn _execute() -> Result<()> {
             log!("[{PUBLISHER}] error while publishing: {e:?}");
         }
     });
+
+    if should_stop_insufficient_subs {
+        Subscriptions::stop_insufficients()
+            .await
+            .context(PythiaError::UnableToStopInsufficientSubscriptions)?;
+    }
 
     withdraw::withdraw().await;
 
@@ -72,6 +80,7 @@ async fn _execute() -> Result<()> {
 }
 
 async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -> Result<()> {
+    let publishing_time = time::in_seconds();
     log!("[{PUBLISHER}] chain: {}, publishing", chain_id);
     let w3 = web3::instance(&chain_id)?;
     let pma = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
@@ -81,16 +90,22 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             chain_id,
             subscriptions.len()
         );
-        let calls: Vec<Call> = join_all(subscriptions.iter().map(|sub| async {
-            Call {
-                target: address::to_h160(&sub.contract_addr).expect("should be valid address"),
-                call_data: abi::get_call_data(&sub.method).await,
-                gas_limit: nat::to_u256(&sub.method.gas_limit),
-            }
-        }))
-        .await;
 
-        let fee = canister::fee(&chain_id).await?;
+        let mut calls = vec![];
+        for sub in subscriptions.iter() {
+            let call = Call {
+                target: address::to_h160(&sub.contract_addr)
+                    .context(PythiaError::InvalidAddressFormat)?,
+                call_data: abi::get_call_data(&sub.method)
+                    .await
+                    .context(PythiaError::UnableToFormCallData)?,
+                gas_limit: nat::to_u256(&sub.method.gas_limit),
+            };
+
+            calls.push(call);
+        }
+
+        let fee = canister::fee(&chain_id).await.context("Unable to get fe")?;
         let mut gas_price = retry_until_success!(w3.eth().gas_price(canister::transform_ctx()))?;
         // multiply the gas_price to 1.2 to avoid long transaction confirmation
         gas_price = (gas_price / 10) * 12;
@@ -137,11 +152,18 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                     .expect("should update sub");
                 }
 
-                Subscriptions::update_last_update(&chain_id, &sub.id, !result.success);
+                Subscriptions::update_last_update(
+                    &chain_id,
+                    &sub.id,
+                    !result.success,
+                    publishing_time,
+                );
                 let gas_for_tx = (web3::TRANSFER_GAS_LIMIT / multicall_results.len() as u64) + 100;
                 used_gas += gas_for_tx;
+
                 let mut amount = nat::from_u256(&gas_price) * (used_gas);
                 amount += fee.clone();
+
                 Balances::reduce(&chain_id, &sub.owner, &amount).expect("should reduce balance");
                 canister::collect_fee(&chain_id, &pma, &fee).expect("should collect fee");
 
@@ -149,6 +171,7 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             })
             .collect();
     }
+
     log!("[{PUBLISHER}] chain: {}, published", chain_id);
     Ok(())
 }

@@ -45,7 +45,7 @@ async fn _subscribe(req: SubsribeRequest) -> Result<Nat> {
     }
     Subscriptions::check_limits(&address)?;
 
-    let id = Subscriptions::add(&req, &address)
+    let id = Subscriptions::add(req, &address)
         .await
         .context(PythiaError::UnableToAddSubscription)?;
 

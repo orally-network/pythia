@@ -1,8 +1,8 @@
 // General
 type Error = variant { Ok : null; Err : text };
+type NatResponse = variant { Ok : nat; Err: text };
 // Balances
 type GetPMAResponse = variant { Ok : text; Err : text };
-type GetBalanceResponse = variant { Ok : nat; Err : text };
 // Chains
 type Chain = record {
     chain_id : nat;
@@ -12,7 +12,6 @@ type Chain = record {
     fee : opt nat;
     symbol : opt text;
 };
-
 type CreateChainRequest = record {
     chain_id : nat;
     rpc : text;
@@ -23,6 +22,20 @@ type CreateChainRequest = record {
 };
 type GetChainRPCResponse = variant { Ok : text; Err : text};
 // Subscribptions
+type PriceMutationType = variant {
+    Increase : null;
+    Decrease : null;
+    Both : null;
+};
+type ExecutionCondition = variant {
+    Frequency : nat64;
+    PriceMutation : record {
+        mutation_rate : int64;
+        pair_id : text;
+        creation_price : nat64;
+        price_mutation_type : PriceMutationType;
+    };
+};
 type MethodType = variant {
     Pair : text;
     Random : text;
@@ -34,11 +47,13 @@ type Method = record {
     gas_limit : nat;
     chain_id : nat;
     method_type : MethodType;
+    exec_condition : opt ExecutionCondition;
 };
 type SubscriptionStatus = record {
     is_active : bool;
     last_update : nat;
     executions_counter : nat;
+    failures_counter : opt nat;
 };
 type Subscription = record {
     id : nat;
@@ -48,20 +63,24 @@ type Subscription = record {
     method : Method;
     status : SubscriptionStatus;
 };
+type PriceMutationConditionRequest = record {
+    mutation_rate : int64;
+    pair_id : text;
+    price_mutation_type : PriceMutationType;
+};
 type SubscribeRequest = record {
     chain_id : nat;
     pair_id : opt text;
     contract_addr : text;
     method_abi : text;
-    frequency : nat;
     is_random : bool;
     gas_limit : nat;
+    frequency_condition : opt nat64;
+    price_mutation_cond_req : opt PriceMutationConditionRequest;
     msg : text;
     sig : text;
 };
-
 type SubscribeResponse = variant { Ok : nat; Err : text };
-
 type UpdateSubscriptionRequest = record {
     chain_id : nat;
     id : nat;
@@ -89,7 +108,7 @@ service : {
     get_pma : () -> (GetPMAResponse);
     deposit : (chain_id : nat, tx_hash : text, msg : text, sig : text) -> (Error);
     withdraw : (chain_id : nat, msg : text, sig : text, receiver: text) -> (Error);
-    get_balance : (chain_id : nat, address : text) -> (GetBalanceResponse);
+    get_balance : (chain_id : nat, address : text) -> (NatResponse);
     // Chains
     add_chain : (req: CreateChainRequest) -> (Error);
     remove_chain : (chain_id : nat) -> (Error);

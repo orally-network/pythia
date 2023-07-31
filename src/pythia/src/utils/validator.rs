@@ -6,7 +6,7 @@ use crate::{clone_with_state, PythiaError};
 
 pub fn subscription_frequency(frequency: &Nat) -> Result<()> {
     #[allow(clippy::cmp_owned)]
-    if frequency.clone() < Nat::from(60 * 30) {
+    if frequency.clone() < Nat::from(60) {
         return Err(PythiaError::SubscriptionFrequencyIsTooLow.into());
     }
 

@@ -21,6 +21,7 @@ use crate::{
 const ECDSA_SIGN_CYCLES: u64 = 23_000_000_000;
 pub const TRANSFER_GAS_LIMIT: u64 = 21_000;
 const TX_SUCCESS_STATUS: u64 = 1;
+const TX_WAIT_DELAY: u64 = 3;
 
 pub fn instance(chain_id: &Nat) -> Result<Web3<ICHttp>> {
     Ok(Web3::new(ICHttp::new(&Chains::get(chain_id)?.rpc, None)?))
@@ -184,6 +185,8 @@ pub async fn wait_for_confirmation<T: Transport>(
 
     let end_time = time::in_seconds() + timeout;
     while time::in_seconds() < end_time {
+        time::wait(TX_WAIT_DELAY).await;
+
         let tx_receipt =
             retry_until_success!(w3.eth().transaction_receipt(*tx_hash, call_opts.clone()))
                 .context(PythiaError::UnableToGetTxReceipt)?;
