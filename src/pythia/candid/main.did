@@ -22,6 +22,20 @@ type CreateChainRequest = record {
 };
 type GetChainRPCResponse = variant { Ok : text; Err : text};
 // Subscribptions
+type PriceMutationType = variant {
+    Increase : null;
+    Decrease : null;
+    Both : null;
+};
+type ExecutionCondition = variant {
+    Frequency : nat64;
+    PriceMutation : record {
+        mutation_rate : int64;
+        pair_id : text;
+        creation_price : nat64;
+        price_mutation_type : PriceMutationType;
+    };
+};
 type MethodType = variant {
     Pair : text;
     Random : text;
@@ -33,6 +47,7 @@ type Method = record {
     gas_limit : nat;
     chain_id : nat;
     method_type : MethodType;
+    exec_condition : opt ExecutionCondition;
 };
 type SubscriptionStatus = record {
     is_active : bool;
@@ -48,14 +63,20 @@ type Subscription = record {
     method : Method;
     status : SubscriptionStatus;
 };
+type PriceMutationConditionRequest = record {
+    mutation_rate : int64;
+    pair_id : text;
+    price_mutation_type : PriceMutationType;
+};
 type SubscribeRequest = record {
     chain_id : nat;
     pair_id : opt text;
     contract_addr : text;
     method_abi : text;
-    frequency : nat;
     is_random : bool;
     gas_limit : nat;
+    frequency_condition : opt nat64;
+    price_mutation_cond_req : opt PriceMutationConditionRequest;
     msg : text;
     sig : text;
 };

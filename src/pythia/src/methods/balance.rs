@@ -68,7 +68,7 @@ async fn _deposit(chain_id: Nat, tx_hash: String, msg: String, sig: String) -> R
     let pma = canister::pma_h160()
         .await
         .context(PythiaError::UnableToGetPMA)?;
-    
+
     if receiver != pma {
         return Err(PythiaError::TxWasNotSentToPma.into());
     }
@@ -147,8 +147,7 @@ async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) ->
 /// Returns a result with address's balance
 #[query]
 pub fn get_balance(chain_id: Nat, address: String) -> Result<Nat, String> {
-    _get_balance(chain_id, address)
-        .map_err(|e| format!("failed to get balance: {e:?}"))
+    _get_balance(chain_id, address).map_err(|e| format!("failed to get balance: {e:?}"))
 }
 
 #[inline]

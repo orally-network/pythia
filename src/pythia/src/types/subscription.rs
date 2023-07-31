@@ -9,12 +9,16 @@ use ic_cdk::export::{
 };
 use ic_web3_rs::ethabi::Function;
 
-use anyhow::{Context, Error, Result};
+use anyhow::{anyhow, Context, Error, Result};
 
-use super::{errors::PythiaError, logger::PUBLISHER, methods::Method};
+use super::{
+    errors::PythiaError,
+    logger::PUBLISHER,
+    methods::{ExecutionCondition, Method, PriceMutationType},
+};
 use crate::{
     log,
-    utils::{abi, address, nat, sybil, time, validator, web3, canister},
+    utils::{abi, address, canister, nat, sybil, validator, web3},
     STATE,
 };
 
@@ -38,7 +42,8 @@ pub struct Subscription {
     pub id: Nat,
     pub owner: String,
     pub contract_addr: String,
-    pub frequency: Nat,
+    #[deprecated]
+    pub old_frequency: Nat,
     pub method: Method,
     pub status: SubscriptionStatus,
 }
@@ -52,14 +57,22 @@ pub struct SubscriptionStatus {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
+pub struct PriceMutationConditionRequest {
+    pub mutation_rate: i64,
+    pub pair_id: String,
+    pub price_mutation_type: PriceMutationType,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct SubsribeRequest {
     pub chain_id: Nat,
     pub pair_id: Option<String>,
     pub contract_addr: String,
     pub method_abi: String,
-    pub frequency: Nat,
     pub is_random: bool,
     pub gas_limit: Nat,
+    pub frequency_condition: Option<u64>,
+    pub price_mutation_cond_req: Option<PriceMutationConditionRequest>,
     pub msg: String,
     pub sig: String,
 }
@@ -83,9 +96,21 @@ pub struct UpdateSubscriptionRequest {
 pub struct Subscriptions(pub HashMap<Nat, Vec<Subscription>>);
 
 impl Subscriptions {
-    pub async fn add(req: &SubsribeRequest, owner: &str) -> Result<Nat> {
-        validator::subscription_frequency(&req.frequency)
-            .context(PythiaError::InvalidSubscriptionFrequency)?;
+    pub async fn add(req: SubsribeRequest, owner: &str) -> Result<Nat> {
+        let mut exec_contidion = if let Some(frequency) = req.frequency_condition.clone() {
+            Ok(ExecutionCondition::Frequency(frequency))
+        } else if let Some(price_mutation_cond_req) = req.price_mutation_cond_req.clone() {
+            Ok(ExecutionCondition::PriceMutation {
+                mutation_rate: price_mutation_cond_req.mutation_rate,
+                pair_id: price_mutation_cond_req.pair_id,
+                creation_price: 0,
+                price_mutation_type: price_mutation_cond_req.price_mutation_type,
+            })
+        } else {
+            Err(anyhow!("exec condition is required"))
+        }?;
+
+        exec_contidion.validate().await?;
         let (abi, method_type) =
             abi::resolve_abi(req.method_abi.clone(), req.pair_id.clone(), req.is_random)?;
         if let Some(pair_id) = req.pair_id.clone() {
@@ -103,13 +128,14 @@ impl Subscriptions {
             id: id.clone(),
             owner: owner.into(),
             contract_addr: req.contract_addr.clone(),
-            frequency: req.frequency.clone(),
+            old_frequency: Nat::from(0),
             method: Method {
                 name,
                 abi,
                 chain_id: req.chain_id.clone(),
                 gas_limit: req.gas_limit.clone(),
                 method_type,
+                exec_condition: Some(exec_contidion.clone()),
             },
             status: SubscriptionStatus {
                 is_active: true,
@@ -303,7 +329,7 @@ impl Subscriptions {
                 .find(|s| s.id == id && s.owner == owner)
                 .context(PythiaError::SubscriptionDoesNotExist)?
                 .status;
-            
+
             subscription_status.is_active = true;
             subscription_status.failures_counter = None;
 
@@ -366,7 +392,7 @@ impl Subscriptions {
             if let Some(frequency) = req.frequency.clone() {
                 validator::subscription_frequency(&frequency)
                     .context(PythiaError::InvalidSubscriptionFrequency)?;
-                subscription.frequency = frequency;
+                subscription.old_frequency = frequency;
             }
 
             if let (Some(method_abi), Some(is_random)) = (req.method_abi.clone(), req.is_random) {
@@ -414,7 +440,8 @@ impl Subscriptions {
 
     pub async fn stop_insufficients() -> Result<()> {
         let chains_to_check = STATE.with(|state| {
-            state.borrow()
+            state
+                .borrow()
                 .subscriptions
                 .0
                 .iter()
@@ -428,12 +455,24 @@ impl Subscriptions {
                 .collect::<Vec<Nat>>()
         });
 
-        let futures = chains_to_check.iter().map(|chain_id| web3::gas_price(chain_id)).collect::<Vec<_>>();
-        let gas_prices = join_all(futures).await.into_iter().collect::<Result<Vec<Nat>>>()
+        let futures = chains_to_check
+            .iter()
+            .map(web3::gas_price)
+            .collect::<Vec<_>>();
+        let gas_prices = join_all(futures)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<Nat>>>()
             .context("failed to get gas prices")?;
 
-        let futures = chains_to_check.iter().map(|chain_id| canister::fee(chain_id)).collect::<Vec<_>>();
-        let fees = join_all(futures).await.into_iter().collect::<Result<Vec<Nat>>>()
+        let futures = chains_to_check
+            .iter()
+            .map(canister::fee)
+            .collect::<Vec<_>>();
+        let fees = join_all(futures)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<Nat>>>()
             .context("failed to get fees")?;
 
         STATE.with(|state| {
@@ -447,7 +486,7 @@ impl Subscriptions {
                 if !chains_to_check.contains(chain_id) {
                     continue;
                 }
-            
+
                 let gas_price = gas_prices.get(i).context("gas price not found")?;
                 let fee = fees.get(i).context("fee not found")?;
                 let chain_min_balance = &chains
@@ -463,11 +502,14 @@ impl Subscriptions {
                         .get(&owner)
                         .context(PythiaError::UnableToGetBalance)?;
 
-                    let mut need_funds = subs.iter().fold(Nat::from(0), |res, sub| res + (sub.method.gas_limit.clone() * gas_price.clone()) + fee.clone());
+                    let mut need_funds = subs.iter().fold(Nat::from(0), |res, sub| {
+                        res + (sub.method.gas_limit.clone() * gas_price.clone()) + fee.clone()
+                    });
                     need_funds += chain_min_balance.clone();
-                
+
                     if balance.amount < need_funds {
-                        subs.into_iter().for_each(|sub| sub.status.is_active = false);
+                        subs.into_iter()
+                            .for_each(|sub| sub.status.is_active = false);
                     }
                 }
                 i += 1;
@@ -506,34 +548,56 @@ impl Subscriptions {
         })
     }
 
-    pub fn get_publishable() -> (Vec<(Nat, Vec<Subscription>)>, bool) {
+    pub async fn get_publishable() -> (Vec<(Nat, Vec<Subscription>)>, bool) {
         let mut is_active = false;
+        let mut publishable_subs = vec![];
+
+        for (chain_id, subscriptions) in STATE.with(|s| s.borrow().subscriptions.0.clone()) {
+            let mut publishable_subs_for_chain = vec![];
+            for subscription in subscriptions {
+                if !subscription.status.is_active {
+                    continue;
+                }
+                
+                is_active = true;
+
+                let Some(mut exec_condition) = subscription.method.exec_condition.clone() else {
+                    continue;
+                };
+
+                let Ok(is_ready_for_execution) = exec_condition.check(&chain_id, &subscription.id).await else {
+                    continue;
+                };
+
+                if is_ready_for_execution {
+                    Self::update_execution_condition(&chain_id, &subscription.id, exec_condition)
+                        .expect("should update the exec_condition");
+                    publishable_subs_for_chain.push(subscription);
+                }
+            }
+
+            
+            publishable_subs.push((chain_id, publishable_subs_for_chain));
+        }
+
+        (publishable_subs, is_active)
+    }
+
+    pub fn update_execution_condition(chain_id: &Nat, sub_id: &Nat, exec_cond: ExecutionCondition) -> Result<()> {
         STATE.with(|state| {
-            let state = state.borrow();
-            let prepared_subs = state
+            let mut state = state.borrow_mut();
+            let subscription = state
                 .subscriptions
                 .0
-                .iter()
-                .map(|(chain_id, subs)| {
-                    (
-                        chain_id.clone(),
-                        subs.iter()
-                            .filter(|sub| {
-                                if !sub.status.is_active {
-                                    return false;
-                                }
-                                is_active = true;
+                .get_mut(chain_id)
+                .context(PythiaError::ChainDoesNotExist)?
+                .iter_mut()
+                .find(|s| s.id == *sub_id)
+                .context(PythiaError::SubscriptionDoesNotExist)?;
 
-                                (sub.status.last_update.clone() + sub.frequency.clone())
-                                    <= time::in_seconds()
-                            })
-                            .cloned()
-                            .collect::<Vec<Subscription>>(),
-                    )
-                })
-                .collect::<Vec<(Nat, Vec<Subscription>)>>();
-
-            (prepared_subs, is_active)
+            subscription.method.exec_condition = Some(exec_cond);
+            
+            Ok(())
         })
     }
 

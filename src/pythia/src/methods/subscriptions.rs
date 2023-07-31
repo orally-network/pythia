@@ -38,14 +38,14 @@ async fn _subscribe(req: SubsribeRequest) -> Result<Nat> {
         .await
         .context(PythiaError::UnableToRecoverAddress)?;
     if !whitelist::is_whitelisted(&address) {
-        return Err(PythiaError::UserIsNotWhitelisted.into());   
+        return Err(PythiaError::UserIsNotWhitelisted.into());
     }
     if !Balances::is_sufficient(&req.chain_id, &address)? {
         return Err(PythiaError::InsufficientBalance.into());
     }
     Subscriptions::check_limits(&address)?;
 
-    let id = Subscriptions::add(&req, &address)
+    let id = Subscriptions::add(req, &address)
         .await
         .context(PythiaError::UnableToAddSubscription)?;
 

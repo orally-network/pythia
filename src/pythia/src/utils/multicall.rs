@@ -246,7 +246,7 @@ async fn execute_multicall_batch<T: Transport>(
     let block_number = BlockId::from(
         tx_receipt
             .block_number
-            .context("block number should be present")?
+            .context("block number should be present")?,
     );
     let raw_result = retry_until_success!(w3.eth().call(
         call_request.clone(),

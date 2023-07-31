@@ -53,8 +53,9 @@ macro_rules! retry_until_success {
         let mut attempts = 1;
         let mut result = $func.await;
 
-        while result.is_err() && format!("{:?}", result.as_ref().unwrap_err())
-            .contains("Canister http responses were different across replicas")
+        while result.is_err()
+            && format!("{:?}", result.as_ref().unwrap_err())
+                .contains("Canister http responses were different across replicas")
         {
             result = $func.await;
             attempts += 1;
