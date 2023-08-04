@@ -7,8 +7,8 @@ use num_bigint::BigInt;
 use thiserror::Error;
 
 use crate::{
-    clone_with_state,
-    utils::{nat, time, sybil}, log,
+    clone_with_state, log,
+    utils::{nat, sybil, time},
 };
 
 use super::subscription::Subscriptions;
@@ -98,23 +98,31 @@ impl ExecutionCondition {
         log!("creation rate: {}", creation_price);
         let rate = sybil::get_asset_data(pair_id).await?;
         log!("current rate: {}", rate.rate);
-        let current_mutation_rate =
-            BigInt::from(100)-((BigInt::from(rate.rate) * BigInt::from(100)) / BigInt::from(*creation_price));
+        let current_mutation_rate = BigInt::from(100)
+            - ((BigInt::from(rate.rate) * BigInt::from(100)) / BigInt::from(*creation_price));
         log!("mutation rate: {}", change_rate);
         log!("current mutation rate: {}", current_mutation_rate);
         *creation_price = rate.rate;
         match price_mutation_type {
-            PriceMutationType::Increase if current_mutation_rate >= BigInt::from(*change_rate) => Ok(true),
-            PriceMutationType::Decrease if current_mutation_rate <= BigInt::from(*change_rate) => Ok(true),
-            PriceMutationType::Both if current_mutation_rate.magnitude() >= BigInt::from(*change_rate).magnitude() => Ok(true),
-            _ => Ok(false)
+            PriceMutationType::Increase if current_mutation_rate >= BigInt::from(*change_rate) => {
+                Ok(true)
+            }
+            PriceMutationType::Decrease if current_mutation_rate <= BigInt::from(*change_rate) => {
+                Ok(true)
+            }
+            PriceMutationType::Both
+                if current_mutation_rate.magnitude() >= BigInt::from(*change_rate).magnitude() =>
+            {
+                Ok(true)
+            }
+            _ => Ok(false),
         }
     }
 
     pub async fn validate(&mut self) -> Result<(), ExecutionConditionError> {
         match self {
             ExecutionCondition::Frequency(_) => self.validate_frequency(),
-            ExecutionCondition::PriceMutation { .. } => self.validate_price_mutation().await
+            ExecutionCondition::PriceMutation { .. } => self.validate_price_mutation().await,
         }
     }
 

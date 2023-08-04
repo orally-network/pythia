@@ -217,3 +217,17 @@ fn _stop_timer() -> Result<()> {
     log!("[{CONTROLLERS}] timer was stopped");
     Ok(())
 }
+
+#[update]
+pub fn clear_balance(chain_id: Nat, address: String) -> Result<(), String> {
+    _clear_balance(chain_id, address).map_err(|e| format!("failed to clear the balance: {e:?}"))
+}
+
+#[inline]
+fn _clear_balance(chain_id: Nat, address: String) -> Result<()> {
+    validator::caller()?;
+    let address = address::normalize(&address).context(PythiaError::InvalidAddressFormat)?;
+    Balances::clear(&chain_id, &address).context(PythiaError::UnableToClearBalance)?;
+    log!("[{CONTROLLERS}] balance was cleared for: {address}");
+    Ok(())
+}
