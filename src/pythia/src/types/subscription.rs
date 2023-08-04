@@ -97,9 +97,9 @@ pub struct Subscriptions(pub HashMap<Nat, Vec<Subscription>>);
 
 impl Subscriptions {
     pub async fn add(req: SubsribeRequest, owner: &str) -> Result<Nat> {
-        let mut exec_contidion = if let Some(frequency) = req.frequency_condition.clone() {
+        let mut exec_contidion = if let Some(frequency) = req.frequency_condition {
             Ok(ExecutionCondition::Frequency(frequency))
-        } else if let Some(price_mutation_cond_req) = req.price_mutation_cond_req.clone() {
+        } else if let Some(price_mutation_cond_req) = req.price_mutation_cond_req {
             Ok(ExecutionCondition::PriceMutation {
                 mutation_rate: price_mutation_cond_req.mutation_rate,
                 pair_id: price_mutation_cond_req.pair_id,
@@ -558,7 +558,7 @@ impl Subscriptions {
                 if !subscription.status.is_active {
                     continue;
                 }
-                
+
                 is_active = true;
 
                 let Some(mut exec_condition) = subscription.method.exec_condition.clone() else {
@@ -576,14 +576,17 @@ impl Subscriptions {
                 }
             }
 
-            
             publishable_subs.push((chain_id, publishable_subs_for_chain));
         }
 
         (publishable_subs, is_active)
     }
 
-    pub fn update_execution_condition(chain_id: &Nat, sub_id: &Nat, exec_cond: ExecutionCondition) -> Result<()> {
+    pub fn update_execution_condition(
+        chain_id: &Nat,
+        sub_id: &Nat,
+        exec_cond: ExecutionCondition,
+    ) -> Result<()> {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
             let subscription = state
@@ -596,7 +599,7 @@ impl Subscriptions {
                 .context(PythiaError::SubscriptionDoesNotExist)?;
 
             subscription.method.exec_condition = Some(exec_cond);
-            
+
             Ok(())
         })
     }
