@@ -107,6 +107,7 @@ service : {
     withdraw_fee : (chain_id : nat, receiver : text) -> (Error);
     withdraw_all_balance : (chain_id : nat, receiver : text) -> (Error);
     stop_timer : () -> (Error);
+    clear_balance : (chain_id : nat, address : text) -> (Error);
     // Subscriptions
     subscribe : (req : SubscribeRequest) -> (SubscribeResponse);
     get_subscriptions : (owner : opt text) -> (vec Subscription);

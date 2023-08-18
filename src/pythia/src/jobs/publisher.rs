@@ -19,7 +19,7 @@ use crate::{
     utils::{
         abi, address, canister,
         multicall::{multicall, Call},
-        nat, web3, time,
+        nat, time, web3,
     },
 };
 
@@ -37,7 +37,7 @@ async fn _execute() -> Result<()> {
 
     subscriptions_grouper::group()?;
 
-    let (publishable_subs, is_active) = Subscriptions::get_publishable();    
+    let (publishable_subs, is_active) = Subscriptions::get_publishable();
 
     let futures = publishable_subs
         .into_iter()
@@ -152,7 +152,12 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                     .expect("should update sub");
                 }
 
-                Subscriptions::update_last_update(&chain_id, &sub.id, !result.success, publishing_time);
+                Subscriptions::update_last_update(
+                    &chain_id,
+                    &sub.id,
+                    !result.success,
+                    publishing_time,
+                );
                 let gas_for_tx = (web3::TRANSFER_GAS_LIMIT / multicall_results.len() as u64) + 100;
                 used_gas += gas_for_tx;
 

@@ -97,10 +97,9 @@ pub async fn transfer(chain_id: &Nat, to: &str, value: &Nat) -> Result<()> {
         .sign_transaction(tx, from, key_info(), nat::to_u64(chain_id))
         .await?;
 
-    let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(
-        signed_tx.raw_transaction.clone(),
-        canister::transform_ctx_tx()
-    ))?;
+    let tx_hash = retry_until_success!(w3
+        .eth()
+        .send_raw_transaction(signed_tx.raw_transaction.clone(), canister::transform_ctx()))?;
     web3::wait_for_success_confirmation(&w3, &tx_hash, 60)
         .await
         .context(PythiaError::WaitingForSuccessConfirmationFailed)?;

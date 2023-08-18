@@ -14,7 +14,7 @@ use anyhow::{Context, Error, Result};
 use super::{errors::PythiaError, logger::PUBLISHER, methods::Method};
 use crate::{
     log,
-    utils::{abi, address, nat, sybil, time, validator, web3, canister},
+    utils::{abi, address, canister, nat, sybil, time, validator, web3},
     STATE,
 };
 
@@ -303,7 +303,7 @@ impl Subscriptions {
                 .find(|s| s.id == id && s.owner == owner)
                 .context(PythiaError::SubscriptionDoesNotExist)?
                 .status;
-            
+
             subscription_status.is_active = true;
             subscription_status.failures_counter = None;
 
@@ -414,7 +414,8 @@ impl Subscriptions {
 
     pub async fn stop_insufficients() -> Result<()> {
         let chains_to_check = STATE.with(|state| {
-            state.borrow()
+            state
+                .borrow()
                 .subscriptions
                 .0
                 .iter()
@@ -428,12 +429,24 @@ impl Subscriptions {
                 .collect::<Vec<Nat>>()
         });
 
-        let futures = chains_to_check.iter().map(|chain_id| web3::gas_price(chain_id)).collect::<Vec<_>>();
-        let gas_prices = join_all(futures).await.into_iter().collect::<Result<Vec<Nat>>>()
+        let futures = chains_to_check
+            .iter()
+            .map(web3::gas_price)
+            .collect::<Vec<_>>();
+        let gas_prices = join_all(futures)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<Nat>>>()
             .context("failed to get gas prices")?;
 
-        let futures = chains_to_check.iter().map(|chain_id| canister::fee(chain_id)).collect::<Vec<_>>();
-        let fees = join_all(futures).await.into_iter().collect::<Result<Vec<Nat>>>()
+        let futures = chains_to_check
+            .iter()
+            .map(canister::fee)
+            .collect::<Vec<_>>();
+        let fees = join_all(futures)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<Nat>>>()
             .context("failed to get fees")?;
 
         STATE.with(|state| {
@@ -447,7 +460,7 @@ impl Subscriptions {
                 if !chains_to_check.contains(chain_id) {
                     continue;
                 }
-            
+
                 let gas_price = gas_prices.get(i).context("gas price not found")?;
                 let fee = fees.get(i).context("fee not found")?;
                 let chain_min_balance = &chains
@@ -463,11 +476,14 @@ impl Subscriptions {
                         .get(&owner)
                         .context(PythiaError::UnableToGetBalance)?;
 
-                    let mut need_funds = subs.iter().fold(Nat::from(0), |res, sub| res + (sub.method.gas_limit.clone() * gas_price.clone()) + fee.clone());
+                    let mut need_funds = subs.iter().fold(Nat::from(0), |res, sub| {
+                        res + (sub.method.gas_limit.clone() * gas_price.clone()) + fee.clone()
+                    });
                     need_funds += chain_min_balance.clone();
-                
+
                     if balance.amount < need_funds {
-                        subs.into_iter().for_each(|sub| sub.status.is_active = false);
+                        subs.into_iter()
+                            .for_each(|sub| sub.status.is_active = false);
                     }
                 }
                 i += 1;

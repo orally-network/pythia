@@ -138,4 +138,6 @@ pub enum PythiaError {
     UnableToGetInput,
     #[error("Unable to encode call")]
     UnableToEncodeCall,
+    #[error("Unable to clear balance")]
+    UnableToClearBalance,
 }
