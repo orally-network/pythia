@@ -19,6 +19,7 @@ pub struct Chain {
     pub block_gas_limit: Nat,
     pub fee: Option<Nat>,
     pub symbol: Option<String>,
+    pub multicall_contract: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, CandidType)]
@@ -29,6 +30,7 @@ pub struct CreateChainRequest {
     pub block_gas_limit: Nat,
     pub fee: Nat,
     pub symbol: String,
+    pub multicall_contract: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, CandidType)]
@@ -38,6 +40,7 @@ pub struct ChainUpdator {
     pub block_gas_limit: Option<Nat>,
     pub fee: Option<Nat>,
     pub symbol: Option<String>,
+    pub multicall_contract: Option<String>,
 }
 
 /// Chain id => Chain
@@ -58,6 +61,7 @@ impl Chains {
                     block_gas_limit: req.block_gas_limit.clone(),
                     fee: Some(req.fee.clone()),
                     symbol: Some(req.symbol.clone()),
+                    multicall_contract: Some(req.multicall_contract.clone()),
                 },
             );
         });
@@ -105,6 +109,10 @@ impl Chains {
 
             if let Some(symbol) = updator.symbol {
                 chain.symbol = Some(symbol);
+            }
+
+            if let Some(multicall_contract) = updator.multicall_contract {
+                chain.multicall_contract = Some(multicall_contract);
             }
 
             Ok(())

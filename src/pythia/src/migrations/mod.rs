@@ -6,6 +6,8 @@ use ic_utils::{logger, monitor};
 
 use crate::{jobs::publisher, types::timer::Timer, State, STATE};
 
+const OLD_MULTICALL_CONTRACT_ADDRESS: &str = "0x88e33D0d7f9d130c85687FC73655457204E29467";
+
 #[pre_upgrade]
 fn pre_upgrade() {
     let state = STATE.with(|state| state.take());
@@ -36,6 +38,16 @@ fn post_upgrade() {
     };
 
     state.timer = Some(timer);
+
+    state
+        .chains
+        .0
+        .iter_mut()
+        .for_each(|(_, chain)| {
+            if chain.multicall_contract.is_none() {
+                chain.multicall_contract = Some(OLD_MULTICALL_CONTRACT_ADDRESS.to_string());
+            }
+        });
 
     STATE.with(|s| s.replace(state));
 }

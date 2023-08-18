@@ -40,6 +40,7 @@ SIWE_SIG="fa7b336d271b7ed539b6db3034d57be294ef889b42534fa95689afd0989ab6d27878c8
 CONTRACT_ADDR="5615156085DEC243767B19d9C914d4413b42e2CF"
 METHOD_ABI="increment_counter()"
 GAS_LIMIT=50000
+MULTICALL_CONTRACT="0x88e33D0d7f9d130c85687FC73655457204E29467"
 ```
 
 ## Usage
@@ -48,7 +49,7 @@ GAS_LIMIT=50000
 # update the timer frequency for debug
 dfx canister call pythia update_timer_frequency "(${UPDATE_TIME_FREQUENCY}:nat)"
 # add a new supported chain
-dfx canister call pythia add_chain "(record {chain_id=${CHAIN_ID}:nat; rpc=\"${RPC}\"; min_balance=${MIN_BALANCE}:nat; block_gas_limit=${BLOCK_GAS_LIMIT}:nat; fee=${PLATFORM_FEE}:nat; symbol=\"${CHAIN_SYMBOL}\"})"
+dfx canister call pythia add_chain "(record {chain_id=${CHAIN_ID}:nat; rpc=\"${RPC}\"; min_balance=${MIN_BALANCE}:nat; block_gas_limit=${BLOCK_GAS_LIMIT}:nat; fee=${PLATFORM_FEE}:nat; symbol=\"${CHAIN_SYMBOL}\"; multicall_contract=\"${MULTICALL_CONTRACT}\"})"
 # add to whitelist
 dfx canister call pythia add_to_whitelist "(\"${ADDRESS}\")"
 # get the PMA
