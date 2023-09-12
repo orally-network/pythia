@@ -23,6 +23,10 @@ pub const TRANSFER_GAS_LIMIT: u64 = 21_000;
 const TX_SUCCESS_STATUS: u64 = 1;
 const TX_WAIT_DELAY: u64 = 3;
 
+// Arthera chain id constant uses for avoiding gas price fetching cause of gasless model
+pub const ARTHERA_CHAIN_ID: u64 = 10243;
+pub const ARTHERA_GAS_PRICE: u64 = 2_000_000_000;
+
 pub fn instance(chain_id: &Nat) -> Result<Web3<ICHttp>> {
     Ok(Web3::new(ICHttp::new(&Chains::get(chain_id)?.rpc, None)?))
 }
@@ -53,6 +57,11 @@ pub async fn get_tx(chain_id: &Nat, tx_hash: &str) -> Result<Transaction> {
 
 pub async fn gas_price(chain_id: &Nat) -> Result<Nat> {
     let w3 = instance(chain_id)?;
+    
+    if chain_id == &Nat::from(ARTHERA_CHAIN_ID) {
+        return Ok(ARTHERA_GAS_PRICE.into());
+    }
+    
     Ok(nat::from_u256(&retry_until_success!(w3
         .eth()
         .gas_price(canister::transform_ctx()))?))

@@ -5,6 +5,7 @@ use ic_cdk::export::candid::Nat;
 use ic_cdk_timers::set_timer;
 
 use futures::future::join_all;
+use ic_web3_rs::types::U256;
 
 use super::{subscriptions_grouper, withdraw};
 use crate::{
@@ -106,7 +107,11 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
         }
 
         let fee = canister::fee(&chain_id).await.context("Unable to get fe")?;
-        let mut gas_price = retry_until_success!(w3.eth().gas_price(canister::transform_ctx()))?;
+        let mut gas_price: U256 = if chain_id == web3::ARTHERA_CHAIN_ID {
+            web3::ARTHERA_GAS_PRICE.into()
+        } else {
+            retry_until_success!(w3.eth().gas_price(canister::transform_ctx()))?
+        };
         // multiply the gas_price to 1.2 to avoid long transaction confirmation
         gas_price = (gas_price / 10) * 12;
         let multicall_results = multicall(&w3, &chain_id, calls.clone(), gas_price)
@@ -126,6 +131,15 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             .zip(subscriptions)
             .filter_map(|(result, sub)| {
                 let mut used_gas = nat::from_u256(&result.used_gas);
+                
+                log!(
+                    "[{PUBLISHER}] chain: {}, sub: {}, used gas: {}, gas limit: {}",
+                    chain_id,
+                    sub.id,
+                    used_gas,
+                    sub.method.gas_limit
+                );
+                
                 #[allow(clippy::cmp_owned)]
                 if used_gas == Nat::from(0) {
                     return Some(sub);
