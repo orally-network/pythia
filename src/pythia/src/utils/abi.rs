@@ -4,6 +4,7 @@ use ic_web3_rs::ethabi::{Function, Token};
 use serde_json::json;
 
 use crate::{
+    retry_until_success,
     types::methods::{Method, MethodType},
     utils::sybil,
     PythiaError,
@@ -195,8 +196,8 @@ pub async fn get_random_input(abi_type: &str) -> Result<Token> {
 }
 
 pub async fn get_sybil_input(pair_id: &str) -> Result<Vec<Token>> {
-    let rate = sybil::get_asset_data(pair_id).await?;
-
+    let rate = retry_until_success!(sybil::get_asset_data(pair_id)).context(PythiaError::UnableToGetSybilRate)?;
+    
     Ok(vec![
         Token::String(rate.symbol),
         Token::Uint(rate.rate.into()),
