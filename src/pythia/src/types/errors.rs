@@ -140,4 +140,6 @@ pub enum PythiaError {
     UnableToEncodeCall,
     #[error("Unable to clear balance")]
     UnableToClearBalance,
+    #[error("Unable to get Sybil rate")]
+    UnableToGetSybilRate
 }

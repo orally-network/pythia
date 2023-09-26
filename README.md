@@ -6,14 +6,15 @@ Pythia is a canister that provides the SubPub functionality for the Ethereum fam
 
 ```sh
 dfx build pythia && gzip -f -1 ./.dfx/local/canisters/pythia/pythia.wasm
-dfx canister install --mode upgrade --wasm ./.dfx/local/canisters/pythia/pythia.wasm.gz pythia
+dfx canister install --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz --argument "(30000000:nat, \"dfx_test_key\", principal \"{SIWE_CANISTER}\", principal \"{SYBIL_CANISTER}\")" pythia
 ```
 
-## Upgrade production
+## Upgrade production/staging
 
 ```sh
 dfx build pythia --network ic && gzip -f -1 ./.dfx/ic/canisters/pythia/pythia.wasm
-dfx canister install --network ic --mode upgrade --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz pythia
+dfx canister install --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz --argument "(30000000:nat, \"key_1\", principal \"vk6h6-zyaaa-aaaak-qceta-cai\", principal \"tysiw-qaaaa-aaaak-qcikq-cai\")" --network ic pythia
+dfx canister install --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz --network ic pythia -m upgrade
 ```
 
 ## Enviroment

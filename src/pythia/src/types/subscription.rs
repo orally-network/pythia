@@ -412,22 +412,10 @@ impl Subscriptions {
         })
     }
 
-    pub async fn stop_insufficients() -> Result<()> {
-        let chains_to_check = STATE.with(|state| {
-            state
-                .borrow()
-                .subscriptions
-                .0
-                .iter()
-                .filter_map(|(chain_id, subs)| {
-                    if subs.iter().any(|sub| sub.status.is_active) {
-                        return Some(chain_id.clone());
-                    }
-
-                    None
-                })
-                .collect::<Vec<Nat>>()
-        });
+    pub async fn stop_insufficients(publishable_chain_ids: Vec<Nat>) -> Result<()> {
+        let chains_to_check = publishable_chain_ids;
+        
+        log!("[{PUBLISHER}] checking chains: {chains_to_check:?}");
 
         let futures = chains_to_check
             .iter()

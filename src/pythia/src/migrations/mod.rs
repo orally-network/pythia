@@ -4,7 +4,7 @@ use ic_cdk::{post_upgrade, pre_upgrade, storage};
 use ic_cdk_timers::set_timer;
 use ic_utils::{logger, monitor};
 
-use crate::{jobs::publisher, types::timer::Timer, State, STATE};
+use crate::{jobs::publisher, types::timer::Timer, State, STATE, log};
 
 const OLD_MULTICALL_CONTRACT_ADDRESS: &str = "0x88e33D0d7f9d130c85687FC73655457204E29467";
 
@@ -50,4 +50,6 @@ fn post_upgrade() {
         });
 
     STATE.with(|s| s.replace(state));
+    
+    log!("post upgrade finished");
 }
