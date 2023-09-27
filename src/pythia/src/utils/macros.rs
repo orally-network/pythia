@@ -56,6 +56,7 @@ macro_rules! retry_until_success {
         while result.is_err()
             && (format!("{:?}", result.as_ref().unwrap_err()).contains("Canister http responses were different across replicas")
             || format!("{:?}", result.as_ref().unwrap_err()).contains("Timeout expired")
+            || format!("{:?}", result.as_ref().unwrap_err()).contains("SysTransient")
             || format!("{:?}", result.as_ref().unwrap_err()).contains("pending")) // or Exchange rate canister error: pending
             && attempts <= 5
         {
