@@ -414,7 +414,7 @@ impl Subscriptions {
 
     pub async fn stop_insufficients(publishable_chain_ids: Vec<Nat>) -> Result<()> {
         let chains_to_check = publishable_chain_ids;
-        
+
         log!("[{PUBLISHER}] checking chains: {chains_to_check:?}");
 
         let futures = chains_to_check

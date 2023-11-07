@@ -141,5 +141,5 @@ pub enum PythiaError {
     #[error("Unable to clear balance")]
     UnableToClearBalance,
     #[error("Unable to get Sybil rate")]
-    UnableToGetSybilRate
+    UnableToGetSybilRate,
 }

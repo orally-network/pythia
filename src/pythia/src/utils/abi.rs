@@ -196,8 +196,9 @@ pub async fn get_random_input(abi_type: &str) -> Result<Token> {
 }
 
 pub async fn get_sybil_input(pair_id: &str) -> Result<Vec<Token>> {
-    let rate = retry_until_success!(sybil::get_asset_data(pair_id)).context(PythiaError::UnableToGetSybilRate)?;
-    
+    let rate = retry_until_success!(sybil::get_asset_data(pair_id))
+        .context(PythiaError::UnableToGetSybilRate)?;
+
     Ok(vec![
         Token::String(rate.symbol),
         Token::Uint(rate.rate.into()),
