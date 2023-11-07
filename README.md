@@ -63,6 +63,8 @@ dfx canister call pythia get_pma
 # deposit a funds to the pma
 read -p "Tx hash: " TX_HASH
 dfx canister call pythia deposit "(${CHAIN_ID}:nat, \"${TX_HASH}\", \"${SIWE_MSG}\", \"${SIWE_SIG}\")"
-# create a subscription
-dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; frequency=${UPDATE_TIME_FREQUENCY}:nat; is_random=false; gas_limit=${GAS_LIMIT}:nat; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+# create a subscription with a frequency condition
+dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_cond_req=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+# create a subscription with a price mutation condition
+dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=null; price_mutation_cond_req=opt record {mutation_rate=${MUTATION_RATE}; pair_id=\"${CONDITION_PRICE_ID}\"; price_mutation_type=variant {${MUTATION_TYPE}}}; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
 ```

@@ -37,7 +37,7 @@ async fn _execute() -> Result<()> {
 
     subscriptions_grouper::group()?;
 
-    let (publishable_subs, is_active) = Subscriptions::get_publishable();
+    let (publishable_subs, is_active) = Subscriptions::get_publishable().await;
 
     let futures = publishable_subs
         .clone()

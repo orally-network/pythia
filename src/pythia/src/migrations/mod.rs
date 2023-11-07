@@ -4,7 +4,13 @@ use ic_cdk::{post_upgrade, pre_upgrade, storage};
 use ic_cdk_timers::set_timer;
 use ic_utils::{logger, monitor};
 
-use crate::{jobs::publisher, log, types::timer::Timer, State, STATE};
+use crate::{
+    jobs::publisher,
+    log,
+    types::{methods::ExecutionCondition, timer::Timer},
+    utils::nat,
+    State, STATE,
+};
 
 const OLD_MULTICALL_CONTRACT_ADDRESS: &str = "0x88e33D0d7f9d130c85687FC73655457204E29467";
 
@@ -27,6 +33,20 @@ fn post_upgrade() {
         logger::PostUpgradeStableData,
         monitor::PostUpgradeStableData,
     ) = storage::stable_restore().expect("should be valid canister data for post upgrade");
+
+    state
+        .subscriptions
+        .0
+        .iter_mut()
+        .for_each(|(_, subscriptions)| {
+            for subscription in subscriptions {
+                if subscription.method.exec_condition.is_none() {
+                    subscription.method.exec_condition = Some(ExecutionCondition::Frequency(
+                        nat::to_u64(&subscription.old_frequency),
+                    ));
+                }
+            }
+        });
 
     logger::post_upgrade_stable_data(log_data);
     monitor::post_upgrade_stable_data(monitor_data);
