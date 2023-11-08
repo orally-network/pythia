@@ -47,5 +47,14 @@ fn post_upgrade() {
 
     STATE.with(|s| s.replace(state));
 
+    _ = std::panic::take_hook(); // clear custom panic hook and set default
+    let old_handler = std::panic::take_hook(); // take default panic hook
+
+    // set custom panic hook
+    std::panic::set_hook(Box::new(move |info| {
+        log!("PANIC OCCURRED: {:#?}", info);
+        old_handler(info);
+    }));
+
     log!("post upgrade finished");
 }
