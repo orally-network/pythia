@@ -4,7 +4,7 @@ use ic_cdk::{post_upgrade, pre_upgrade, storage};
 use ic_cdk_timers::set_timer;
 use ic_utils::{logger, monitor};
 
-use crate::{jobs::publisher, types::timer::Timer, State, STATE, log};
+use crate::{jobs::publisher, log, types::timer::Timer, State, STATE};
 
 const OLD_MULTICALL_CONTRACT_ADDRESS: &str = "0x88e33D0d7f9d130c85687FC73655457204E29467";
 
@@ -39,17 +39,13 @@ fn post_upgrade() {
 
     state.timer = Some(timer);
 
-    state
-        .chains
-        .0
-        .iter_mut()
-        .for_each(|(_, chain)| {
-            if chain.multicall_contract.is_none() {
-                chain.multicall_contract = Some(OLD_MULTICALL_CONTRACT_ADDRESS.to_string());
-            }
-        });
+    state.chains.0.iter_mut().for_each(|(_, chain)| {
+        if chain.multicall_contract.is_none() {
+            chain.multicall_contract = Some(OLD_MULTICALL_CONTRACT_ADDRESS.to_string());
+        }
+    });
 
     STATE.with(|s| s.replace(state));
-    
+
     log!("post upgrade finished");
 }

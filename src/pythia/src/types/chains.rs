@@ -8,8 +8,8 @@ use ic_cdk::export::{
     serde::{Deserialize, Serialize},
 };
 
-use super::errors::PythiaError;
-use crate::STATE;
+use super::{errors::PythiaError, logger::CHAINS};
+use crate::{log, STATE};
 
 #[derive(Clone, Debug, Deserialize, Serialize, CandidType, Default)]
 pub struct Chain {
@@ -65,6 +65,8 @@ impl Chains {
                 },
             );
         });
+
+        log!("[{CHAINS}] Chain added: chain_id = {}", req.chain_id);
         Ok(())
     }
 
@@ -77,6 +79,7 @@ impl Chains {
                 .remove(id)
                 .ok_or(PythiaError::ChainDoesNotExist)?;
 
+            log!("[{CHAINS}] Chain removed: chain_id = {}", id);
             Ok(())
         })
     }
@@ -92,26 +95,48 @@ impl Chains {
 
             if let Some(rpc) = updator.rpc {
                 let rpc: Url = rpc.parse().context(PythiaError::InvalidChainRPC)?;
+                log!("[{CHAINS}] Chain updated: chain_id = {}, rpc = {}", id, rpc);
                 chain.rpc = rpc.to_string();
             }
 
             if let Some(min_balance) = updator.min_balance {
+                log!(
+                    "[{CHAINS}] Chain updated: chain_id = {}, min_balance = {}",
+                    id,
+                    min_balance
+                );
                 chain.min_balance = min_balance;
             }
 
             if let Some(block_gas_limit) = updator.block_gas_limit {
+                log!(
+                    "[{CHAINS}] Chain updated: chain_id = {}, block_gas_limit = {}",
+                    id,
+                    block_gas_limit
+                );
                 chain.block_gas_limit = block_gas_limit;
             }
 
             if let Some(fee) = updator.fee {
+                log!("[{CHAINS}] Chain updated: chain_id = {}, fee = {}", id, fee);
                 chain.fee = Some(fee);
             }
 
             if let Some(symbol) = updator.symbol {
+                log!(
+                    "[{CHAINS}] Chain updated: chain_id = {}, symbol = {}",
+                    id,
+                    symbol
+                );
                 chain.symbol = Some(symbol);
             }
 
             if let Some(multicall_contract) = updator.multicall_contract {
+                log!(
+                    "[{CHAINS}] Chain updated: chain_id = {}, multicall_contract = {}",
+                    id,
+                    multicall_contract
+                );
                 chain.multicall_contract = Some(multicall_contract);
             }
 

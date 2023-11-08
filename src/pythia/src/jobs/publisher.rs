@@ -39,13 +39,15 @@ async fn _execute() -> Result<()> {
 
     let (publishable_subs, is_active) = Subscriptions::get_publishable();
 
-    let futures = publishable_subs.clone()
+    let futures = publishable_subs
+        .clone()
         .into_iter()
         .filter(|(_, subs)| !subs.is_empty())
         .map(|(chain_id, subs)| publish_on_chain(chain_id, subs))
         .collect::<Vec<_>>();
-    
-    let publishable_chain_ids = publishable_subs.clone()
+
+    let publishable_chain_ids = publishable_subs
+        .clone()
         .into_iter()
         .filter(|(_, subs)| !subs.is_empty())
         .map(|(chain_id, _)| chain_id)
@@ -55,7 +57,7 @@ async fn _execute() -> Result<()> {
     if !is_active {
         withdraw::withdraw().await;
         Timer::deactivate().context(PythiaError::UnableToDeactivateTimer)?;
-        log!("[{PUBLISHER}] publisher job stopped");
+        log!("[{PUBLISHER}] Timer is inactive, publisher job stopped");
         return Ok(());
     }
 
@@ -68,7 +70,8 @@ async fn _execute() -> Result<()> {
     if should_stop_insufficient_subs {
         match Subscriptions::stop_insufficients(publishable_chain_ids)
             .await
-            .context(PythiaError::UnableToStopInsufficientSubscriptions) {
+            .context(PythiaError::UnableToStopInsufficientSubscriptions)
+        {
             Ok(_) => log!("[{PUBLISHER}] stopped insufficient subscriptions"),
             Err(e) => log!("[{PUBLISHER}] error while stopping insufficient subscriptions: {e:?}"),
         }
@@ -114,17 +117,18 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
         }
 
         let fee = canister::fee(&chain_id).await.context("Unable to get fe")?;
-        let mut gas_price = match retry_until_success!(w3.eth().gas_price(canister::transform_ctx())) {
-            Ok(gas_price) => gas_price,
-            Err(e) => Err(e).context(PythiaError::UnableToGetGasPrice)?,
-        };
+        let mut gas_price =
+            match retry_until_success!(w3.eth().gas_price(canister::transform_ctx())) {
+                Ok(gas_price) => gas_price,
+                Err(e) => Err(e).context(PythiaError::UnableToGetGasPrice)?,
+            };
         log!(
             "[{PUBLISHER}] chain: {}, gas price: {}, fee: {}",
             chain_id,
             gas_price,
             fee
         );
-        
+
         // multiply the gas_price to 1.2 to avoid long transaction confirmation
         gas_price = (gas_price / 10) * 12;
         let multicall_results = multicall(&w3, &chain_id, calls.clone(), gas_price)
@@ -144,7 +148,7 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             .zip(subscriptions)
             .filter_map(|(result, sub)| {
                 let mut used_gas = nat::from_u256(&result.used_gas);
-                
+
                 log!(
                     "[{PUBLISHER}] chain: {}, sub: {}, used gas: {}, gas limit: {}",
                     chain_id,
@@ -152,7 +156,7 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                     used_gas,
                     sub.method.gas_limit
                 );
-                
+
                 #[allow(clippy::cmp_owned)]
                 if used_gas == Nat::from(0) {
                     return Some(sub);
