@@ -57,7 +57,7 @@ async fn _execute() -> Result<()> {
     if !is_active {
         withdraw::withdraw().await;
         Timer::deactivate().context(PythiaError::UnableToDeactivateTimer)?;
-        log!("[{PUBLISHER}] Timer is inactive, publisher job stopped");
+        log!("[{PUBLISHER}] Subscription is inactive, publisher job stopped");
         return Ok(());
     }
 
