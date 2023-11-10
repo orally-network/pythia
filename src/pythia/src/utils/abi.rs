@@ -4,6 +4,7 @@ use ic_web3_rs::ethabi::{Function, Token};
 use serde_json::json;
 
 use crate::{
+    log, retry_until_success,
     types::methods::{Method, MethodType},
     utils::sybil,
     PythiaError,
@@ -154,22 +155,34 @@ pub fn cast_to_param_type(value: u64, kind: &str) -> Option<Token> {
 }
 
 pub async fn get_call_data(method: &Method) -> Result<Vec<u8>> {
+    log!("[ABI] get_call_data requested input: method: {method:?}");
     let input = get_input(&method.method_type)
         .await
         .context(PythiaError::UnableToGetInput)?;
+    log!("[ABI] get_call_data got input: {input:?}");
 
-    serde_json::from_str::<Function>(&method.abi)
-        .context(PythiaError::InvalidContractABI)?
+    let result =
+        serde_json::from_str::<Function>(&method.abi).context(PythiaError::InvalidContractABI)?;
+
+    log!("[ABI] get_call_data: deserialized function: {result:?}");
+
+    let result = result
         .encode_input(&input)
-        .context(PythiaError::UnableToEncodeCall)
+        .context(PythiaError::UnableToEncodeCall);
+
+    log!("[ABI] get_call_data: encoded_input: {result:?}");
+
+    result
 }
 
 pub async fn get_input(method_type: &MethodType) -> Result<Vec<Token>> {
+    log!("[ABI] get_input requested input [method_type: {method_type:?}");
     let input = match method_type {
         MethodType::Pair(pair_id) => get_sybil_input(pair_id).await?,
         MethodType::Random(abi_type) => vec![get_random_input(abi_type).await?],
         MethodType::Empty => vec![],
     };
+    log!("[ABI] get_input got input: {input:?}");
 
     Ok(input)
 }
@@ -195,8 +208,11 @@ pub async fn get_random_input(abi_type: &str) -> Result<Token> {
 }
 
 pub async fn get_sybil_input(pair_id: &str) -> Result<Vec<Token>> {
-    let rate = sybil::get_asset_data(pair_id).await?;
+    log!("[ABI] get_sybil_input requested sybil::get_asset_data, pair_id: {pair_id:?}");
+    let rate = retry_until_success!(sybil::get_asset_data(pair_id))
+        .context(PythiaError::UnableToGetSybilRate)?;
 
+    log!("[ABI] get_sybil_input git asset_data [pair_id: {pair_id:?}");
     Ok(vec![
         Token::String(rate.symbol),
         Token::Uint(rate.rate.into()),

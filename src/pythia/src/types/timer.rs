@@ -6,7 +6,9 @@ use ic_cdk::export::{
 };
 use ic_cdk_timers::{clear_timer, TimerId};
 
-use crate::{PythiaError, STATE};
+use crate::{log, PythiaError, STATE};
+
+use super::logger::TIMER;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct Timer {
@@ -30,6 +32,12 @@ impl Timer {
                 is_active: old_timer.is_active,
             };
 
+            log!(
+                "[{TIMER}] Timer updated: id = {}, is_active = {}",
+                new_timer.id,
+                new_timer.is_active
+            );
+
             state.timer = Some(new_timer);
 
             Ok(())
@@ -48,6 +56,8 @@ impl Timer {
                 id: old_timer.id,
                 is_active: true,
             };
+
+            log!("[{TIMER}] Timer activated: id = {}", new_timer.id);
 
             state.timer = Some(new_timer);
 
@@ -78,6 +88,8 @@ impl Timer {
             )?;
 
             clear_timer(id);
+
+            log!("[{TIMER}] Timer activated: id = {}", new_timer.id);
 
             state.timer = Some(new_timer);
 

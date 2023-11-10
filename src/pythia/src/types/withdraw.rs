@@ -8,9 +8,9 @@ use ic_cdk::export::{
     serde::{Deserialize, Serialize},
 };
 
-use crate::STATE;
+use crate::{log, STATE};
 
-use super::errors::PythiaError;
+use super::{errors::PythiaError, logger::WITHDRAWER};
 
 #[derive(Clone, Debug, Default, CandidType, Serialize, Deserialize)]
 pub struct WithdrawRequest {
@@ -35,6 +35,14 @@ impl WithdrawRequests {
                     amount: amount.clone(),
                     receiver: receiver.to_string(),
                 });
+
+            log!(
+                "[{WITHDRAWER}] Withdraw request added: chain_id = {}, amount = {}, receiver = {}",
+                chain_id,
+                amount,
+                receiver
+            );
+
             Ok(())
         })
     }
@@ -48,6 +56,11 @@ impl WithdrawRequests {
                 .get_mut(chain_id)
                 .context(PythiaError::ChainDoesNotExist)?
                 .clear();
+
+            log!(
+                "[{WITHDRAWER}] Withdraw request removed: chain_id = {}",
+                chain_id,
+            );
             Ok(())
         })
     }
@@ -59,6 +72,7 @@ impl WithdrawRequests {
                 return Err(PythiaError::ChainAlreadyExists.into());
             }
             state.withdraw_requests.0.insert(chain_id.clone(), vec![]);
+            log!("[{WITHDRAWER}] New chain added: {chain_id}");
             Ok(())
         })
     }
@@ -71,6 +85,7 @@ impl WithdrawRequests {
                 .0
                 .remove(chain_id)
                 .context(PythiaError::ChainDoesNotExist)?;
+            log!("[{WITHDRAWER}] Chain removed: {chain_id}");
             Ok(())
         })
     }

@@ -109,6 +109,28 @@ fn _update_chain_rpc(chain_id: Nat, rpc: String) -> Result<()> {
     Ok(())
 }
 
+#[update]
+pub fn update_chain_multicall_contract(chain_id: Nat, multicall_contract: String) -> Result<(), String> {
+    _update_chain_multicall_contract(chain_id, multicall_contract)
+        .map_err(|e| format!("failed to update a chain multicallcontract: {e:?}"))
+}
+
+#[inline]
+fn _update_chain_multicall_contract(chain_id: Nat, multicall_contract: String) -> Result<()> {
+    validator::caller()?;
+    Chains::update(
+        &chain_id,
+        ChainUpdator {
+            multicall_contract: Some(multicall_contract.clone()),
+            ..Default::default()
+        },
+    )
+    .context(PythiaError::UnableToUpdateChain)?;
+
+    log!("[{CHAINS}] multicall contract updated: {multicall_contract}, id: {chain_id}");
+    Ok(())
+}
+
 /// Update a chain minimum balance in the state.
 ///
 /// # Arguments

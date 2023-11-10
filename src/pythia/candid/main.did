@@ -11,6 +11,7 @@ type Chain = record {
     block_gas_limit : nat;
     fee : opt nat;
     symbol : opt text;
+    multicall_contract : opt text;
 };
 type CreateChainRequest = record {
     chain_id : nat;
@@ -19,6 +20,7 @@ type CreateChainRequest = record {
     block_gas_limit : nat;
     fee : nat;
     symbol : text;
+    multicall_contract : text;
 };
 type GetChainRPCResponse = variant { Ok : text; Err : text};
 // Subscribptions
@@ -116,6 +118,7 @@ service : {
     update_chain_min_balance : (chain_id : nat, min_balance : nat) -> (Error);
     update_chain_fee_and_symbol : (chain_id : nat, fee : nat, symbol : text) -> (Error);
     update_chain_block_gas_limit : (chain_id : nat, block_gas_limit : nat) -> (Error);
+    update_chain_multicall_contract : (chain_id : nat, multicall_contract : text) -> (Error);
     get_chain_rpc : (chain_id : nat) -> (GetChainRPCResponse);
     get_chains : () -> (vec Chain);
     // Controllers

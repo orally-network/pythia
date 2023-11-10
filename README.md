@@ -6,14 +6,15 @@ Pythia is a canister that provides the SubPub functionality for the Ethereum fam
 
 ```sh
 dfx build pythia && gzip -f -1 ./.dfx/local/canisters/pythia/pythia.wasm
-dfx canister install --mode upgrade --wasm ./.dfx/local/canisters/pythia/pythia.wasm.gz pythia
+dfx canister install --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz --argument "(30000000:nat, \"dfx_test_key\", principal \"{SIWE_CANISTER}\", principal \"{SYBIL_CANISTER}\")" pythia
 ```
 
-## Upgrade production
+## Upgrade production/staging
 
 ```sh
 dfx build pythia --network ic && gzip -f -1 ./.dfx/ic/canisters/pythia/pythia.wasm
-dfx canister install --network ic --mode upgrade --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz pythia
+dfx canister install --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz --argument "(30000000:nat, \"key_1\", principal \"vk6h6-zyaaa-aaaak-qceta-cai\", principal \"tysiw-qaaaa-aaaak-qcikq-cai\")" --network ic pythia
+dfx canister install --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz --network ic pythia -m upgrade
 ```
 
 ## Enviroment
@@ -43,6 +44,7 @@ GAS_LIMIT=50000
 MUTATION_RATE=1
 CONDITION_PRICE_ID="ETH/USD"
 MUTATION_TYPE="Both"
+MULTICALL_CONTRACT="0x88e33D0d7f9d130c85687FC73655457204E29467"
 ```
 
 ## Usage
@@ -51,7 +53,7 @@ MUTATION_TYPE="Both"
 # update the timer frequency for debug
 dfx canister call pythia update_timer_frequency "(${UPDATE_TIME_FREQUENCY}:nat)"
 # add a new supported chain
-dfx canister call pythia add_chain "(record {chain_id=${CHAIN_ID}:nat; rpc=\"${RPC}\"; min_balance=${MIN_BALANCE}:nat; block_gas_limit=${BLOCK_GAS_LIMIT}:nat; fee=${PLATFORM_FEE}:nat; symbol=\"${CHAIN_SYMBOL}\"})"
+dfx canister call pythia add_chain "(record {chain_id=${CHAIN_ID}:nat; rpc=\"${RPC}\"; min_balance=${MIN_BALANCE}:nat; block_gas_limit=${BLOCK_GAS_LIMIT}:nat; fee=${PLATFORM_FEE}:nat; symbol=\"${CHAIN_SYMBOL}\"; multicall_contract=\"${MULTICALL_CONTRACT}\"})"
 # add to whitelist
 dfx canister call pythia add_to_whitelist "(\"${ADDRESS}\")"
 # get the PMA

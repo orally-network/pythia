@@ -14,7 +14,7 @@ use ic_web3_rs::{
 
 use super::{address, canister, nat, time, web3};
 use crate::{
-    clone_with_state, retry_until_success,
+    clone_with_state, retry_until_success, log,
     types::{chains::Chains, errors::PythiaError},
 };
 
@@ -53,9 +53,12 @@ pub async fn get_tx(chain_id: &Nat, tx_hash: &str) -> Result<Transaction> {
 
 pub async fn gas_price(chain_id: &Nat) -> Result<Nat> {
     let w3 = instance(chain_id)?;
-    Ok(nat::from_u256(&retry_until_success!(w3
+    
+    let gas_price = nat::from_u256(&retry_until_success!(w3
         .eth()
-        .gas_price(canister::transform_ctx()))?))
+        .gas_price(canister::transform_ctx()))?);
+    
+    Ok(gas_price)
 }
 
 #[inline(always)]
