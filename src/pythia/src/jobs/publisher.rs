@@ -116,7 +116,9 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             calls.push(call);
         }
 
-        let fee = canister::fee(&chain_id).await.context("Unable to get fe")?;
+        let fee = canister::fee(&chain_id)
+            .await
+            .context("Unable to get fee")?;
         let mut gas_price =
             match retry_until_success!(w3.eth().gas_price(canister::transform_ctx())) {
                 Ok(gas_price) => gas_price,
