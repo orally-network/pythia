@@ -2,11 +2,14 @@
 
 Pythia is a canister that provides the SubPub functionality for the Ethereum family smart contracts.
 
-## Upgrade local
-
+## Deploy local
 ```sh
-dfx build pythia && gzip -f -1 ./.dfx/local/canisters/pythia/pythia.wasm
-dfx canister install --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz --argument "(30000000:nat, \"dfx_test_key\", principal \"{SIWE_CANISTER}\", principal \"{SYBIL_CANISTER}\")" pythia
+make SYBIL_CANISTER={SYBIL CANISTER ID}
+```
+
+## Upgrade local
+```sh
+make upgrade_local
 ```
 
 ## Upgrade production/staging
@@ -20,19 +23,20 @@ dfx canister install --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz --network 
 ## Enviroment
 
 ```sh
-CHAIN_ID=11155111
-UPDATE_TIME_FREQUENCY=60
-RPC="https://sepolia.infura.io/v3/d20be327500c45819a1a3b850daec0e2"
-MIN_BALANCE=10000000000000000
-BLOCK_GAS_LIMIT=30000000
-PLATFORM_FEE=1
-CHAIN_SYMBOL="SepoliaETH"
-ADDRESS="e86c4a45c1da21f8838a1ea26fc852bd66489ce9"
-SIWE_MSG="service.org wants you to sign in with your Ethereum account:
-0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9
+CHAIN_ID=5 &&
+UPDATE_TIME_FREQUENCY=60 &&
+RPC="https://goerli.blockpi.network/v1/rpc/public" &&
+MIN_BALANCE=1000000000 &&
+BLOCK_GAS_LIMIT=300000000 &&
+PLATFORM_FEE=1 &&
+CHAIN_SYMBOL="ETH" &&
+ADDRESS="0x6696eD42dFBe875E60779b8163fDCc39B088222A" &&
+SIWE_MSG="localhost:4361 wants you to sign in with your Ethereum account:
+0x6696eD42dFBe875E60779b8163fDCc39B088222A
 
+Sign in with Ethereum.
 
-URI: https://service.org/login
+URI: http://localhost:4361
 Version: 1
 Chain ID: 11155111
 Nonce: 00000000
@@ -45,6 +49,7 @@ MUTATION_RATE=1
 CONDITION_PRICE_ID="ETH/USD"
 MUTATION_TYPE="Both"
 MULTICALL_CONTRACT="0x88e33D0d7f9d130c85687FC73655457204E29467"
+TX_HASH="{Enter tx hash here, where you sent some tokens to the sybil address}"
 ```
 
 ## Usage

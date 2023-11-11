@@ -110,7 +110,10 @@ fn _update_chain_rpc(chain_id: Nat, rpc: String) -> Result<()> {
 }
 
 #[update]
-pub fn update_chain_multicall_contract(chain_id: Nat, multicall_contract: String) -> Result<(), String> {
+pub fn update_chain_multicall_contract(
+    chain_id: Nat,
+    multicall_contract: String,
+) -> Result<(), String> {
     _update_chain_multicall_contract(chain_id, multicall_contract)
         .map_err(|e| format!("failed to update a chain multicallcontract: {e:?}"))
 }

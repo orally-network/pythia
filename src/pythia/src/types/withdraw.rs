@@ -81,7 +81,7 @@ impl WithdrawRequests {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
             state
-                .balances
+                .withdraw_requests
                 .0
                 .remove(chain_id)
                 .context(PythiaError::ChainDoesNotExist)?;
