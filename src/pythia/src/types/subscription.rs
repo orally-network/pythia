@@ -13,7 +13,7 @@ use anyhow::{anyhow, Context, Error, Result};
 
 use super::{
     errors::PythiaError,
-    logger::PUBLISHER,
+    logger::{PUBLISHER, SUBSCRIPTION},
     methods::{ExecutionCondition, Method, PriceMutationType},
 };
 use crate::{
@@ -353,8 +353,9 @@ impl Subscriptions {
                 .context(PythiaError::ChainDoesNotExist)?
                 .iter_mut()
                 .find(|s| s.id == id && s.owner == owner)
-                .context(PythiaError::SubscriptionDoesNotExist)?
-                .status;
+                .context(PythiaError::SubscriptionDoesNotExist)?;
+
+            let subscription_status = &mut subscription.status;
 
             subscription_status.is_active = true;
             subscription_status.failures_counter = None;
@@ -615,7 +616,9 @@ impl Subscriptions {
                     continue;
                 };
 
-                let Ok(is_ready_for_execution) = exec_condition.check(&chain_id, &subscription.id).await else {
+                let Ok(is_ready_for_execution) =
+                    exec_condition.check(&chain_id, &subscription.id).await
+                else {
                     continue;
                 };
 

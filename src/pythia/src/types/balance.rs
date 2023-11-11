@@ -183,14 +183,4 @@ impl Balances {
             Ok(())
         })
     }
-
-    pub fn clear(chain_id: &Nat, address: &str) -> Result<()> {
-        STATE.with(|state| {
-            let mut state = state.borrow_mut();
-            let balance = dig_mut!(state, balances, chain_id, address)
-                .context(PythiaError::BalanceDoesNotExist)?;
-            balance.amount = Nat::from(0);
-            Ok(())
-        })
-    }
 }

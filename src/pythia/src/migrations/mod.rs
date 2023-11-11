@@ -6,10 +6,13 @@ use ic_utils::{logger, monitor};
 
 use crate::{
     jobs::publisher,
+    log,
     types::{methods::ExecutionCondition, timer::Timer},
     utils::nat,
     State, STATE,
 };
+
+const OLD_MULTICALL_CONTRACT_ADDRESS: &str = "0x88e33D0d7f9d130c85687FC73655457204E29467";
 
 #[pre_upgrade]
 fn pre_upgrade() {

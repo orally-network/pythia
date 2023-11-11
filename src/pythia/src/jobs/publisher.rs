@@ -46,12 +46,6 @@ async fn _execute() -> Result<()> {
         .map(|(chain_id, subs)| publish_on_chain(chain_id, subs))
         .collect::<Vec<_>>();
 
-    let publishable_chain_ids = publishable_subs
-        .clone()
-        .into_iter()
-        .filter(|(_, subs)| !subs.is_empty())
-        .map(|(chain_id, _)| chain_id)
-        .collect::<Vec<_>>();
     let should_stop_insufficient_subs = !futures.is_empty();
 
     if !is_active {
@@ -68,7 +62,7 @@ async fn _execute() -> Result<()> {
     });
 
     if should_stop_insufficient_subs {
-        match Subscriptions::stop_insufficients(publishable_chain_ids)
+        match Subscriptions::stop_insufficients()
             .await
             .context(PythiaError::UnableToStopInsufficientSubscriptions)
         {
