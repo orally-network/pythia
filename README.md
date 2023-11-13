@@ -48,8 +48,9 @@ GAS_LIMIT=1000000 &&
 MUTATION_RATE=1 && 
 CONDITION_PRICE_ID="ETH/USD" && 
 MUTATION_TYPE="Both" && 
-MULTICALL_CONTRACT="0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9" && 
+MULTICALL_CONTRACT="0x250fd3d3A2dAEF0aEe68a5cFA4A9293473178E11" && 
 TX_HASH="{Enter tx where you sent some tokens to the sybil address}"
+SUBSCRIPTION_ID={Enter subscription id}
 ```
 
 ## Usage
@@ -73,4 +74,8 @@ dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=n
 dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=null; price_mutation_cond_req=opt record {mutation_rate=${MUTATION_RATE}; pair_id=\"${CONDITION_PRICE_ID}\"; price_mutation_type=variant {${MUTATION_TYPE}}}; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
 # to stop all subscriptions
 dfx canister call pythia remove_subscriptions
+# to get all user subscriptions 
+dfx canister call pythia get_subscriptions "(opt \"${ADDRESS}\")"
+# to update subscription 
+dfx canister call pythia update_subscription  "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; id=${SUBSCRIPTION_ID}:nat; contract_addr=opt \"${CONTRACT_ADDR}\"; method_abi=opt \"${METHOD_ABI}\"; is_random=opt false; gas_limit=opt ${GAS_LIMIT}; frequency=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_cond_req=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
 ```

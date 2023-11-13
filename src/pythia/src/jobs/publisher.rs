@@ -139,64 +139,59 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             continue;
         }
 
-        subscriptions = multicall_results
-            .iter()
-            .zip(subscriptions)
-            .filter_map(|(result, sub)| {
-                let mut used_gas = nat::from_u256(&result.used_gas);
+        let mut remaining_subs = vec![];
 
+        for (result, sub) in multicall_results.iter().zip(subscriptions) {
+            let mut used_gas = nat::from_u256(&result.used_gas);
+
+            log!(
+                "[{PUBLISHER}] chain: {}, sub: {}, used gas: {}, gas limit: {}",
+                chain_id,
+                sub.id,
+                used_gas,
+                sub.method.gas_limit
+            );
+
+            #[allow(clippy::cmp_owned)]
+            if used_gas == Nat::from(0) {
+                remaining_subs.push(sub);
+                continue;
+            }
+
+            if used_gas > sub.method.gas_limit {
                 log!(
-                    "[{PUBLISHER}] chain: {}, sub: {}, used gas: {}, gas limit: {}",
+                    "[{PUBLISHER}] chain: {}, gas limit exceeded for sub {}",
                     chain_id,
-                    sub.id,
-                    used_gas,
-                    sub.method.gas_limit
+                    sub.id
                 );
+                Subscriptions::stop(&chain_id, &sub.owner, &sub.id).expect("should stop sub");
+                // inscrease gas limit by 30 persent
+                let new_gas_limit = (used_gas.clone() / 10) / 13;
+                Subscriptions::update(
+                    &UpdateSubscriptionRequest {
+                        chain_id: chain_id.clone(),
+                        id: sub.id.clone(),
+                        gas_limit: Some(new_gas_limit),
+                        ..Default::default()
+                    },
+                    &sub.owner,
+                )
+                .await
+                .expect("should update sub");
+            }
 
-                #[allow(clippy::cmp_owned)]
-                if used_gas == Nat::from(0) {
-                    return Some(sub);
-                }
+            Subscriptions::update_last_update(&chain_id, &sub.id, !result.success, publishing_time);
+            let gas_for_tx = (web3::TRANSFER_GAS_LIMIT / multicall_results.len() as u64) + 100;
+            used_gas += gas_for_tx;
 
-                if used_gas > sub.method.gas_limit {
-                    log!(
-                        "[{PUBLISHER}] chain: {}, gas limit exceeded for sub {}",
-                        chain_id,
-                        sub.id
-                    );
-                    Subscriptions::stop(&chain_id, &sub.owner, &sub.id).expect("should stop sub");
-                    // inscrease gas limit by 30 persent
-                    let new_gas_limit = (used_gas.clone() / 10) / 13;
-                    Subscriptions::update(
-                        &UpdateSubscriptionRequest {
-                            chain_id: chain_id.clone(),
-                            id: sub.id.clone(),
-                            gas_limit: Some(new_gas_limit),
-                            ..Default::default()
-                        },
-                        &sub.owner,
-                    )
-                    .expect("should update sub");
-                }
+            let mut amount = nat::from_u256(&gas_price) * (used_gas);
+            amount += fee.clone();
 
-                Subscriptions::update_last_update(
-                    &chain_id,
-                    &sub.id,
-                    !result.success,
-                    publishing_time,
-                );
-                let gas_for_tx = (web3::TRANSFER_GAS_LIMIT / multicall_results.len() as u64) + 100;
-                used_gas += gas_for_tx;
+            Balances::reduce(&chain_id, &sub.owner, &amount).expect("should reduce balance");
+            canister::collect_fee(&chain_id, &pma, &fee).expect("should collect fee");
+        }
 
-                let mut amount = nat::from_u256(&gas_price) * (used_gas);
-                amount += fee.clone();
-
-                Balances::reduce(&chain_id, &sub.owner, &amount).expect("should reduce balance");
-                canister::collect_fee(&chain_id, &pma, &fee).expect("should collect fee");
-
-                None
-            })
-            .collect();
+        subscriptions = remaining_subs;
     }
 
     log!("[{PUBLISHER}] chain: {}, published", chain_id);

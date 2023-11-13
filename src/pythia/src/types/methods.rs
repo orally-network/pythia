@@ -91,7 +91,8 @@ impl ExecutionCondition {
             pair_id,
             creation_price,
             price_mutation_type,
-        } = self else {
+        } = self
+        else {
             return Ok(false);
         };
 
@@ -152,7 +153,8 @@ impl ExecutionCondition {
             pair_id,
             creation_price,
             ..
-        } = self else {
+        } = self
+        else {
             Err(anyhow!("execution condition is not price mutation"))?
         };
 

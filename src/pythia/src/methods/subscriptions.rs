@@ -193,7 +193,9 @@ async fn _update_subscription(req: UpdateSubscriptionRequest) -> Result<()> {
         return Err(PythiaError::UserIsNotWhitelisted.into());
     }
 
-    Subscriptions::update(&req, &address).context(PythiaError::UnableToUpdateSubscription)?;
+    Subscriptions::update(&req, &address)
+        .await
+        .context(PythiaError::UnableToUpdateSubscription)?;
 
     log!("[SUBSCRIPTIONS] updated, id: {}", req.id);
     Ok(())

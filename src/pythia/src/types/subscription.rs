@@ -17,7 +17,7 @@ use super::{
     methods::{ExecutionCondition, Method, PriceMutationType},
 };
 use crate::{
-    log,
+    clone_with_state, log,
     utils::{abi, address, canister, nat, sybil, validator, web3},
     STATE,
 };
@@ -42,8 +42,6 @@ pub struct Subscription {
     pub id: Nat,
     pub owner: String,
     pub contract_addr: String,
-    #[deprecated]
-    pub old_frequency: Nat,
     pub method: Method,
     pub status: SubscriptionStatus,
 }
@@ -79,14 +77,15 @@ pub struct SubsribeRequest {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct UpdateSubscriptionRequest {
-    pub chain_id: Nat,
     pub id: Nat,
+    pub chain_id: Nat,
     pub pair_id: Option<String>,
-    pub gas_limit: Option<Nat>,
-    pub method_abi: Option<String>,
     pub contract_addr: Option<String>,
-    pub frequency: Option<Nat>,
+    pub method_abi: Option<String>,
     pub is_random: Option<bool>,
+    pub gas_limit: Option<Nat>,
+    pub frequency_condition: Option<u64>,
+    pub price_mutation_cond_req: Option<PriceMutationConditionRequest>,
     pub msg: String,
     pub sig: String,
 }
@@ -128,7 +127,6 @@ impl Subscriptions {
             id: id.clone(),
             owner: owner.into(),
             contract_addr: req.contract_addr.clone(),
-            old_frequency: Nat::from(0),
             method: Method {
                 name,
                 abi,
@@ -404,7 +402,29 @@ impl Subscriptions {
         })
     }
 
-    pub fn update(req: &UpdateSubscriptionRequest, address: &str) -> Result<()> {
+    pub async fn update(req: &UpdateSubscriptionRequest, address: &str) -> Result<()> {
+        let state_timer_frequency = clone_with_state!(timer_frequency);
+        let exec_condition = match (req.frequency_condition, &req.price_mutation_cond_req) {
+            (Some(frequency), Some(_)) | (Some(frequency), None) => {
+                validator::subscription_frequency(frequency, state_timer_frequency)
+                    .context(PythiaError::InvalidSubscriptionFrequency)?;
+                Some(ExecutionCondition::Frequency(frequency))
+            }
+            (None, Some(price_mutation_condition_req)) => {
+                let mut exec_condition = ExecutionCondition::PriceMutation {
+                    mutation_rate: price_mutation_condition_req.mutation_rate,
+                    pair_id: price_mutation_condition_req.pair_id.clone(),
+                    creation_price: 0,
+                    price_mutation_type: price_mutation_condition_req.price_mutation_type.clone(),
+                };
+
+                exec_condition.validate().await?;
+
+                Some(exec_condition)
+            }
+            _ => None,
+        };
+
         STATE.with(|state| {
             let mut state = state.borrow_mut();
             let subscription = state
@@ -416,6 +436,8 @@ impl Subscriptions {
                 .find(|sub| sub.id == req.id && sub.owner == address)
                 .context(PythiaError::SubscriptionDoesNotExist)?;
 
+            subscription.method.exec_condition = exec_condition;
+
             if let Some(gas_limit) = req.gas_limit.clone() {
                 subscription.method.gas_limit = gas_limit;
             }
@@ -423,12 +445,6 @@ impl Subscriptions {
             if let Some(contract_addr) = req.contract_addr.clone() {
                 subscription.contract_addr = address::normalize(&contract_addr)
                     .context(PythiaError::InvalidAddressFormat)?;
-            }
-
-            if let Some(frequency) = req.frequency.clone() {
-                validator::subscription_frequency(&frequency)
-                    .context(PythiaError::InvalidSubscriptionFrequency)?;
-                subscription.old_frequency = frequency;
             }
 
             if let (Some(method_abi), Some(is_random)) = (req.method_abi.clone(), req.is_random) {

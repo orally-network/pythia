@@ -61,7 +61,6 @@ type Subscription = record {
     id : nat;
     owner : text;
     contract_addr : text;
-    frequency : nat;
     method : Method;
     status : SubscriptionStatus;
 };
