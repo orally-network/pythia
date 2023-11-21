@@ -155,8 +155,6 @@ pub async fn multicall<T: Transport>(
         .context(PythiaError::InvalidContractABI)?;
 
     let from = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
-    // multiply the gas_price to 1.2 to avoid long transaction confirmation
-    let gas_price = (gas_price / 10) * 12;
 
     while !calls.is_empty() {
         let (current_calls_batch, _calls) = get_current_calls_batch(&calls, &chain);
@@ -250,6 +248,7 @@ async fn execute_multicall_batch<T: Transport>(
             .block_number
             .context("block number should be present")?,
     );
+    log!("[{PUBLISHER}] chain: {}, abi method sent", chain_id);
     let raw_result = retry_until_success!(w3.eth().call(
         call_request.clone(),
         Some(block_number),

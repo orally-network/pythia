@@ -31,7 +31,7 @@ pub enum ExecutionConditionError {
     Error(#[from] anyhow::Error),
 }
 
-#[derive(Debug, Clone, CandidType, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, CandidType, Serialize, Deserialize, Default, Eq, PartialEq)]
 pub enum PriceMutationType {
     Increase,
     Decrease,
@@ -39,7 +39,7 @@ pub enum PriceMutationType {
     Both,
 }
 
-#[derive(Debug, Clone, CandidType, Serialize, Deserialize)]
+#[derive(Debug, Clone, CandidType, Serialize, Deserialize, Eq, PartialEq)]
 pub enum ExecutionCondition {
     Frequency(u64),
     PriceMutation {

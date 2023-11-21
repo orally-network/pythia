@@ -48,7 +48,7 @@ GAS_LIMIT=1000000 &&
 MUTATION_RATE=1 && 
 CONDITION_PRICE_ID="ETH/USD" && 
 MUTATION_TYPE="Both" && 
-MULTICALL_CONTRACT="0x250fd3d3A2dAEF0aEe68a5cFA4A9293473178E11" && 
+MULTICALL_CONTRACT="{Enter your evm-oracle multicall smartcontract}" && 
 TX_HASH="{Enter tx where you sent some tokens to the sybil address}"
 SUBSCRIPTION_ID={Enter subscription id}
 ```
@@ -60,20 +60,22 @@ SUBSCRIPTION_ID={Enter subscription id}
 dfx canister call pythia update_timer_frequency "(${UPDATE_TIME_FREQUENCY}:nat)"
 # add a new supported chain
 dfx canister call pythia add_chain "(record {chain_id=${CHAIN_ID}:nat; rpc=\"${RPC}\"; min_balance=${MIN_BALANCE}:nat; block_gas_limit=${BLOCK_GAS_LIMIT}:nat; fee=${PLATFORM_FEE}:nat; symbol=\"${CHAIN_SYMBOL}\"; multicall_contract=\"${MULTICALL_CONTRACT}\"})"
+# update chain rpc
+dfx canister call pythia update_chain_rpc "(${CHAIN_ID}:nat, \"${RPC}\")"
+# to update nulticall contract 
+dfx canister call pythia update_chain_multicall_contract "(${CHAIN_ID}:nat, \"${MULTICALL_CONTRACT}\")"
 # add to whitelist
 dfx canister call pythia add_to_whitelist "(\"${ADDRESS}\")"
 # get the PMA
 dfx canister call pythia get_pma
 # deposit a funds to the pma
 dfx canister call pythia deposit "(${CHAIN_ID}:nat, \"${TX_HASH}\", \"${SIWE_MSG}\", \"${SIWE_SIG}\")"
-# to update nulticall contract 
-dfx canister call pythia update_chain_multicall_contract "(${CHAIN_ID}:nat, \"${MULTICALL_CONTRACT}\")"
 # create a subscription with a frequency condition
 dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_cond_req=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
 # create a subscription with a price mutation condition
 dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=null; price_mutation_cond_req=opt record {mutation_rate=${MUTATION_RATE}; pair_id=\"${CONDITION_PRICE_ID}\"; price_mutation_type=variant {${MUTATION_TYPE}}}; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
-# to stop all subscriptions
-dfx canister call pythia remove_subscriptions
+# to remove subscriptions
+dfx canister call pythia remove_subscription "(${SUBSCRIPTION_ID})"
 # to get all user subscriptions 
 dfx canister call pythia get_subscriptions "(opt \"${ADDRESS}\")"
 # to update subscription 

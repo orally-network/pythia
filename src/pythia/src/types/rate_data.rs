@@ -9,4 +9,5 @@ pub struct RateDataLight {
     pub rate: u64,
     pub decimals: u64,
     pub timestamp: u64,
+    pub signature: Option<String>,
 }

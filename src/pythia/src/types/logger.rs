@@ -6,3 +6,4 @@ pub const SUBSCRIPTION: &str = "SUBSCRIPTION";
 pub const TIMER: &str = "TIMER";
 pub const WHITELIST: &str = "WHITELIST";
 pub const BALANCES: &str = "BALANCES";
+pub const SYBIL: &str = "SYBIL";

@@ -38,19 +38,23 @@ pub async fn pma_h160() -> Result<H160> {
 }
 
 pub async fn fee(chain_id: &Nat) -> Result<Nat> {
+    log!("Trying to get fee for chain_id: {}", chain_id);
     let mut pair_id = Chains::get_symbol(chain_id)?;
     pair_id.push_str("/USD");
 
     if sybil::is_pair_exists(&pair_id).await? {
+        log!("Pair exists in Sybild");
         let rate = sybil::get_asset_data(&pair_id)
             .await
             .context(PythiaError::UnableToGetAssetData)?;
         let decimals = Nat::from_str(DECIMALS)?;
-        let fee_in_usdt = clone_with_state!(tx_fee);
+        let fee_in_usdt = clone_with_state!(tx_fee); // TODO why only in one place occured ?
 
-        return Ok((fee_in_usdt * decimals) / rate.rate);
+        log!("Returning fee from Sybil");
+        return Ok((fee_in_usdt * decimals) / rate.rate); // TODO Why ?
     }
 
+    log!("Returning fee from State");
     Chains::get_fee(chain_id)
 }
 

@@ -155,28 +155,29 @@ pub fn cast_to_param_type(value: u64, kind: &str) -> Option<Token> {
 }
 
 pub async fn get_call_data(method: &Method) -> Result<Vec<u8>> {
-    log!("[ABI] get_call_data requested input: method: {method:?}");
+    let chain_id = method.chain_id.clone();
+    log!("[ABI] get_call_data requested input: method: {method:?}, chain_id: {chain_id:?}");
     let input = get_input(&method.method_type)
         .await
         .context(PythiaError::UnableToGetInput)?;
-    log!("[ABI] get_call_data got input: {input:?}");
+    log!("[ABI] get_call_data got input: {input:?}, chain_id: {chain_id:?}");
 
     let result =
         serde_json::from_str::<Function>(&method.abi).context(PythiaError::InvalidContractABI)?;
 
-    log!("[ABI] get_call_data: deserialized function: {result:?}");
+    log!("[ABI] get_call_data: deserialized function: {result:?}, chain_id: {chain_id:?}");
 
     let result = result
         .encode_input(&input)
         .context(PythiaError::UnableToEncodeCall);
 
-    log!("[ABI] get_call_data: encoded_input: {result:?}");
+    log!("[ABI] get_call_data: encoded_input: {result:?}, chain_id: {chain_id:?}");
 
     result
 }
 
 pub async fn get_input(method_type: &MethodType) -> Result<Vec<Token>> {
-    log!("[ABI] get_input requested input [method_type: {method_type:?}");
+    log!("[ABI] get_input requested input method_type: {method_type:?}");
     let input = match method_type {
         MethodType::Pair(pair_id) => get_sybil_input(pair_id).await?,
         MethodType::Random(abi_type) => vec![get_random_input(abi_type).await?],

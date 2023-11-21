@@ -273,7 +273,7 @@ impl Subscriptions {
                     })
                 });
 
-            log!("[{SUBSCRIPTION}] All subscriptions removed");
+            log!("[{SUBSCRIPTION}] Subscriptions removed");
 
             Ok(())
         })
@@ -334,7 +334,7 @@ impl Subscriptions {
                     });
                 });
 
-            log!("[{SUBSCRIPTION}] All subscription are stopped");
+            log!("[{SUBSCRIPTION}] Subscription are stopped");
 
             Ok(())
         })
@@ -396,7 +396,7 @@ impl Subscriptions {
                     });
                 });
 
-            log!("[{SUBSCRIPTION}] All subscription are started");
+            log!("[{SUBSCRIPTION}] Subscription are started");
 
             Ok(())
         })

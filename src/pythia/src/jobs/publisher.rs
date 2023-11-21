@@ -39,12 +39,20 @@ async fn _execute() -> Result<()> {
 
     let (publishable_subs, is_active) = Subscriptions::get_publishable().await;
 
+    log!(
+        "[{PUBLISHER}] Got publishable subs: len: {:#?}, is_active: {}",
+        publishable_subs.len(),
+        is_active
+    );
+
     let futures = publishable_subs
         .clone()
         .into_iter()
         .filter(|(_, subs)| !subs.is_empty())
         .map(|(chain_id, subs)| publish_on_chain(chain_id, subs))
         .collect::<Vec<_>>();
+
+    log!("[{PUBLISHER}] Futures created: len = {:#?}", futures.len());
 
     let should_stop_insufficient_subs = !futures.is_empty();
 
@@ -110,13 +118,20 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             calls.push(call);
         }
 
-        let fee = canister::fee(&chain_id)
+        log!("[{PUBLISHER}] Calls inited, chain: {}", chain_id);
+
+        let fee = canister::fee(&chain_id) // TODO: move out of loop
             .await
             .context("Unable to get fee")?;
+
+        log!("[{PUBLISHER}] Trying to get gas_price: {}", chain_id);
         let mut gas_price =
             match retry_until_success!(w3.eth().gas_price(canister::transform_ctx())) {
                 Ok(gas_price) => gas_price,
-                Err(e) => Err(e).context(PythiaError::UnableToGetGasPrice)?,
+                Err(e) => {
+                    log!("Unable to get gas_price: {e:?}");
+                    Err(e).context(PythiaError::UnableToGetGasPrice)?
+                }
             };
         log!(
             "[{PUBLISHER}] chain: {}, gas price: {}, fee: {}",
@@ -166,7 +181,7 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                 );
                 Subscriptions::stop(&chain_id, &sub.owner, &sub.id).expect("should stop sub");
                 // inscrease gas limit by 30 persent
-                let new_gas_limit = (used_gas.clone() / 10) / 13;
+                let new_gas_limit = (used_gas.clone() / 10) / 13; // TODO: maybe / 10 * 12 ?
                 Subscriptions::update(
                     &UpdateSubscriptionRequest {
                         chain_id: chain_id.clone(),
