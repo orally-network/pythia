@@ -102,6 +102,7 @@ type WhitelistEntry = record {
 type Whitelist = vec WhitelistEntry;
 type GetWhiteListResponse = variant { Ok : Whitelist; Err : text};
 type IsWhitelistedResponse = variant { Ok : bool; Err : text};
+type GetSubscriptionResponse = variant { Ok : Subscription; Err : text};
 
 // Serive
 service : {
@@ -134,6 +135,7 @@ service : {
     // Subscriptions
     subscribe : (req : SubscribeRequest) -> (SubscribeResponse);
     get_subscriptions : (owner : opt text) -> (vec Subscription);
+    get_subscription : (chain_id : nat, sub_id : nat) -> (GetSubscriptionResponse);
     stop_subscriptions : () -> (Error);
     remove_subscriptions : () -> (Error);
     remove_subscription : (id : nat) -> (Error);
