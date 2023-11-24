@@ -1,10 +1,8 @@
 use anyhow::{Context, Result};
 
-use ic_cdk::export::{
-    candid::CandidType,
-    serde::{Deserialize, Serialize},
-};
+use candid::CandidType;
 use ic_cdk_timers::{clear_timer, TimerId};
+use serde::{Deserialize, Serialize};
 
 use crate::{log, PythiaError, STATE};
 

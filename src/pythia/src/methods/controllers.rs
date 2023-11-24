@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
-
-use ic_cdk::{export::candid::Nat, update};
+use candid::Nat;
+use ic_cdk::update;
 
 use crate::{
     jobs::{publisher, withdraw},

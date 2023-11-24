@@ -1,12 +1,9 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
+use candid::{CandidType, Nat};
+use serde::{Deserialize, Serialize};
 use url::Url;
-
-use ic_cdk::export::{
-    candid::{CandidType, Nat},
-    serde::{Deserialize, Serialize},
-};
 
 use super::{errors::PythiaError, logger::CHAINS};
 use crate::{log, STATE};

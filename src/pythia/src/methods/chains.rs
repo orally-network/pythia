@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context, Result};
-
-use ic_cdk::{export::candid::Nat, query, update};
+use candid::Nat;
+use ic_cdk::{query, update};
 
 use crate::{
     log,

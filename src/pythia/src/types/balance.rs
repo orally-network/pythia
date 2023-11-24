@@ -1,12 +1,9 @@
 use std::collections::HashMap;
 
-use candid::Nat;
-use ic_cdk::export::{
-    candid::CandidType,
-    serde::{Deserialize, Serialize},
-};
+use candid::{CandidType, Nat};
 
 use anyhow::{anyhow, Context, Result};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     dig, dig_mut, log,

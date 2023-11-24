@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use ic_cdk::export::candid::Nat;
+use candid::Nat;
 use ic_cdk_timers::set_timer;
 
 use futures::future::join_all;

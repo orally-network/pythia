@@ -64,7 +64,7 @@ type Subscription = record {
     method : Method;
     status : SubscriptionStatus;
 };
-type PriceMutationConditionRequest = record {
+type PriceMutationCondition = record {
     mutation_rate : int64;
     pair_id : text;
     price_mutation_type : PriceMutationType;
@@ -77,20 +77,21 @@ type SubscribeRequest = record {
     is_random : bool;
     gas_limit : nat;
     frequency_condition : opt nat64;
-    price_mutation_cond_req : opt PriceMutationConditionRequest;
+    price_mutation_condition : opt PriceMutationCondition;
     msg : text;
     sig : text;
 };
 type SubscribeResponse = variant { Ok : nat; Err : text };
 type UpdateSubscriptionRequest = record {
-    chain_id : nat;
     id : nat;
+    chain_id : nat;
     pair_id : opt text;
-    gas_limit : opt nat;
-    method_abi : opt text;
     contract_addr : opt text;
-    frequency : opt nat;
+    method_abi : opt text;
     is_random : opt bool;
+    gas_limit : opt nat;
+    frequency_condition : opt nat64;
+    price_mutation_condition: Option<PriceMutationCondition>,
     msg : text;
     sig : text;
 };

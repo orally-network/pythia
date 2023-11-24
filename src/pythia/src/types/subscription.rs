@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 
-use itertools::Itertools;
-
+use candid::{CandidType, Nat};
 use futures::future::join_all;
-use ic_cdk::export::{
-    candid::{CandidType, Nat},
-    serde::{Deserialize, Serialize},
-};
 use ic_web3_rs::ethabi::Function;
 
 use anyhow::{anyhow, Context, Error, Result};
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 
 use super::{
     errors::PythiaError,
@@ -55,7 +52,7 @@ pub struct SubscriptionStatus {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
-pub struct PriceMutationConditionRequest {
+pub struct PriceMutationCondition {
     pub mutation_rate: i64,
     pub pair_id: String,
     pub price_mutation_type: PriceMutationType,
@@ -70,7 +67,7 @@ pub struct SubsribeRequest {
     pub is_random: bool,
     pub gas_limit: Nat,
     pub frequency_condition: Option<u64>,
-    pub price_mutation_cond_req: Option<PriceMutationConditionRequest>,
+    pub price_mutation_condition: Option<PriceMutationCondition>,
     pub msg: String,
     pub sig: String,
 }
@@ -85,7 +82,7 @@ pub struct UpdateSubscriptionRequest {
     pub is_random: Option<bool>,
     pub gas_limit: Option<Nat>,
     pub frequency_condition: Option<u64>,
-    pub price_mutation_cond_req: Option<PriceMutationConditionRequest>,
+    pub price_mutation_condition: Option<PriceMutationCondition>,
     pub msg: String,
     pub sig: String,
 }
@@ -98,7 +95,7 @@ impl Subscriptions {
     pub async fn add(req: SubsribeRequest, owner: &str) -> Result<Nat> {
         let mut exec_contidion = if let Some(frequency) = req.frequency_condition {
             Ok(ExecutionCondition::Frequency(frequency))
-        } else if let Some(price_mutation_cond_req) = req.price_mutation_cond_req {
+        } else if let Some(price_mutation_cond_req) = req.price_mutation_condition {
             Ok(ExecutionCondition::PriceMutation {
                 mutation_rate: price_mutation_cond_req.mutation_rate,
                 pair_id: price_mutation_cond_req.pair_id,
@@ -404,7 +401,7 @@ impl Subscriptions {
 
     pub async fn update(req: &UpdateSubscriptionRequest, address: &str) -> Result<()> {
         let state_timer_frequency = clone_with_state!(timer_frequency);
-        let exec_condition = match (req.frequency_condition, &req.price_mutation_cond_req) {
+        let exec_condition = match (req.frequency_condition, &req.price_mutation_condition) {
             (Some(frequency), Some(_)) | (Some(frequency), None) => {
                 validator::subscription_frequency(frequency, state_timer_frequency)
                     .context(PythiaError::InvalidSubscriptionFrequency)?;
@@ -618,7 +615,6 @@ impl Subscriptions {
     pub async fn get_publishable() -> (Vec<(Nat, Vec<Subscription>)>, bool) {
         let mut is_active = false;
         let mut publishable_subs = vec![];
-
         for (chain_id, subscriptions) in STATE.with(|s| s.borrow().subscriptions.0.clone()) {
             let mut publishable_subs_for_chain = vec![];
             for subscription in subscriptions {

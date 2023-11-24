@@ -2,11 +2,8 @@ use std::collections::HashMap;
 
 use anyhow::{Context, Result};
 
-use candid::Nat;
-use ic_cdk::export::{
-    candid::CandidType,
-    serde::{Deserialize, Serialize},
-};
+use candid::{CandidType, Nat};
+use serde::{Deserialize, Serialize};
 
 use crate::{log, STATE};
 
