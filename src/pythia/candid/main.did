@@ -91,7 +91,7 @@ type UpdateSubscriptionRequest = record {
     is_random : opt bool;
     gas_limit : opt nat;
     frequency_condition : opt nat64;
-    price_mutation_condition: Option<PriceMutationCondition>,
+    price_mutation_condition : opt PriceMutationCondition;
     msg : text;
     sig : text;
 };

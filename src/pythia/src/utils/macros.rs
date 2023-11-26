@@ -50,6 +50,9 @@ macro_rules! dig_mut {
 #[macro_export]
 macro_rules! retry_until_success {
     ($func:expr) => {{
+        const MAX_RETRIES: u32 = 10;
+        const DURATION_BETWEEN_ATTEMPTS: std::time::Duration = std::time::Duration::from_millis(5000);
+
         let mut attempts = 0u32;
         let mut result = $func.await;
 
@@ -60,8 +63,9 @@ macro_rules! retry_until_success {
             || format!("{:?}", result.as_ref().unwrap_err()).contains("Timeout expired")
             || format!("{:?}", result.as_ref().unwrap_err()).contains("SysTransient")
             || format!("{:?}", result.as_ref().unwrap_err()).contains("pending")) // or Exchange rate canister error: pending
-            && attempts < 50
+            && attempts < MAX_RETRIES
         {
+            crate::utils::sleep(DURATION_BETWEEN_ATTEMPTS).await;
             result = $func.await;
             ic_utils::logger::log_message(format!("[{func_name} : {func_other}] attempt: {attempts}"));
             attempts += 1;

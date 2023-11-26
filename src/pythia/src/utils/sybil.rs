@@ -1,9 +1,6 @@
 use anyhow::{anyhow, Result};
-
-use ic_cdk::export::{
-    candid::CandidType,
-    serde::{Deserialize, Serialize},
-};
+use candid::CandidType;
+use serde::{Deserialize, Serialize};
 
 use crate::{clone_with_state, log, types::logger::SYBIL, types::rate_data::RateDataLight, STATE};
 

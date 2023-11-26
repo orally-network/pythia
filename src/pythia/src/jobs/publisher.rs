@@ -35,6 +35,13 @@ async fn _execute() -> Result<()> {
     log!("[{PUBLISHER}] publisher job started");
     Timer::activate().context(PythiaError::UnableToActivateTimer)?;
 
+    let timer_id = set_timer(
+        Duration::from_secs(nat::to_u64(&clone_with_state!(timer_frequency))),
+        execute,
+    );
+
+    Timer::update(timer_id).context(PythiaError::UnableToUpdateTimer)?;
+
     subscriptions_grouper::group()?;
 
     let (publishable_subs, is_active) = Subscriptions::get_publishable().await;
@@ -80,13 +87,6 @@ async fn _execute() -> Result<()> {
     }
 
     withdraw::withdraw().await;
-
-    let timer_id = set_timer(
-        Duration::from_secs(nat::to_u64(&clone_with_state!(timer_frequency))),
-        execute,
-    );
-
-    Timer::update(timer_id).context(PythiaError::UnableToUpdateTimer)?;
 
     log!("[{PUBLISHER}] publisher job executed");
     Ok(())
