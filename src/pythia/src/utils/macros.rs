@@ -72,7 +72,6 @@ macro_rules! retry_until_success {
         }
 
 
-        // ic_utils::logger::log_message(format!("[{func_name} : {func_other}] used attempts: {attempts}"));
 
         result
     }};
