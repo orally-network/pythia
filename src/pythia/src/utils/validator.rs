@@ -4,7 +4,7 @@ use ic_cdk::api::is_controller;
 
 use crate::PythiaError;
 
-pub fn subscription_frequency(frequency: u64, timer_frequency: Nat) -> Result<()> {
+pub fn subscription_frequency(frequency: Nat, timer_frequency: Nat) -> Result<()> {
     #[allow(clippy::cmp_owned)]
     if frequency.clone() < Nat::from(60) {
         return Err(PythiaError::SubscriptionFrequencyIsTooLow.into());

@@ -1,14 +1,14 @@
 use anyhow::{Context, Result};
 use candid::Nat;
-use ic_cdk::update;
+use ic_cdk::{query, update};
 
 use crate::{
     jobs::{publisher, withdraw},
     log,
-    types::{balance::Balances, logger::CONTROLLERS, timer::Timer},
+    types::{balance::Balances, logger::CONTROLLERS, state::State, timer::Timer},
     update_state,
     utils::{address, canister, validator, web3},
-    PythiaError,
+    PythiaError, STATE,
 };
 
 /// Update the tx fee.
@@ -31,6 +31,21 @@ pub fn _update_tx_fee(tx_fee: Nat) -> Result<()> {
     update_state!(tx_fee, tx_fee.clone());
     log!("[{CONTROLLERS}] tx fee updated: {tx_fee}");
     Ok(())
+}
+
+/// Get the current state.
+///
+/// # Returns
+///
+/// Returns the current state
+#[query]
+pub fn get_cfg() -> State {
+    _get_cfg()
+}
+
+#[inline]
+pub fn _get_cfg() -> State {
+    STATE.with(|state| state.borrow().clone())
 }
 
 /// Update the subscriptions limit for a wallet.

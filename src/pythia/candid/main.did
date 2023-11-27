@@ -30,7 +30,7 @@ type PriceMutationType = variant {
     Both : null;
 };
 type ExecutionCondition = variant {
-    Frequency : nat64;
+    Frequency : nat;
     PriceMutation : record {
         mutation_rate : int64;
         pair_id : text;
@@ -76,7 +76,7 @@ type SubscribeRequest = record {
     method_abi : text;
     is_random : bool;
     gas_limit : nat;
-    frequency_condition : opt nat64;
+    frequency_condition : opt nat;
     price_mutation_condition : opt PriceMutationCondition;
     msg : text;
     sig : text;
@@ -90,7 +90,7 @@ type UpdateSubscriptionRequest = record {
     method_abi : opt text;
     is_random : opt bool;
     gas_limit : opt nat;
-    frequency_condition : opt nat64;
+    frequency_condition : opt nat;
     price_mutation_condition : opt PriceMutationCondition;
     msg : text;
     sig : text;

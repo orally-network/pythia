@@ -66,7 +66,7 @@ pub struct SubsribeRequest {
     pub method_abi: String,
     pub is_random: bool,
     pub gas_limit: Nat,
-    pub frequency_condition: Option<u64>,
+    pub frequency_condition: Option<Nat>,
     pub price_mutation_condition: Option<PriceMutationCondition>,
     pub msg: String,
     pub sig: String,
@@ -81,7 +81,7 @@ pub struct UpdateSubscriptionRequest {
     pub method_abi: Option<String>,
     pub is_random: Option<bool>,
     pub gas_limit: Option<Nat>,
-    pub frequency_condition: Option<u64>,
+    pub frequency_condition: Option<Nat>,
     pub price_mutation_condition: Option<PriceMutationCondition>,
     pub msg: String,
     pub sig: String,
@@ -401,9 +401,12 @@ impl Subscriptions {
 
     pub async fn update(req: &UpdateSubscriptionRequest, address: &str) -> Result<()> {
         let state_timer_frequency = clone_with_state!(timer_frequency);
-        let exec_condition = match (req.frequency_condition, &req.price_mutation_condition) {
+        let exec_condition = match (
+            req.frequency_condition.clone(),
+            &req.price_mutation_condition,
+        ) {
             (Some(frequency), Some(_)) | (Some(frequency), None) => {
-                validator::subscription_frequency(frequency, state_timer_frequency)
+                validator::subscription_frequency(frequency.clone(), state_timer_frequency)
                     .context(PythiaError::InvalidSubscriptionFrequency)?;
                 Some(ExecutionCondition::Frequency(frequency))
             }
