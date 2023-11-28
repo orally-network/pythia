@@ -24,7 +24,7 @@ dfx canister install --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz --network 
 
 ```sh
 CHAIN_ID=5 &&
-UPDATE_TIME_FREQUENCY=300 &&
+UPDATE_TIME_FREQUENCY=1800 &&
 RPC="https://ethereum-goerli.publicnode.com" &&
 MIN_BALANCE=1000000000 &&
 BLOCK_GAS_LIMIT=300000000 &&
