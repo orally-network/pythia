@@ -21,7 +21,6 @@ use crate::{
 };
 
 const MULTICALL_ABI: &[u8] = include_bytes!("../../assets/MulticallABI.json");
-const MULTICALL_CONTRACT_ADDRESS: &str = "0x88e33D0d7f9d130c85687FC73655457204E29467";
 const MULTICALL_CALL_FUNCTION: &str = "multicall";
 const MULTICALL_TRANSFER_FUNCTION: &str = "multitransfer";
 const BASE_GAS: u64 = 27_000;
@@ -148,13 +147,14 @@ pub async fn multicall<T: Transport>(
     log!("[{PUBLISHER}] chain: {}, prepering multicall", chain_id);
     let mut calls = calls;
     let mut result: Vec<MulticallResult> = vec![];
+
     let chain = Chains::get(chain_id)?;
-    let contract_addr = address::to_h160(MULTICALL_CONTRACT_ADDRESS)?;
+
+    let contract_addr = address::to_h160(&chain.multicall_contract.clone().unwrap())?;
     let contract = Contract::from_json(w3.eth(), contract_addr, MULTICALL_ABI)
         .context(PythiaError::InvalidContractABI)?;
+
     let from = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
-    // multiply the gas_price to 1.2 to avoid long transaction confirmation
-    let gas_price = (gas_price / 10) * 12;
 
     while !calls.is_empty() {
         let (current_calls_batch, _calls) = get_current_calls_batch(&calls, &chain);
@@ -248,6 +248,7 @@ async fn execute_multicall_batch<T: Transport>(
             .block_number
             .context("block number should be present")?,
     );
+    log!("[{PUBLISHER}] chain: {}, abi method sent", chain_id);
     let raw_result = retry_until_success!(w3.eth().call(
         call_request.clone(),
         Some(block_number),
@@ -285,7 +286,9 @@ pub async fn multitransfer<T: Transport>(
     chain_id: &Nat,
     transfers: Vec<Transfer>,
 ) -> Result<()> {
-    let contract_addr = address::to_h160(MULTICALL_CONTRACT_ADDRESS)?;
+    let chain = Chains::get(chain_id)?;
+
+    let contract_addr = address::to_h160(&chain.multicall_contract.clone().unwrap())?;
     let contract = Contract::from_json(w3.eth(), contract_addr, MULTICALL_ABI)
         .context(PythiaError::InvalidContractABI)?;
 

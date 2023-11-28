@@ -6,14 +6,16 @@ mod utils;
 
 use std::cell::RefCell;
 
-use ic_web3_rs::transforms::{processors, transform::TransformProcessor};
+use candid::{Nat, Principal};
+use ic_web3_rs::transforms::processors;
+use ic_web3_rs::transforms::transform::TransformProcessor;
 use types::{chains::Chain, errors::PythiaError, state::State, timer::Timer};
 
 use ic_cdk::{
     api::management_canister::http_request::{HttpResponse, TransformArgs},
-    export::{candid::Nat, Principal},
     init, query,
 };
+use utils::canister::set_custom_panic_hook;
 
 thread_local! {
     pub static STATE: RefCell<State> = RefCell::default();
@@ -21,6 +23,10 @@ thread_local! {
 
 #[query]
 fn transform(response: TransformArgs) -> HttpResponse {
+    log!(
+        "[TRANSFORM] Got transform request: {:#?}",
+        response.response
+    );
     response.response
 }
 
@@ -36,6 +42,8 @@ fn transform_tx(args: TransformArgs) -> HttpResponse {
 
 #[init]
 fn init(tx_fee: Nat, key_name: String, siwe_canister: Principal, sybil_canister: Principal) {
+    set_custom_panic_hook();
+
     STATE.with(|state| {
         let mut state = state.borrow_mut();
         state.tx_fee = tx_fee;

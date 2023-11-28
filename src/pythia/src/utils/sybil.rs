@@ -1,11 +1,8 @@
 use anyhow::{anyhow, Result};
+use candid::CandidType;
+use serde::{Deserialize, Serialize};
 
-use ic_cdk::export::{
-    candid::CandidType,
-    serde::{Deserialize, Serialize},
-};
-
-use crate::{clone_with_state, types::rate_data::RateDataLight, STATE};
+use crate::{clone_with_state, log, types::logger::SYBIL, types::rate_data::RateDataLight, STATE};
 
 #[derive(Clone, Debug, CandidType, Serialize, Deserialize)]
 enum PairDataResponse {
@@ -26,6 +23,7 @@ pub async fn is_pair_exists(pair_id: &str) -> Result<bool> {
 }
 
 pub async fn get_asset_data(pair_id: &str) -> Result<RateDataLight> {
+    log!("[{SYBIL}] Asset data requested for pair_id: {:#?}", pair_id);
     let sybil_canister = STATE.with(|state| {
         state
             .borrow()
@@ -34,13 +32,15 @@ pub async fn get_asset_data(pair_id: &str) -> Result<RateDataLight> {
     });
 
     let pair_id = pair_id.to_string();
-    let (pair_data,): (PairDataResponse,) =
+    log!("Preparing to call");
+    let (pair_data,): (Result<RateDataLight, String>,) =
         ic_cdk::call(sybil_canister, "get_asset_data", (pair_id,))
             .await
             .map_err(|(code, msg)| anyhow!("{:?}: {}", code, msg))?;
+    log!("Call returned");
 
     match pair_data {
-        PairDataResponse::Ok(data) => Ok(data),
-        PairDataResponse::Err(err) => Err(anyhow!(err)),
+        Result::Ok(data) => Ok(data),
+        Result::Err(err) => Err(anyhow!(err)),
     }
 }

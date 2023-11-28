@@ -2,47 +2,55 @@
 
 Pythia is a canister that provides the SubPub functionality for the Ethereum family smart contracts.
 
-## Upgrade local
-
+## Deploy local
 ```sh
-dfx build pythia && gzip -f -1 ./.dfx/local/canisters/pythia/pythia.wasm
-dfx canister install --mode upgrade --wasm ./.dfx/local/canisters/pythia/pythia.wasm.gz pythia
+make all SYBIL_CANISTER={SYBIL CANISTER ID}
 ```
 
-## Upgrade production
+## Upgrade local
+```sh
+make upgrade_local
+```
+
+## Upgrade production/staging
 
 ```sh
 dfx build pythia --network ic && gzip -f -1 ./.dfx/ic/canisters/pythia/pythia.wasm
-dfx canister install --network ic --mode upgrade --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz pythia
+dfx canister install --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz --argument "(30000000:nat, \"key_1\", principal \"vk6h6-zyaaa-aaaak-qceta-cai\", principal \"tysiw-qaaaa-aaaak-qcikq-cai\")" --network ic pythia
+dfx canister install --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz --network ic pythia -m upgrade
 ```
 
 ## Enviroment
 
 ```sh
-CHAIN_ID=11155111
-UPDATE_TIME_FREQUENCY=60
-RPC="https://sepolia.infura.io/v3/d20be327500c45819a1a3b850daec0e2"
-MIN_BALANCE=10000000000000000
-BLOCK_GAS_LIMIT=30000000
-PLATFORM_FEE=1
-CHAIN_SYMBOL="SepoliaETH"
-ADDRESS="e86c4a45c1da21f8838a1ea26fc852bd66489ce9"
-SIWE_MSG="service.org wants you to sign in with your Ethereum account:
-0xE86C4A45C1Da21f8838a1ea26Fc852BD66489ce9
+CHAIN_ID=5 &&
+UPDATE_TIME_FREQUENCY=300 &&
+RPC="https://ethereum-goerli.publicnode.com" &&
+MIN_BALANCE=1000000000 &&
+BLOCK_GAS_LIMIT=300000000 &&
+PLATFORM_FEE=1 &&
+CHAIN_SYMBOL="ETH" &&
+ADDRESS="0x6696eD42dFBe875E60779b8163fDCc39B088222A" &&
+SIWE_MSG="localhost:4361 wants you to sign in with your Ethereum account:
+0x6696eD42dFBe875E60779b8163fDCc39B088222A
 
+Sign in with Ethereum.
 
-URI: https://service.org/login
+URI: http://localhost:4361
 Version: 1
-Chain ID: 11155111
-Nonce: 00000000
-Issued At: 2023-05-04T18:39:24Z"
-SIWE_SIG="fa7b336d271b7ed539b6db3034d57be294ef889b42534fa95689afd0989ab6d27878c837a14ed1b4c3ab6b7052180ce87198934cb7712a81ea413fd8ebb29e8c1c"
-CONTRACT_ADDR="5615156085DEC243767B19d9C914d4413b42e2CF"
-METHOD_ABI="increment_counter()"
-GAS_LIMIT=50000
-MUTATION_RATE=1
-CONDITION_PRICE_ID="ETH/USD"
-MUTATION_TYPE="Both"
+Chain ID: 324
+Nonce: NUY87tYWuZwkxrTZM
+Issued At: 2023-11-03T11:40:39.690Z" &&
+SIWE_SIG="31f8f8ea2104062e242dc13b9729c75b866e1ab1635c69404a1e7438221ff23849ea6a82e2544d28b4a16075f27fd3db6569e8664191af501572ad342e616c0300" &&
+CONTRACT_ADDR="0x8540Bca176E8566e3F26B2c23A542934d26DAc29" && 
+METHOD_ABI="increment_counter()" && 
+GAS_LIMIT=1000000 && 
+MUTATION_RATE=1 && 
+CONDITION_PRICE_ID="ETH/USD" && 
+MUTATION_TYPE="Both" && 
+MULTICALL_CONTRACT="{Enter your evm-oracle multicall smartcontract}" && 
+TX_HASH="{Enter tx where you sent some tokens to the sybil address}"
+SUBSCRIPTION_ID={Enter subscription id}
 ```
 
 ## Usage
@@ -51,16 +59,27 @@ MUTATION_TYPE="Both"
 # update the timer frequency for debug
 dfx canister call pythia update_timer_frequency "(${UPDATE_TIME_FREQUENCY}:nat)"
 # add a new supported chain
-dfx canister call pythia add_chain "(record {chain_id=${CHAIN_ID}:nat; rpc=\"${RPC}\"; min_balance=${MIN_BALANCE}:nat; block_gas_limit=${BLOCK_GAS_LIMIT}:nat; fee=${PLATFORM_FEE}:nat; symbol=\"${CHAIN_SYMBOL}\"})"
+dfx canister call pythia add_chain "(record {chain_id=${CHAIN_ID}:nat; rpc=\"${RPC}\"; min_balance=${MIN_BALANCE}:nat; block_gas_limit=${BLOCK_GAS_LIMIT}:nat; fee=${PLATFORM_FEE}:nat; symbol=\"${CHAIN_SYMBOL}\"; multicall_contract=\"${MULTICALL_CONTRACT}\"})"
+# update chain rpc
+dfx canister call pythia update_chain_rpc "(${CHAIN_ID}:nat, \"${RPC}\")"
+# to update nulticall contract 
+dfx canister call pythia update_chain_multicall_contract "(${CHAIN_ID}:nat, \"${MULTICALL_CONTRACT}\")"
 # add to whitelist
 dfx canister call pythia add_to_whitelist "(\"${ADDRESS}\")"
 # get the PMA
 dfx canister call pythia get_pma
 # deposit a funds to the pma
-read -p "Tx hash: " TX_HASH
 dfx canister call pythia deposit "(${CHAIN_ID}:nat, \"${TX_HASH}\", \"${SIWE_MSG}\", \"${SIWE_SIG}\")"
 # create a subscription with a frequency condition
-dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_cond_req=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_condition=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
 # create a subscription with a price mutation condition
-dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=null; price_mutation_cond_req=opt record {mutation_rate=${MUTATION_RATE}; pair_id=\"${CONDITION_PRICE_ID}\"; price_mutation_type=variant {${MUTATION_TYPE}}}; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=null; price_mutation_condition=opt record {mutation_rate=${MUTATION_RATE}; pair_id=\"${CONDITION_PRICE_ID}\"; price_mutation_type=variant {${MUTATION_TYPE}}}; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+# to remove subscriptions
+dfx canister call pythia remove_subscription "(${SUBSCRIPTION_ID})"
+# to get all user subscriptions 
+dfx canister call pythia get_subscriptions "(opt \"${ADDRESS}\")"
+# to update subscription 
+dfx canister call pythia update_subscription  "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; id=${SUBSCRIPTION_ID}:nat; contract_addr=opt \"${CONTRACT_ADDR}\"; method_abi=opt \"${METHOD_ABI}\"; is_random=opt false; gas_limit=opt ${GAS_LIMIT}; frequency_condition=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_condition=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+# stop subscription
+dfx canister call pythia stop_subscription "(${CHAIN_ID}, ${SUBSCRIPTION_ID}, \"${SIWE_MSG}\", \"${SIWE_SIG}\")"
 ```

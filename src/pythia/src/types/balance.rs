@@ -1,20 +1,17 @@
 use std::collections::HashMap;
 
-use candid::Nat;
-use ic_cdk::export::{
-    candid::CandidType,
-    serde::{Deserialize, Serialize},
-};
+use candid::{CandidType, Nat};
 
 use anyhow::{anyhow, Context, Result};
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    dig, dig_mut,
+    dig, dig_mut, log,
     utils::{address, multicall::GAS_PER_TRANSFER},
     STATE,
 };
 
-use super::{chains::Chains, errors::PythiaError};
+use super::{chains::Chains, errors::PythiaError, logger::BALANCES};
 
 const ETH_TRANSFER_GAS_LIMIT: u64 = 21_000 + GAS_PER_TRANSFER;
 
@@ -58,6 +55,12 @@ impl Balances {
             if balances.contains_key(&address) {
                 return Err(PythiaError::BalanceAlreadyExists.into());
             }
+
+            log!(
+                "[{BALANCES}] Balance created: chain_id = {}, address = {}",
+                chain_id,
+                address
+            );
             balances.insert(address, UserBalance::default());
             Ok(())
         })
@@ -89,6 +92,12 @@ impl Balances {
             let balance = dig_mut!(state, balances, chain_id, address)
                 .context(PythiaError::BalanceDoesNotExist)?;
             balance.amount += amount.clone();
+            log!(
+                "[{BALANCES}] Balance amount added: chain_id = {}, address = {}, amount = {}",
+                chain_id,
+                address,
+                amount
+            );
             Ok(())
         })
     }
@@ -110,6 +119,7 @@ impl Balances {
                 return Err(PythiaError::ChainAlreadyExists.into());
             }
             state.balances.0.insert(chain_id.clone(), HashMap::new());
+            log!("[{BALANCES}] New chain added: {chain_id}");
             Ok(())
         })
     }
@@ -122,6 +132,8 @@ impl Balances {
                 .0
                 .remove(chain_id)
                 .context(PythiaError::ChainDoesNotExist)?;
+
+            log!("[{BALANCES}] Chain removed: {chain_id}");
             Ok(())
         })
     }
@@ -143,6 +155,13 @@ impl Balances {
             let balance = dig_mut!(state, balances, chain_id, address)
                 .context(PythiaError::BalanceDoesNotExist)?;
             balance.amount -= amount.clone();
+
+            log!(
+                "[{BALANCES}] Balance amount reduced: chain_id = {}, address = {}, amount = {}",
+                chain_id,
+                address,
+                amount
+            );
             Ok(())
         })
     }
@@ -153,6 +172,11 @@ impl Balances {
             let balance = dig_mut!(state, balances, chain_id, address)
                 .context(PythiaError::BalanceDoesNotExist)?;
             balance.amount = Nat::from(0);
+            log!(
+                "[{BALANCES}] Balance cleared: chain_id = {}, address = {}",
+                chain_id,
+                address
+            );
             Ok(())
         })
     }

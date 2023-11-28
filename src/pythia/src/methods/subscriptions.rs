@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 
-use ic_cdk::export::candid::Nat;
+use candid::Nat;
 use ic_cdk::{query, update};
 
 use crate::{
@@ -69,6 +69,11 @@ async fn _subscribe(req: SubsribeRequest) -> Result<Nat> {
 #[query]
 pub fn get_subscriptions(owner: Option<String>) -> Vec<Subscription> {
     Subscriptions::get_all(None, vec![], owner)
+}
+
+#[query]
+pub fn get_subscription(chain_id: Nat, id: Nat) -> Result<Subscription, String> {
+    Subscriptions::get(&chain_id, &id).map_err(|e| format!("{e:?}"))
 }
 
 /// Stop a subscription
@@ -193,7 +198,9 @@ async fn _update_subscription(req: UpdateSubscriptionRequest) -> Result<()> {
         return Err(PythiaError::UserIsNotWhitelisted.into());
     }
 
-    Subscriptions::update(&req, &address).context(PythiaError::UnableToUpdateSubscription)?;
+    Subscriptions::update(&req, &address)
+        .await
+        .context(PythiaError::UnableToUpdateSubscription)?;
 
     log!("[SUBSCRIPTIONS] updated, id: {}", req.id);
     Ok(())

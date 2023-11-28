@@ -50,20 +50,28 @@ macro_rules! dig_mut {
 #[macro_export]
 macro_rules! retry_until_success {
     ($func:expr) => {{
-        let mut attempts = 1;
+        const MAX_RETRIES: u32 = 10;
+        const DURATION_BETWEEN_ATTEMPTS: std::time::Duration = std::time::Duration::from_millis(5000);
+
+        let mut attempts = 0u32;
         let mut result = $func.await;
 
+        let (func_name, func_other) = stringify!($func).rsplit_once("(").unwrap();
+
         while result.is_err()
-            && format!("{:?}", result.as_ref().unwrap_err())
-                .contains("Canister http responses were different across replicas")
+            && (format!("{:?}", result.as_ref().unwrap_err()).contains("Canister http responses were different across replicas")
+            || format!("{:?}", result.as_ref().unwrap_err()).contains("Timeout expired")
+            || format!("{:?}", result.as_ref().unwrap_err()).contains("SysTransient")
+            || format!("{:?}", result.as_ref().unwrap_err()).contains("pending")) // or Exchange rate canister error: pending
+            && attempts < MAX_RETRIES
         {
+            crate::utils::sleep(DURATION_BETWEEN_ATTEMPTS).await;
             result = $func.await;
+            ic_utils::logger::log_message(format!("[{func_name} : {func_other}] attempt: {attempts}"));
             attempts += 1;
         }
 
-        let (func_name, _) = stringify!($func).rsplit_once("(").unwrap();
 
-        ic_utils::logger::log_message(format!("[{func_name}] used attempts: {attempts}"));
 
         result
     }};

@@ -37,7 +37,7 @@ fn group_subscriptions(subscriptions: &mut [Subscription]) {
         if let Some(exec_condition) = &subscription.method.exec_condition {
             if let ExecutionCondition::Frequency(frequency) = exec_condition {
                 frequency_map
-                    .entry(*frequency)
+                    .entry(frequency.clone())
                     .or_insert(Vec::new())
                     .push(subscription);
             }

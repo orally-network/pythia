@@ -11,6 +11,7 @@ type Chain = record {
     block_gas_limit : nat;
     fee : opt nat;
     symbol : opt text;
+    multicall_contract : opt text;
 };
 type CreateChainRequest = record {
     chain_id : nat;
@@ -19,6 +20,7 @@ type CreateChainRequest = record {
     block_gas_limit : nat;
     fee : nat;
     symbol : text;
+    multicall_contract : text;
 };
 type GetChainRPCResponse = variant { Ok : text; Err : text};
 // Subscribptions
@@ -28,7 +30,7 @@ type PriceMutationType = variant {
     Both : null;
 };
 type ExecutionCondition = variant {
-    Frequency : nat64;
+    Frequency : nat;
     PriceMutation : record {
         mutation_rate : int64;
         pair_id : text;
@@ -59,11 +61,10 @@ type Subscription = record {
     id : nat;
     owner : text;
     contract_addr : text;
-    frequency : nat;
     method : Method;
     status : SubscriptionStatus;
 };
-type PriceMutationConditionRequest = record {
+type PriceMutationCondition = record {
     mutation_rate : int64;
     pair_id : text;
     price_mutation_type : PriceMutationType;
@@ -75,21 +76,22 @@ type SubscribeRequest = record {
     method_abi : text;
     is_random : bool;
     gas_limit : nat;
-    frequency_condition : opt nat64;
-    price_mutation_cond_req : opt PriceMutationConditionRequest;
+    frequency_condition : opt nat;
+    price_mutation_condition : opt PriceMutationCondition;
     msg : text;
     sig : text;
 };
 type SubscribeResponse = variant { Ok : nat; Err : text };
 type UpdateSubscriptionRequest = record {
-    chain_id : nat;
     id : nat;
+    chain_id : nat;
     pair_id : opt text;
-    gas_limit : opt nat;
-    method_abi : opt text;
     contract_addr : opt text;
-    frequency : opt nat;
+    method_abi : opt text;
     is_random : opt bool;
+    gas_limit : opt nat;
+    frequency_condition : opt nat;
+    price_mutation_condition : opt PriceMutationCondition;
     msg : text;
     sig : text;
 };
@@ -101,6 +103,7 @@ type WhitelistEntry = record {
 type Whitelist = vec WhitelistEntry;
 type GetWhiteListResponse = variant { Ok : Whitelist; Err : text};
 type IsWhitelistedResponse = variant { Ok : bool; Err : text};
+type GetSubscriptionResponse = variant { Ok : Subscription; Err : text};
 
 // Serive
 service : {
@@ -116,6 +119,7 @@ service : {
     update_chain_min_balance : (chain_id : nat, min_balance : nat) -> (Error);
     update_chain_fee_and_symbol : (chain_id : nat, fee : nat, symbol : text) -> (Error);
     update_chain_block_gas_limit : (chain_id : nat, block_gas_limit : nat) -> (Error);
+    update_chain_multicall_contract : (chain_id : nat, multicall_contract : text) -> (Error);
     get_chain_rpc : (chain_id : nat) -> (GetChainRPCResponse);
     get_chains : () -> (vec Chain);
     // Controllers
@@ -132,6 +136,7 @@ service : {
     // Subscriptions
     subscribe : (req : SubscribeRequest) -> (SubscribeResponse);
     get_subscriptions : (owner : opt text) -> (vec Subscription);
+    get_subscription : (chain_id : nat, sub_id : nat) -> (GetSubscriptionResponse);
     stop_subscriptions : () -> (Error);
     remove_subscriptions : () -> (Error);
     remove_subscription : (id : nat) -> (Error);

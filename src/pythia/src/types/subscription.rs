@@ -1,23 +1,20 @@
 use std::collections::HashMap;
 
-use itertools::Itertools;
-
+use candid::{CandidType, Nat};
 use futures::future::join_all;
-use ic_cdk::export::{
-    candid::{CandidType, Nat},
-    serde::{Deserialize, Serialize},
-};
 use ic_web3_rs::ethabi::Function;
 
 use anyhow::{anyhow, Context, Error, Result};
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 
 use super::{
     errors::PythiaError,
-    logger::PUBLISHER,
+    logger::{PUBLISHER, SUBSCRIPTION},
     methods::{ExecutionCondition, Method, PriceMutationType},
 };
 use crate::{
-    log,
+    clone_with_state, log,
     utils::{abi, address, canister, nat, sybil, validator, web3},
     STATE,
 };
@@ -42,8 +39,6 @@ pub struct Subscription {
     pub id: Nat,
     pub owner: String,
     pub contract_addr: String,
-    #[deprecated]
-    pub old_frequency: Nat,
     pub method: Method,
     pub status: SubscriptionStatus,
 }
@@ -57,7 +52,7 @@ pub struct SubscriptionStatus {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
-pub struct PriceMutationConditionRequest {
+pub struct PriceMutationCondition {
     pub mutation_rate: i64,
     pub pair_id: String,
     pub price_mutation_type: PriceMutationType,
@@ -71,22 +66,23 @@ pub struct SubsribeRequest {
     pub method_abi: String,
     pub is_random: bool,
     pub gas_limit: Nat,
-    pub frequency_condition: Option<u64>,
-    pub price_mutation_cond_req: Option<PriceMutationConditionRequest>,
+    pub frequency_condition: Option<Nat>,
+    pub price_mutation_condition: Option<PriceMutationCondition>,
     pub msg: String,
     pub sig: String,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct UpdateSubscriptionRequest {
-    pub chain_id: Nat,
     pub id: Nat,
+    pub chain_id: Nat,
     pub pair_id: Option<String>,
-    pub gas_limit: Option<Nat>,
-    pub method_abi: Option<String>,
     pub contract_addr: Option<String>,
-    pub frequency: Option<Nat>,
+    pub method_abi: Option<String>,
     pub is_random: Option<bool>,
+    pub gas_limit: Option<Nat>,
+    pub frequency_condition: Option<Nat>,
+    pub price_mutation_condition: Option<PriceMutationCondition>,
     pub msg: String,
     pub sig: String,
 }
@@ -99,7 +95,7 @@ impl Subscriptions {
     pub async fn add(req: SubsribeRequest, owner: &str) -> Result<Nat> {
         let mut exec_contidion = if let Some(frequency) = req.frequency_condition {
             Ok(ExecutionCondition::Frequency(frequency))
-        } else if let Some(price_mutation_cond_req) = req.price_mutation_cond_req {
+        } else if let Some(price_mutation_cond_req) = req.price_mutation_condition {
             Ok(ExecutionCondition::PriceMutation {
                 mutation_rate: price_mutation_cond_req.mutation_rate,
                 pair_id: price_mutation_cond_req.pair_id,
@@ -128,7 +124,6 @@ impl Subscriptions {
             id: id.clone(),
             owner: owner.into(),
             contract_addr: req.contract_addr.clone(),
-            old_frequency: Nat::from(0),
             method: Method {
                 name,
                 abi,
@@ -154,6 +149,13 @@ impl Subscriptions {
 
             Ok::<(), Error>(())
         })?;
+
+        log!(
+            "[{SUBSCRIPTION}] New subscription added: id = {}, chain_id = {}, contract_addr = {}",
+            id,
+            req.chain_id,
+            req.contract_addr
+        );
 
         Ok(id)
     }
@@ -228,7 +230,13 @@ impl Subscriptions {
                 .iter()
                 .position(|s| s.id == id && s.owner == owner)
                 .context(PythiaError::SubscriptionDoesNotExist)?;
-            subscriptions.remove(index);
+            let removed_subscription = subscriptions.remove(index);
+            log!(
+                "[{SUBSCRIPTION}] Subscription removed: id = {}, chain_id = {}, contract_addr = {}",
+                id,
+                chain_id,
+                removed_subscription.contract_addr
+            );
             Ok(())
         })
     }
@@ -262,6 +270,8 @@ impl Subscriptions {
                     })
                 });
 
+            log!("[{SUBSCRIPTION}] Subscriptions removed");
+
             Ok(())
         })
     }
@@ -269,17 +279,26 @@ impl Subscriptions {
     pub fn stop(chain_id: &Nat, owner: &str, id: &Nat) -> Result<()> {
         let id = id.clone();
         STATE.with(|state| {
-            state
-                .borrow_mut()
+            let mut state = state.borrow_mut();
+            let subscription = state
                 .subscriptions
                 .0
                 .get_mut(chain_id)
                 .context(PythiaError::ChainDoesNotExist)?
                 .iter_mut()
                 .find(|s| s.id == id && s.owner == owner)
-                .context(PythiaError::SubscriptionDoesNotExist)?
-                .status
-                .is_active = false;
+                .context(PythiaError::SubscriptionDoesNotExist)?;
+
+            let subscription_status = &mut subscription.status;
+
+            subscription_status.is_active = false;
+
+            log!(
+                "[{SUBSCRIPTION}] Subscription stopped: id = {}, chain_id = {}, contract_addr = {}",
+                id,
+                chain_id,
+                subscription.contract_addr
+            );
 
             Ok(())
         })
@@ -312,6 +331,8 @@ impl Subscriptions {
                     });
                 });
 
+            log!("[{SUBSCRIPTION}] Subscription are stopped");
+
             Ok(())
         })
     }
@@ -320,18 +341,26 @@ impl Subscriptions {
         let id = id.clone();
         STATE.with(|state| {
             let mut state = state.borrow_mut();
-            let subscription_status = &mut state
+            let subscription = state
                 .subscriptions
                 .0
                 .get_mut(chain_id)
                 .context(PythiaError::ChainDoesNotExist)?
                 .iter_mut()
                 .find(|s| s.id == id && s.owner == owner)
-                .context(PythiaError::SubscriptionDoesNotExist)?
-                .status;
+                .context(PythiaError::SubscriptionDoesNotExist)?;
+
+            let subscription_status = &mut subscription.status;
 
             subscription_status.is_active = true;
             subscription_status.failures_counter = None;
+
+            log!(
+                "[{SUBSCRIPTION}] Subscription started: id = {}, chain_id = {}, contract_addr = {}",
+                id,
+                chain_id,
+                subscription.contract_addr
+            );
 
             Ok(())
         })
@@ -364,11 +393,38 @@ impl Subscriptions {
                     });
                 });
 
+            log!("[{SUBSCRIPTION}] Subscription are started");
+
             Ok(())
         })
     }
 
-    pub fn update(req: &UpdateSubscriptionRequest, address: &str) -> Result<()> {
+    pub async fn update(req: &UpdateSubscriptionRequest, address: &str) -> Result<()> {
+        let state_timer_frequency = clone_with_state!(timer_frequency);
+        let exec_condition = match (
+            req.frequency_condition.clone(),
+            &req.price_mutation_condition,
+        ) {
+            (Some(frequency), Some(_)) | (Some(frequency), None) => {
+                validator::subscription_frequency(frequency.clone(), state_timer_frequency)
+                    .context(PythiaError::InvalidSubscriptionFrequency)?;
+                Some(ExecutionCondition::Frequency(frequency))
+            }
+            (None, Some(price_mutation_condition_req)) => {
+                let mut exec_condition = ExecutionCondition::PriceMutation {
+                    mutation_rate: price_mutation_condition_req.mutation_rate,
+                    pair_id: price_mutation_condition_req.pair_id.clone(),
+                    creation_price: 0,
+                    price_mutation_type: price_mutation_condition_req.price_mutation_type.clone(),
+                };
+
+                exec_condition.validate().await?;
+
+                Some(exec_condition)
+            }
+            _ => None,
+        };
+
         STATE.with(|state| {
             let mut state = state.borrow_mut();
             let subscription = state
@@ -380,6 +436,8 @@ impl Subscriptions {
                 .find(|sub| sub.id == req.id && sub.owner == address)
                 .context(PythiaError::SubscriptionDoesNotExist)?;
 
+            subscription.method.exec_condition = exec_condition;
+
             if let Some(gas_limit) = req.gas_limit.clone() {
                 subscription.method.gas_limit = gas_limit;
             }
@@ -389,18 +447,19 @@ impl Subscriptions {
                     .context(PythiaError::InvalidAddressFormat)?;
             }
 
-            if let Some(frequency) = req.frequency.clone() {
-                validator::subscription_frequency(&frequency)
-                    .context(PythiaError::InvalidSubscriptionFrequency)?;
-                subscription.old_frequency = frequency;
-            }
-
             if let (Some(method_abi), Some(is_random)) = (req.method_abi.clone(), req.is_random) {
                 let (abi, method_type) =
                     abi::resolve_abi(method_abi, req.pair_id.clone(), is_random)?;
                 subscription.method.abi = abi;
                 subscription.method.method_type = method_type;
             }
+
+            log!(
+                "[{SUBSCRIPTION}] Subscription updated: id = {}, chain_id = {}, contract_addr = {}",
+                req.id,
+                req.chain_id,
+                subscription.contract_addr
+            );
 
             Ok(())
         })
@@ -454,6 +513,8 @@ impl Subscriptions {
                 })
                 .collect::<Vec<Nat>>()
         });
+
+        log!("[{PUBLISHER}] checking chains: {chains_to_check:?}");
 
         let futures = chains_to_check
             .iter()
@@ -510,6 +571,12 @@ impl Subscriptions {
                     if balance.amount < need_funds {
                         subs.into_iter()
                             .for_each(|sub| sub.status.is_active = false);
+
+                        log!(
+                            "[{SUBSCRIPTION}] Subscription stopped due to insufficient balance: owner = {}, chain_id = {}",
+                            owner,
+                            chain_id
+                        );
                     }
                 }
                 i += 1;
@@ -551,7 +618,6 @@ impl Subscriptions {
     pub async fn get_publishable() -> (Vec<(Nat, Vec<Subscription>)>, bool) {
         let mut is_active = false;
         let mut publishable_subs = vec![];
-
         for (chain_id, subscriptions) in STATE.with(|s| s.borrow().subscriptions.0.clone()) {
             let mut publishable_subs_for_chain = vec![];
             for subscription in subscriptions {
@@ -565,7 +631,9 @@ impl Subscriptions {
                     continue;
                 };
 
-                let Ok(is_ready_for_execution) = exec_condition.check(&chain_id, &subscription.id).await else {
+                let Ok(is_ready_for_execution) =
+                    exec_condition.check(&chain_id, &subscription.id).await
+                else {
                     continue;
                 };
 
@@ -611,6 +679,8 @@ impl Subscriptions {
                 return Err(PythiaError::ChainAlreadyExists.into());
             }
             state.subscriptions.0.insert(chain_id.clone(), vec![]);
+
+            log!("[{PUBLISHER}] New chain added: {chain_id}");
             Ok(())
         })
     }
@@ -623,6 +693,8 @@ impl Subscriptions {
                 .0
                 .remove(chain_id)
                 .context(PythiaError::ChainDoesNotExist)?;
+
+            log!("[{PUBLISHER}] Chain removed: {chain_id}");
             Ok(())
         })
     }

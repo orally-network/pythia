@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
+use candid::{CandidType, Nat};
+use serde::{Deserialize, Serialize};
 use url::Url;
 
-use ic_cdk::export::{
-    candid::{CandidType, Nat},
-    serde::{Deserialize, Serialize},
-};
-
-use super::errors::PythiaError;
-use crate::STATE;
+use super::{errors::PythiaError, logger::CHAINS};
+use crate::{log, STATE};
 
 #[derive(Clone, Debug, Deserialize, Serialize, CandidType, Default)]
 pub struct Chain {
@@ -19,6 +16,7 @@ pub struct Chain {
     pub block_gas_limit: Nat,
     pub fee: Option<Nat>,
     pub symbol: Option<String>,
+    pub multicall_contract: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, CandidType)]
@@ -29,6 +27,7 @@ pub struct CreateChainRequest {
     pub block_gas_limit: Nat,
     pub fee: Nat,
     pub symbol: String,
+    pub multicall_contract: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, CandidType)]
@@ -38,6 +37,7 @@ pub struct ChainUpdator {
     pub block_gas_limit: Option<Nat>,
     pub fee: Option<Nat>,
     pub symbol: Option<String>,
+    pub multicall_contract: Option<String>,
 }
 
 /// Chain id => Chain
@@ -58,9 +58,12 @@ impl Chains {
                     block_gas_limit: req.block_gas_limit.clone(),
                     fee: Some(req.fee.clone()),
                     symbol: Some(req.symbol.clone()),
+                    multicall_contract: Some(req.multicall_contract.clone()),
                 },
             );
         });
+
+        log!("[{CHAINS}] Chain added: chain_id = {}", req.chain_id);
         Ok(())
     }
 
@@ -73,6 +76,7 @@ impl Chains {
                 .remove(id)
                 .ok_or(PythiaError::ChainDoesNotExist)?;
 
+            log!("[{CHAINS}] Chain removed: chain_id = {}", id);
             Ok(())
         })
     }
@@ -105,6 +109,10 @@ impl Chains {
 
             if let Some(symbol) = updator.symbol {
                 chain.symbol = Some(symbol);
+            }
+
+            if let Some(multicall_contract) = updator.multicall_contract {
+                chain.multicall_contract = Some(multicall_contract);
             }
 
             Ok(())

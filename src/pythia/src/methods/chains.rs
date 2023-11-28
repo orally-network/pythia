@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context, Result};
-
-use ic_cdk::{export::candid::Nat, query, update};
+use candid::Nat;
+use ic_cdk::{query, update};
 
 use crate::{
     log,
@@ -106,6 +106,31 @@ fn _update_chain_rpc(chain_id: Nat, rpc: String) -> Result<()> {
     .context(PythiaError::UnableToUpdateChain)?;
 
     log!("[{CHAINS}] RPC updated: {rpc}, id: {chain_id}");
+    Ok(())
+}
+
+#[update]
+pub fn update_chain_multicall_contract(
+    chain_id: Nat,
+    multicall_contract: String,
+) -> Result<(), String> {
+    _update_chain_multicall_contract(chain_id, multicall_contract)
+        .map_err(|e| format!("failed to update a chain multicallcontract: {e:?}"))
+}
+
+#[inline]
+fn _update_chain_multicall_contract(chain_id: Nat, multicall_contract: String) -> Result<()> {
+    validator::caller()?;
+    Chains::update(
+        &chain_id,
+        ChainUpdator {
+            multicall_contract: Some(multicall_contract.clone()),
+            ..Default::default()
+        },
+    )
+    .context(PythiaError::UnableToUpdateChain)?;
+
+    log!("[{CHAINS}] multicall contract updated: {multicall_contract}, id: {chain_id}");
     Ok(())
 }
 
