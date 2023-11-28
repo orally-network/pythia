@@ -14,7 +14,7 @@ use ic_web3_rs::{
 
 use super::{address, canister, nat, time, web3};
 use crate::{
-    clone_with_state, retry_until_success,
+    clone_with_state, retry_until_success, log,
     types::{chains::Chains, errors::PythiaError},
 };
 
