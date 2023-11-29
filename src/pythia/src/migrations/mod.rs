@@ -42,16 +42,21 @@ impl From<OldSubscription> for Subscription {
 
         if old_subscription.frequency.is_none() && old_subscription.method.exec_condition.is_none()
         {
-            panic!("old subscription should have frequency or exec_condition")
+            log!("old subscription should have frequency or exec_condition");
+
+            old_subscription.method.exec_condition =
+                Some(ExecutionCondition::Frequency(Nat::from(3600)));
         }
 
-        Subscription {
+        let new = Subscription {
             id: old_subscription.id,
             owner: old_subscription.owner,
             contract_addr: old_subscription.contract_addr,
             method: old_subscription.method,
             status: old_subscription.status,
-        }
+        };
+
+        new
     }
 }
 

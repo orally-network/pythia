@@ -156,7 +156,6 @@ pub fn cast_to_param_type(value: u64, kind: &str) -> Option<Token> {
 
 pub async fn get_call_data(method: &Method) -> Result<Vec<u8>> {
     let chain_id = method.chain_id.clone();
-    log!("[ABI] get_call_data requested input: method: {method:?}, chain_id: {chain_id:?}");
     let input = get_input(&method.method_type)
         .await
         .context(PythiaError::UnableToGetInput)?;
@@ -170,8 +169,6 @@ pub async fn get_call_data(method: &Method) -> Result<Vec<u8>> {
     let result = result
         .encode_input(&input)
         .context(PythiaError::UnableToEncodeCall);
-
-    log!("[ABI] get_call_data: encoded_input: {result:?}, chain_id: {chain_id:?}");
 
     result
 }
