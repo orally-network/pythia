@@ -133,22 +133,22 @@ impl ExecutionCondition {
     }
 
     fn validate_frequency(&self) -> Result<(), ExecutionConditionError> {
-        let ExecutionCondition::Frequency(frequency) = self else {
+        let ExecutionCondition::Frequency(frequency) = self.clone() else {
             Err(anyhow!("execution condition is not frequency"))?
         };
 
-        if nat::to_u64(frequency) < 60 {
+        if nat::to_u64(&frequency) < 60 {
             return Err(ExecutionConditionError::FrequencyIsTooLow);
         }
 
-        if nat::to_u64(frequency) < clone_with_state!(timer_frequency) {
+        if frequency < clone_with_state!(timer_frequency) {
             return Err(ExecutionConditionError::FrequencyLowerThanTimerFrequency);
         }
 
-        if (nat::to_u64(frequency) % clone_with_state!(timer_frequency)) != 0 {
+        if (frequency.clone() % clone_with_state!(timer_frequency)) != 0 {
             return Err(
                 ExecutionConditionError::FrequencyIsNotMultipliableByTheTimerFrequency {
-                    frequency: frequency.clone(),
+                    frequency,
                     timer_frequency: clone_with_state!(timer_frequency),
                 },
             );
