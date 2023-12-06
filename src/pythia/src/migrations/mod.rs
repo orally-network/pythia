@@ -92,6 +92,7 @@ pub struct OldState {
     pub key_name: String,
     pub siwe_canister: Option<Principal>,
     pub sybil_canister: Option<Principal>,
+    pub ic_eth_rpc_canister: Option<Principal>,
     pub subs_limit_wallet: Nat,
     pub subs_limit_total: Nat,
     pub pma: Option<String>,
@@ -107,6 +108,7 @@ pub struct OldState {
 }
 
 impl From<OldState> for State {
+    #[allow(deprecated)]
     fn from(old_state: OldState) -> Self {
         State {
             initialized: old_state.initialized,
@@ -115,6 +117,9 @@ impl From<OldState> for State {
             key_name: old_state.key_name,
             siwe_canister: old_state.siwe_canister,
             sybil_canister: old_state.sybil_canister,
+            ic_eth_rpc_canister: old_state
+                .ic_eth_rpc_canister
+                .unwrap_or_else(|| Principal::from_text("6yxaq-riaaa-aaaap-abkpa-cai").unwrap()),
             subs_limit_wallet: old_state.subs_limit_wallet,
             subs_limit_total: old_state.subs_limit_total,
             pma: old_state.pma,

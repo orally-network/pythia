@@ -4,16 +4,23 @@ local_deploy_siwe:
 	dfx deploy siwe_signer
 	dfx deploy siwe_signer_mock
 
-local_deploy_pythia:  local_deploy_siwe
+local_deploy_ic_eth_rpc:
+	dfx deploy ic_eth_rpc
+
+local_deploy_pythia:  local_deploy_siwe local_deploy_ic_eth_rpc
 ifndef SYBIL_CANISTER
 	$(error SYBIL_CANISTER ENV is undefined)
 endif
 
+	$(eval IC_ETH_RPC_CANISTER := $(shell dfx canister id ic_eth_rpc))
 	$(eval SIWE_CANISTER := $(shell dfx canister id siwe_signer))
+
+	echo ${IC_ETH_RPC_CANISTER}
+
 
 	dfx canister create pythia && dfx build pythia && gzip -f -1 ./.dfx/local/canisters/pythia/pythia.wasm
 	dfx canister install --wasm ./.dfx/local/canisters/pythia/pythia.wasm.gz --argument \
-		"(3000000:nat, \"dfx_test_key\", principal \"${SIWE_CANISTER}\", principal \"${SYBIL_CANISTER}\")" pythia
+		"(3000000:nat, \"dfx_test_key\", principal \"${SIWE_CANISTER}\", principal \"${SYBIL_CANISTER}\", principal \"${IC_ETH_RPC_CANISTER}\")" pythia
 
 
 local_upgrade: local_upgrade_pythia local_upgrade_siwe

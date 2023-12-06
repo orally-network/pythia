@@ -14,6 +14,16 @@
       "candid": "src/siwe_signer_mock/siwe_signer_mock.did",
       "package": "siwe_signer_mock",
       "type": "rust"
+    },
+    "ic_eth_rpc": {
+      "type": "custom",
+      "candid": "https://github.com/internet-computer-protocol/ic-eth-rpc/releases/download/release-2023-09-29/eth_rpc.did",
+      "wasm": "https://github.com/internet-computer-protocol/ic-eth-rpc/releases/download/release-2023-09-29/eth_rpc_dev.wasm.gz",
+      "remote": {
+        "id": {
+          "ic": "6yxaq-riaaa-aaaap-abkpa-cai"
+        }
+      }
     }
   },
   "defaults": {
