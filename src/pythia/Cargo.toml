@@ -12,7 +12,7 @@ crate-type = ["cdylib"]
 hex = "0.4.3"
 url = "2.4.0"
 candid = "0.9.6"
-ic-cdk = "=0.11.4"
+ic-cdk = "0.11.0"
 serde = "1.0.164"
 anyhow = "1.0.71"
 futures = "0.3.28"
@@ -26,3 +26,5 @@ ic-utils = { package = "canistergeek_ic_rust", version = "0.4.2" }
 derive_builder = "0.12.0"
 itertools = "0.11.0"
 tokio = { version = "1.34.0", features = ["sync"] }
+jsonrpc-core = "18.0.0"
+eth_rpc = { git = "https://github.com/internet-computer-protocol/ic-eth-rpc.git", tag = "release-2023-09-29", version = "0.1.0" }

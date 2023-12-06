@@ -2,19 +2,29 @@ use std::str::FromStr;
 
 use anyhow::{Context, Result};
 
-use candid::Nat;
+use candid::{CandidType, Nat, Principal};
 
-use ic_cdk::api::management_canister::http_request::{TransformContext, TransformFunc};
-use ic_web3_rs::{
-    ic::KeyInfo,
-    transports::{ic_http_client::CallOptionsBuilder, ICHttp},
-    types::{Transaction, TransactionId, TransactionParameters, TransactionReceipt, H256},
-    Transport, Web3,
+use eth_rpc::Source;
+use futures::future::BoxFuture;
+use ic_cdk::api::{
+    call::call_with_payment128,
+    management_canister::http_request::{TransformContext, TransformFunc},
 };
+use ic_web3_rs::{
+    error::TransportError,
+    helpers,
+    ic::KeyInfo,
+    transports::ic_http_client::{CallOptions, CallOptionsBuilder},
+    types::{Transaction, TransactionId, TransactionParameters, TransactionReceipt, H256},
+    RequestId, Transport, Web3,
+};
+use jsonrpc_core::{Call, Output, Request};
+use serde::Deserialize;
+use serde_json::Value;
 
 use super::{address, canister, nat, time, web3};
 use crate::{
-    clone_with_state, retry_until_success,
+    clone_with_state, log, retry_until_success,
     types::{chains::Chains, errors::PythiaError},
 };
 
@@ -22,9 +32,116 @@ const ECDSA_SIGN_CYCLES: u64 = 23_000_000_000;
 pub const TRANSFER_GAS_LIMIT: u64 = 21_000;
 const TX_SUCCESS_STATUS: u64 = 1;
 const TX_WAIT_DELAY: u64 = 3;
+const MAX_CYCLES: u128 = 6_000_000_000;
+const MAX_RESPONSE_BYTES: u64 = 100000;
 
-pub fn instance(chain_id: &Nat) -> Result<Web3<ICHttp>> {
-    Ok(Web3::new(ICHttp::new(&Chains::get(chain_id)?.rpc, None)?))
+/// ICEthRpc deals with the JSON-RPC canister nametd "ic-eth-rpc" which is deployed on the IC.
+#[derive(Clone, Debug)]
+pub struct ICEthRpc {
+    rpc_url: String,
+    ic_ethr_rpc: Principal,
+    max_response_bytes: u64,
+}
+
+impl ICEthRpc {
+    /// Create new ICEthRpc instance
+    pub fn new(url: &str, max_response_bytes: u64) -> Self {
+        Self {
+            rpc_url: url.to_string(),
+            ic_ethr_rpc: clone_with_state!(ic_eth_rpc_canister),
+            max_response_bytes,
+        }
+    }
+
+    // we return constant id because ic_eth_rpc doesn't use it
+    pub fn next_id(&self) -> RequestId {
+        1
+    }
+}
+
+#[derive(CandidType, Debug, Deserialize)]
+pub enum EthRpcError {
+    NoPermission,
+    TooFewCycles { expected: u128, received: u128 },
+    ServiceUrlParseError,
+    ServiceHostNotAllowed(String),
+    ProviderNotFound,
+    HttpRequestError { code: u32, message: String },
+}
+
+async fn execute_canister_call(
+    ic_eth_rpc: Principal,
+    source: Source,
+    json_rpc_payload: String,
+    max_response_bytes: u64,
+) -> Result<Value, ic_web3_rs::Error> {
+    let (result,): (Result<String, EthRpcError>,) = call_with_payment128(
+        ic_eth_rpc,
+        "request",
+        (source, json_rpc_payload, max_response_bytes),
+        MAX_CYCLES,
+    )
+    .await
+    .map_err(|(code, msg)| {
+        ic_web3_rs::Error::Transport(TransportError::Message(format!("{:?}: {}", code, msg)))
+    })?;
+
+    let result = result.map_err(|err| {
+        ic_web3_rs::Error::Transport(TransportError::Message(format!(
+            "Error in ic_eth_rpc: {:?}",
+            err
+        )))
+    })?;
+
+    let output: Output = serde_json::from_str(&result).unwrap();
+
+    match output {
+        Output::Success(success) => {
+            log!("ICEthRpc Response: {:#?}", result);
+            Ok(success.result)
+        }
+        Output::Failure(failure) => {
+            log!("ICEthRpc error: {:#?}", failure);
+            Err(ic_web3_rs::Error::Transport(TransportError::Message(
+                failure.error.message,
+            )))
+        }
+    }
+}
+
+impl Transport for ICEthRpc {
+    type Out = BoxFuture<'static, Result<Value, ic_web3_rs::Error>>;
+
+    fn prepare(&self, method: &str, params: Vec<Value>) -> (RequestId, Call) {
+        let id = self.next_id();
+        let request = helpers::build_request(id, method, params);
+        (id, request)
+    }
+
+    fn send(&self, _: RequestId, call: Call, _: CallOptions) -> Self::Out {
+        let source: Source = Source::Url(self.rpc_url.to_string());
+        let json_rpc_payload = serde_json::to_string(&Request::Single(call.clone())).unwrap();
+
+        log!("ICEthRpc Request: {:#?}", json_rpc_payload);
+
+        let ic_eth_rpc = self.ic_ethr_rpc;
+        let max_response_bytes = self.max_response_bytes;
+
+        Box::pin(async move {
+            execute_canister_call(ic_eth_rpc, source, json_rpc_payload, max_response_bytes).await
+        })
+    }
+
+    fn set_max_response_bytes(&mut self, v: u64) {
+        self.max_response_bytes = v;
+    }
+}
+
+pub fn instance(chain_id: &Nat) -> Result<Web3<ICEthRpc>> {
+    Ok(Web3::new(ICEthRpc::new(
+        &Chains::get(chain_id)?.rpc,
+        MAX_RESPONSE_BYTES,
+    )))
 }
 
 pub async fn get_tx(chain_id: &Nat, tx_hash: &str) -> Result<Transaction> {
