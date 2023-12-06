@@ -48,10 +48,10 @@ pub async fn fee(chain_id: &Nat) -> Result<Nat> {
             .await
             .context(PythiaError::UnableToGetAssetData)?;
         let decimals = Nat::from_str(DECIMALS)?;
-        let fee_in_usdt = clone_with_state!(tx_fee); // TODO why only in one place occured ?
+        let fee_in_usdt = clone_with_state!(tx_fee);
 
         log!("Returning fee from Sybil");
-        return Ok((fee_in_usdt * decimals) / rate.rate); // TODO Why ?
+        return Ok((fee_in_usdt * decimals) / rate.rate);
     }
 
     log!("Returning fee from State");
