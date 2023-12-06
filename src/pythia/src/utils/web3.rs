@@ -32,7 +32,7 @@ const ECDSA_SIGN_CYCLES: u64 = 23_000_000_000;
 pub const TRANSFER_GAS_LIMIT: u64 = 21_000;
 const TX_SUCCESS_STATUS: u64 = 1;
 const TX_WAIT_DELAY: u64 = 3;
-const MAX_CYCLES: u128 = 6_000_000_000;
+const MAX_CYCLES: u128 = 60_000_000_000;
 const MAX_RESPONSE_BYTES: u64 = 100000;
 
 /// ICEthRpc deals with the JSON-RPC canister nametd "ic-eth-rpc" which is deployed on the IC.
