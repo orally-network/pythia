@@ -14,7 +14,7 @@ use ic_web3_rs::{
 
 use super::{address, canister, nat, time, web3};
 use crate::{
-    clone_with_state, retry_until_success,
+    clone_with_state, metrics, retry_until_success,
     types::{chains::Chains, errors::PythiaError},
 };
 
@@ -31,6 +31,7 @@ pub async fn get_tx(chain_id: &Nat, tx_hash: &str) -> Result<Transaction> {
     let tx_hash = H256::from_str(tx_hash)?;
     let w3 = instance(chain_id)?;
 
+    metrics!(inc RPC_OUTCALLS, "get_tx");
     let tx_receipt = retry_until_success!(w3
         .eth()
         .transaction_receipt(tx_hash, canister::transform_ctx_tx_with_logs()))?
@@ -45,19 +46,27 @@ pub async fn get_tx(chain_id: &Nat, tx_hash: &str) -> Result<Transaction> {
         None => return Err(PythiaError::TxNotExecuted.into()),
     }
 
-    retry_until_success!(w3
+    let result = retry_until_success!(w3
         .eth()
         .transaction(TransactionId::from(tx_hash), canister::transform_ctx_tx()))?
-    .context(PythiaError::TxDoesNotExist)
+    .context(PythiaError::TxDoesNotExist);
+
+    if result.is_ok() {
+        metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "get_tx");
+    }
+
+    result
 }
 
 pub async fn gas_price(chain_id: &Nat) -> Result<Nat> {
     let w3 = instance(chain_id)?;
 
+    metrics!(inc RPC_OUTCALLS, "gas_price");
     let gas_price = nat::from_u256(&retry_until_success!(w3
         .eth()
         .gas_price(canister::transform_ctx()))?);
 
+    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "gas_price");
     Ok(gas_price)
 }
 
@@ -95,17 +104,22 @@ pub async fn transfer(chain_id: &Nat, to: &str, value: &Nat) -> Result<()> {
         ..Default::default()
     };
 
+    metrics!(inc RPC_OUTCALLS, "sign_transaction");
     let signed_tx = w3
         .accounts()
         .sign_transaction(tx, from, key_info(), nat::to_u64(chain_id))
         .await?;
+    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "sign_transaction");
 
+    metrics!(inc RPC_OUTCALLS, "send_raw_transaction");
     let tx_hash = retry_until_success!(w3
         .eth()
         .send_raw_transaction(signed_tx.raw_transaction.clone(), canister::transform_ctx()))?;
     web3::wait_for_success_confirmation(&w3, &tx_hash, 60)
         .await
         .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
+    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "send_raw_transaction");
+
     Ok(())
 }
 
@@ -123,8 +137,12 @@ pub async fn transfer_all(chain_id: &Nat, to: &str) -> Result<()> {
     let mut gas_price = retry_until_success!(w3.eth().gas_price(canister::transform_ctx()))?;
     // multiply the gas_price to 1.2 to avoid long transaction confirmation
     gas_price = (gas_price / 10) * 12;
+
+    metrics!(inc RPC_OUTCALLS, "balance");
     let mut value =
         retry_until_success!(w3.eth().balance(from_h160, None, canister::transform_ctx()))?;
+    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "balance");
+
     value -= gas_price * TRANSFER_GAS_LIMIT;
 
     let tx = TransactionParameters {
@@ -136,14 +154,19 @@ pub async fn transfer_all(chain_id: &Nat, to: &str) -> Result<()> {
         ..Default::default()
     };
 
+    metrics!(inc RPC_OUTCALLS, "sign_transaction");
     let signed_tx = w3
         .accounts()
         .sign_transaction(tx, from, key_info(), nat::to_u64(chain_id))
         .await?;
+    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "sign_transaction");
 
+    metrics!(inc RPC_OUTCALLS, "send_raw_transaction");
     let tx_hash = retry_until_success!(w3
         .eth()
         .send_raw_transaction(signed_tx.raw_transaction.clone(), canister::transform_ctx()))?;
+    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "send_raw_transaction");
+
     web3::wait_for_success_confirmation(&w3, &tx_hash, 60)
         .await
         .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
@@ -167,7 +190,7 @@ pub async fn wait_for_success_confirmation<T: Transport>(
     Ok(receipt)
 }
 
-pub async fn wait_for_confirmation<T: Transport>(
+async fn wait_for_confirmation<T: Transport>(
     w3: &Web3<T>,
     tx_hash: &H256,
     timeout: u64,
@@ -189,9 +212,11 @@ pub async fn wait_for_confirmation<T: Transport>(
     while time::in_seconds() < end_time {
         time::wait(TX_WAIT_DELAY).await;
 
+        metrics!(inc RPC_OUTCALLS, "transaction_receipt");
         let tx_receipt =
             retry_until_success!(w3.eth().transaction_receipt(*tx_hash, call_opts.clone()))
                 .context(PythiaError::UnableToGetTxReceipt)?;
+        metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "transaction_receipt");
 
         if let Some(tx_receipt) = tx_receipt {
             if tx_receipt.status.is_some() {

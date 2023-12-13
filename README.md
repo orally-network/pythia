@@ -82,4 +82,6 @@ dfx canister call pythia get_subscriptions "(opt \"${ADDRESS}\")"
 dfx canister call pythia update_subscription  "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; id=${SUBSCRIPTION_ID}:nat; contract_addr=opt \"${CONTRACT_ADDR}\"; method_abi=opt \"${METHOD_ABI}\"; is_random=opt false; gas_limit=opt ${GAS_LIMIT}; frequency_condition=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_condition=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
 # stop subscription
 dfx canister call pythia stop_subscription "(${CHAIN_ID}, ${SUBSCRIPTION_ID}, \"${SIWE_MSG}\", \"${SIWE_SIG}\")"
+# start subscription
+dfx canister call pythia start_subscription "(${CHAIN_ID}, ${SUBSCRIPTION_ID}, \"${SIWE_MSG}\", \"${SIWE_SIG}\")"
 ```
