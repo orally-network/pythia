@@ -40,7 +40,7 @@ pub async fn get_asset_data(pair_id: &str) -> Result<RateDataLight> {
     let pair_id = pair_id.to_string();
     log!("Preparing to call");
 
-    metrics!(inc SUCCESSFUL_SYBIL_OUTCALLS, "get_asset_data");
+    metrics!(inc SYBIL_OUTCALLS, "get_asset_data");
     let (pair_data,): (Result<RateDataLight, String>,) =
         ic_cdk::call(sybil_canister, "get_asset_data", (pair_id,))
             .await
