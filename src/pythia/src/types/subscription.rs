@@ -14,7 +14,7 @@ use super::{
     methods::{ExecutionCondition, Method, PriceMutationType},
 };
 use crate::{
-    clone_with_state, log,
+    clone_with_state, log, metrics,
     utils::{abi, address, canister, nat, sybil, validator, web3},
     STATE,
 };
@@ -150,6 +150,8 @@ impl Subscriptions {
             Ok::<(), Error>(())
         })?;
 
+        metrics!(inc ACTIVE_SUBSCRIPTIONS, req.chain_id);
+
         log!(
             "[{SUBSCRIPTION}] New subscription added: id = {}, chain_id = {}, contract_addr = {}",
             id,
@@ -231,6 +233,8 @@ impl Subscriptions {
                 .position(|s| s.id == id && s.owner == owner)
                 .context(PythiaError::SubscriptionDoesNotExist)?;
             let removed_subscription = subscriptions.remove(index);
+
+            metrics!(dec ACTIVE_SUBSCRIPTIONS, chain_id);
             log!(
                 "[{SUBSCRIPTION}] Subscription removed: id = {}, chain_id = {}, contract_addr = {}",
                 id,
@@ -291,6 +295,9 @@ impl Subscriptions {
 
             let subscription_status = &mut subscription.status;
 
+            if subscription_status.is_active == true {
+                metrics!(dec ACTIVE_SUBSCRIPTIONS, chain_id);
+            }
             subscription_status.is_active = false;
 
             log!(
@@ -325,8 +332,10 @@ impl Subscriptions {
                             }
                         }
 
-                        if ids.is_empty() || ids.contains(&sub.id) {
+                        if sub.status.is_active == true && (ids.is_empty() || ids.contains(&sub.id))
+                        {
                             sub.status.is_active = false;
+                            metrics!(dec ACTIVE_SUBSCRIPTIONS, _chain_id);
                         }
                     });
                 });
@@ -352,6 +361,9 @@ impl Subscriptions {
 
             let subscription_status = &mut subscription.status;
 
+            if subscription_status.is_active == false {
+                metrics!(inc ACTIVE_SUBSCRIPTIONS, chain_id);
+            }
             subscription_status.is_active = true;
             subscription_status.failures_counter = None;
 
@@ -387,7 +399,10 @@ impl Subscriptions {
                             }
                         }
 
-                        if ids.is_empty() || ids.contains(&sub.id) {
+                        if sub.status.is_active == false
+                            && (ids.is_empty() || ids.contains(&sub.id))
+                        {
+                            metrics!(inc ACTIVE_SUBSCRIPTIONS, _chain_id);
                             sub.status.is_active = true;
                         }
                     });
@@ -572,6 +587,8 @@ impl Subscriptions {
                         subs.into_iter()
                             .for_each(|sub| sub.status.is_active = false);
 
+
+                        metrics!(dec ACTIVE_SUBSCRIPTIONS, chain_id);
                         log!(
                             "[{SUBSCRIPTION}] Subscription stopped due to insufficient balance: owner = {}, chain_id = {}",
                             owner,
@@ -688,11 +705,23 @@ impl Subscriptions {
     pub fn deinit_chain(chain_id: &Nat) -> Result<()> {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
+            let new_active_subscriptions = metrics!(get ACTIVE_SUBSCRIPTIONS, "1")
+                - state
+                    .subscriptions
+                    .0
+                    .get(chain_id)
+                    .ok_or(PythiaError::ChainDoesNotExist)?
+                    .len() as u128;
+
             state
                 .subscriptions
                 .0
                 .remove(chain_id)
                 .context(PythiaError::ChainDoesNotExist)?;
+
+            let ch = nat::to_u64(chain_id);
+
+            metrics!(set ACTIVE_SUBSCRIPTIONS, new_active_subscriptions, ch);
 
             log!("[{PUBLISHER}] Chain removed: {chain_id}");
             Ok(())
