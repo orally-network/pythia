@@ -104,12 +104,11 @@ pub async fn transfer(chain_id: &Nat, to: &str, value: &Nat) -> Result<()> {
         ..Default::default()
     };
 
-    metrics!(inc RPC_OUTCALLS, "sign_transaction");
     let signed_tx = w3
         .accounts()
         .sign_transaction(tx, from, key_info(), nat::to_u64(chain_id))
         .await?;
-    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "sign_transaction");
+    metrics!(inc ECDSA_SIGNS);
 
     metrics!(inc RPC_OUTCALLS, "send_raw_transaction");
     let tx_hash = retry_until_success!(w3
@@ -154,12 +153,11 @@ pub async fn transfer_all(chain_id: &Nat, to: &str) -> Result<()> {
         ..Default::default()
     };
 
-    metrics!(inc RPC_OUTCALLS, "sign_transaction");
     let signed_tx = w3
         .accounts()
         .sign_transaction(tx, from, key_info(), nat::to_u64(chain_id))
         .await?;
-    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "sign_transaction");
+    metrics!(inc ECDSA_SIGNS);
 
     metrics!(inc RPC_OUTCALLS, "send_raw_transaction");
     let tx_hash = retry_until_success!(w3

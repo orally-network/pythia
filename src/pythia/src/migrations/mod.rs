@@ -2,7 +2,7 @@ use std::{collections::HashMap, time::Duration};
 
 use crate::{
     jobs::publisher,
-    log,
+    log, metrics,
     types::{
         balance::Balances,
         chains::Chains,
@@ -14,7 +14,7 @@ use crate::{
     },
     utils::{
         canister::set_custom_panic_hook,
-        metrics::{Metrics, METRICS},
+        metrics::{Metric, Metrics, METRICS},
     },
     State, STATE,
 };
@@ -134,6 +134,32 @@ impl From<OldState> for State {
     }
 }
 
+#[allow(non_snake_case)]
+#[derive(CandidType, Clone, Debug, Default, Deserialize, Serialize)]
+pub struct OldMetrics {
+    pub ACTIVE_SUBSCRIPTIONS: Option<Metric>,
+    pub RPC_OUTCALLS: Option<Metric>,
+    pub ECDSA_SIGNS: Option<Metric>,
+    pub SUCCESSFUL_RPC_OUTCALLS: Option<Metric>,
+    pub SYBIL_OUTCALLS: Option<Metric>,
+    pub SUCCESSFUL_SYBIL_OUTCALLS: Option<Metric>,
+    pub CYCLES: Option<Metric>,
+}
+
+impl From<OldMetrics> for Metrics {
+    fn from(value: OldMetrics) -> Self {
+        Metrics {
+            ACTIVE_SUBSCRIPTIONS: value.ACTIVE_SUBSCRIPTIONS.unwrap_or_default(),
+            RPC_OUTCALLS: value.RPC_OUTCALLS.unwrap_or_default(),
+            ECDSA_SIGNS: value.ECDSA_SIGNS.unwrap_or_default(),
+            SUCCESSFUL_RPC_OUTCALLS: value.SUCCESSFUL_RPC_OUTCALLS.unwrap_or_default(),
+            SYBIL_OUTCALLS: value.SYBIL_OUTCALLS.unwrap_or_default(),
+            SUCCESSFUL_SYBIL_OUTCALLS: value.SUCCESSFUL_SYBIL_OUTCALLS.unwrap_or_default(),
+            CYCLES: value.CYCLES.unwrap_or_default(),
+        }
+    }
+}
+
 #[pre_upgrade]
 fn pre_upgrade() {
     let state = STATE.with(|state| state.take());
@@ -154,7 +180,7 @@ fn post_upgrade() {
         OldState,
         logger::PostUpgradeStableData,
         monitor::PostUpgradeStableData,
-        Option<Metrics>,
+        Option<OldMetrics>,
     ) = storage::stable_restore().expect("should be valid canister data for post upgrade");
 
     logger::post_upgrade_stable_data(log_data);
@@ -176,7 +202,21 @@ fn post_upgrade() {
 
     STATE.with(|s| s.replace(state.into()));
     if let Some(metrics) = metrics {
-        METRICS.with(|m| m.replace(metrics));
+        METRICS.with(|m| m.replace(metrics.into()));
+
+        STATE.with(|state| {
+            let state = state.borrow();
+            let subscriptions = &state.subscriptions;
+            for (chain_id, subscriptions) in subscriptions.0.iter() {
+                let mut active_subscriptions_count = 0;
+                for subscription in subscriptions.iter() {
+                    if subscription.status.is_active {
+                        active_subscriptions_count += 1;
+                    }
+                }
+                metrics!(set ACTIVE_SUBSCRIPTIONS, active_subscriptions_count as u128, chain_id.to_string());
+            }
+        });
     }
 
     set_custom_panic_hook();

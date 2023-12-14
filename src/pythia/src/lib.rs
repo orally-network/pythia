@@ -23,10 +23,7 @@ thread_local! {
 
 #[query]
 fn transform(response: TransformArgs) -> HttpResponse {
-    log!(
-        "[TRANSFORM] Got transform request: {:#?}",
-        response.response
-    );
+    log!("[TRANSFORM] Got transform request: {:?}", response.response);
     response.response
 }
 

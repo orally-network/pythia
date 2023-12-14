@@ -212,7 +212,6 @@ async fn execute_multicall_batch<T: Transport>(
 
     let params: Vec<Token> = batch.iter().map(|c| c.clone().into_token()).collect();
 
-    metrics!(inc RPC_OUTCALLS, "sign_transaction");
     let signed_call = contract
         .sign(
             MULTICALL_CALL_FUNCTION,
@@ -224,7 +223,7 @@ async fn execute_multicall_batch<T: Transport>(
         )
         .await
         .context(PythiaError::UnableToSignContractCall)?;
-    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "sign_transaction");
+    metrics!(inc ECDSA_SIGNS);
 
     log!("[{PUBLISHER}] chain: {}, tx was signed", chain_id);
 
@@ -336,7 +335,6 @@ pub async fn multitransfer<T: Transport>(
 
     let params: Vec<Token> = transfers.iter().map(|c| c.clone().into_token()).collect();
 
-    metrics!(inc RPC_OUTCALLS, "sign_transaction");
     let signed_call = contract
         .sign(
             MULTICALL_TRANSFER_FUNCTION,
@@ -348,7 +346,7 @@ pub async fn multitransfer<T: Transport>(
         )
         .await
         .context(PythiaError::UnableToSignContractCall)?;
-    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "sign_transaction");
+    metrics!(inc ECDSA_SIGNS);
 
     metrics!(inc RPC_OUTCALLS, "send_raw_transaction");
     let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(

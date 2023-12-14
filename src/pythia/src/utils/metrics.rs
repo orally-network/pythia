@@ -59,19 +59,28 @@ impl Metric {
     pub fn inc(&mut self) {
         self.inner
             .entry(vec![])
-            .or_insert_with(|| vec![Inner::new(1, vec![])]);
+            .or_insert_with(|| vec![Inner::new(1, vec![])])
+            .first_mut()
+            .expect("should be here")
+            .inc();
     }
 
     pub fn dec(&mut self) {
         self.inner
             .entry(vec![])
-            .or_insert_with(|| vec![Inner::new(0, vec![])]);
+            .or_insert_with(|| vec![Inner::new(0, vec![])])
+            .first_mut()
+            .expect("should be here")
+            .dec();
     }
 
     pub fn set(&mut self, value: u128) {
         self.inner
             .entry(vec![])
-            .or_insert_with(|| vec![Inner::new(value, vec![])]);
+            .or_insert_with(|| vec![Inner::new(value, vec![])])
+            .first_mut()
+            .expect("should be here")
+            .set(value);
     }
 
     pub fn get(&self) -> u128 {
@@ -108,6 +117,10 @@ impl Metric {
 
     fn encode_value<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
         for (label_values, inner_vec) in self.inner.iter() {
+            if label_values.len() != self.label_names.len() {
+                continue;
+            }
+
             if label_values.is_empty() {
                 writeln!(w, "{} {}", self.name, inner_vec.first().unwrap().value)?;
                 return Ok(());
@@ -144,6 +157,7 @@ impl Metric {
 pub struct Metrics {
     pub ACTIVE_SUBSCRIPTIONS: Metric,
     pub RPC_OUTCALLS: Metric,
+    pub ECDSA_SIGNS: Metric,
     pub SUCCESSFUL_RPC_OUTCALLS: Metric,
     pub SYBIL_OUTCALLS: Metric,
     pub SUCCESSFUL_SYBIL_OUTCALLS: Metric,
@@ -154,6 +168,7 @@ impl Metrics {
     pub fn encode<W: io::Write>(&self, w: &mut W) -> std::io::Result<()> {
         self.ACTIVE_SUBSCRIPTIONS.encode(w)?;
         self.RPC_OUTCALLS.encode(w)?;
+        self.ECDSA_SIGNS.encode(w)?;
         self.SUCCESSFUL_RPC_OUTCALLS.encode(w)?;
         self.SYBIL_OUTCALLS.encode(w)?;
         self.SUCCESSFUL_SYBIL_OUTCALLS.encode(w)?;
@@ -175,6 +190,13 @@ thread_local! {
                 "Number of rpc outcalls",
                 "counter",
                 &["method"],
+            ),
+
+            ECDSA_SIGNS: Metric::new(
+                "ecdsa_signs",
+                "Number of ecdsa signs",
+                "counter",
+                &[]
             ),
 
             SUCCESSFUL_RPC_OUTCALLS: Metric::new(
