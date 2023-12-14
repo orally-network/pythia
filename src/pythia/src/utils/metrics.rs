@@ -205,55 +205,10 @@ thread_local! {
                 &[],
             )
     });
-    // pub static PYTHIA_REGISTRY: RefCell<Registry> = RefCell::new(Registry::new_custom(
-    //     Some("slurp_parser".to_string()),
-    //     Some(HashMap::from([("version".to_string(), env!("CARGO_PKG_VERSION").to_string())])),
-    // )
-    // .unwrap());
-
-            // pub static ACTIVE_SUBSCRIPTIONS: IntGaugeVec = register_int_gauge_vec!(
-            //     "active_subscriptions",
-            //     "Number of active subscriptions",
-            //     &["chain"],
-            // ).unwrap();
-
-            // pub static RPC_OUTCALLS: IntCounterVec = register_int_counter_vec!(
-            //     "rpc_outcalls",
-            //     "Number of rpc outcalls",
-            //     &["method"],
-            // ).unwrap();
-
-            // pub static SUCCESSFUL_RPC_OUTCALLS: IntCounterVec = register_int_counter_vec!(
-            //     "sucessfull_rpc_outcalls",
-            //     "Number of successfully returned rpc outcalls",
-            //     &["method"],
-            // ).unwrap();
-
-            // pub static SYBIL_OUTCALLS: IntCounterVec = register_int_counter_vec!(
-            //     "sybil_outcalls",
-            //     "Number of sybil outcalls",
-            //     &["method"],
-            // ).unwrap();
-
-            // pub static SUCCESSFUL_SYBIL_OUTCALLS: IntCounterVec = register_int_counter_vec!(
-            //     "successful_sybil_outcalls",
-            //     "Number of successfully returned sybil outcalls. Note that this metric is about ic communication with the sybil canister. Meaning if sybil returns error, this metric will not be incremented. If ic returns error while quering sybil canister, this metric will be incremented.",
-            //     &["method"],
-            // ).unwrap();
-
-            // pub static CYCLES: IntGauge = register_int_gauge!(
-            //     "cycles",
-            //     "Number of canister's cycles",
-            // ).unwrap();
 }
 
 pub fn gather_metrics() -> Vec<u8> {
-    // let encoder = TextEncoder::new();
-
-    // // let metric_families = PYTHIA_REGISTRY.with(|r| r.borrow().gather());
-    // let metric_families = prometheus::gather();
     let mut buffer = vec![];
-    // encoder.encode(&metric_families, &mut buffer).unwrap();
 
     METRICS.with(|m| m.borrow().encode(&mut buffer).unwrap());
 
