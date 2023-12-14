@@ -12,7 +12,10 @@ use crate::{
         whitelist::Whitelist,
         withdraw::WithdrawRequests,
     },
-    utils::canister::set_custom_panic_hook,
+    utils::{
+        canister::set_custom_panic_hook,
+        metrics::{Metrics, METRICS},
+    },
     State, STATE,
 };
 use candid::{CandidType, Nat, Principal};
@@ -138,17 +141,20 @@ fn pre_upgrade() {
     let log_data = logger::pre_upgrade_stable_data();
     let monitor_data = monitor::pre_upgrade_stable_data();
 
-    storage::stable_save((state, log_data, monitor_data))
+    let metrics = METRICS.with(|metrics| metrics.take());
+
+    storage::stable_save((state, log_data, monitor_data, metrics))
         .expect("should be valid canister data for pre upgrade");
 }
 
 #[post_upgrade]
 fn post_upgrade() {
     #[allow(clippy::type_complexity)]
-    let (mut state, log_data, monitor_data): (
+    let (mut state, log_data, monitor_data, metrics): (
         OldState,
         logger::PostUpgradeStableData,
         monitor::PostUpgradeStableData,
+        Option<Metrics>,
     ) = storage::stable_restore().expect("should be valid canister data for post upgrade");
 
     logger::post_upgrade_stable_data(log_data);
@@ -169,6 +175,9 @@ fn post_upgrade() {
     });
 
     STATE.with(|s| s.replace(state.into()));
+    if let Some(metrics) = metrics {
+        METRICS.with(|m| m.replace(metrics));
+    }
 
     set_custom_panic_hook();
 

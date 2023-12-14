@@ -12,7 +12,7 @@ use ic_web3_rs::{
 
 use super::{address, canister, nat, web3};
 use crate::{
-    log, retry_until_success,
+    log, metrics, retry_until_success,
     types::{
         chains::{Chain, Chains},
         errors::PythiaError,
@@ -191,6 +191,7 @@ async fn execute_multicall_batch<T: Transport>(
     batch: &[Call],
     chain_id: &Nat,
 ) -> Result<Vec<Token>> {
+    metrics!(inc RPC_OUTCALLS, "transaction_count");
     let options = Options {
         gas_price: Some(*gas_price),
         gas: Some(
@@ -207,8 +208,11 @@ async fn execute_multicall_batch<T: Transport>(
         ))?),
         ..Default::default()
     };
+    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "transaction_count");
 
     let params: Vec<Token> = batch.iter().map(|c| c.clone().into_token()).collect();
+
+    metrics!(inc RPC_OUTCALLS, "sign_transaction");
     let signed_call = contract
         .sign(
             MULTICALL_CALL_FUNCTION,
@@ -220,40 +224,52 @@ async fn execute_multicall_batch<T: Transport>(
         )
         .await
         .context(PythiaError::UnableToSignContractCall)?;
+    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "sign_transaction");
+
     log!("[{PUBLISHER}] chain: {}, tx was signed", chain_id);
+
+    metrics!(inc RPC_OUTCALLS, "send_raw_transaction");
     let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(
         signed_call.raw_transaction.clone(),
         canister::transform_ctx()
     ))
     .context(PythiaError::UnableToExecuteRawTx)?;
+    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "send_raw_transaction");
 
     log!("[{PUBLISHER}] chain: {}, tx was sent", chain_id);
     let tx_receipt = web3::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
         .await
         .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
     log!("[{PUBLISHER}] chain: {}, tx was executed", chain_id);
+
     let data = contract
         .abi()
         .function(MULTICALL_CALL_FUNCTION)
         .and_then(|f| f.encode_input(&[params.into_token()]))
         .context(PythiaError::UnableToFormCallData)?;
+
     let call_request = CallRequest {
         from: Some(tx_receipt.from),
         to: tx_receipt.to,
         data: Some(Bytes::from(data)),
         ..Default::default()
     };
+
     let block_number = BlockId::from(
         tx_receipt
             .block_number
             .context("block number should be present")?,
     );
+
     log!("[{PUBLISHER}] chain: {}, abi method sent", chain_id);
+    metrics!(inc RPC_OUTCALLS, "call");
     let raw_result = retry_until_success!(w3.eth().call(
         call_request.clone(),
         Some(block_number),
         canister::transform_ctx()
     ))?;
+    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "call");
+
     log!("[{PUBLISHER}] chain: {}, tx result was received", chain_id);
     let call_result: Vec<Token> = contract
         .abi()
@@ -295,14 +311,20 @@ pub async fn multitransfer<T: Transport>(
     let from = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
     let key_info = web3::key_info();
 
+    metrics!(inc RPC_OUTCALLS, "gas_price");
     let gas_price = retry_until_success!(w3.eth().gas_price(canister::transform_ctx()))?;
+    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "gas_price");
+
     let gas_limit = BASE_GAS + (GAS_PER_TRANSFER * transfers.len() as u64) + 7000;
     let value = transfers.iter().fold(U256::from(0), |sum, t| sum + t.value);
+
+    metrics!(inc RPC_OUTCALLS, "transaction_count");
     let nonce = retry_until_success!(w3.eth().transaction_count(
         H160::from_str(&from)?,
         None,
         canister::transform_ctx()
     ))?;
+    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "transaction_count");
 
     let options = Options {
         gas_price: Some(gas_price),
@@ -314,6 +336,7 @@ pub async fn multitransfer<T: Transport>(
 
     let params: Vec<Token> = transfers.iter().map(|c| c.clone().into_token()).collect();
 
+    metrics!(inc RPC_OUTCALLS, "sign_transaction");
     let signed_call = contract
         .sign(
             MULTICALL_TRANSFER_FUNCTION,
@@ -325,12 +348,15 @@ pub async fn multitransfer<T: Transport>(
         )
         .await
         .context(PythiaError::UnableToSignContractCall)?;
+    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "sign_transaction");
 
+    metrics!(inc RPC_OUTCALLS, "send_raw_transaction");
     let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(
         signed_call.raw_transaction.clone(),
         canister::transform_ctx()
     ))
     .context(PythiaError::UnableToExecuteRawTx)?;
+    metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "send_raw_transaction");
 
     web3::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
         .await

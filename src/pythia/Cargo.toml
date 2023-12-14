@@ -26,3 +26,4 @@ ic-utils = { package = "canistergeek_ic_rust", version = "0.4.2" }
 derive_builder = "0.12.0"
 itertools = "0.11.0"
 tokio = { version = "1.34.0", features = ["sync"] }
+serde_bytes = "0.11.12"

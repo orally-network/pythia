@@ -2,7 +2,9 @@ use anyhow::{anyhow, Result};
 use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
-use crate::{clone_with_state, log, types::logger::SYBIL, types::rate_data::RateDataLight, STATE};
+use crate::{
+    clone_with_state, log, metrics, types::logger::SYBIL, types::rate_data::RateDataLight, STATE,
+};
 
 #[derive(Clone, Debug, CandidType, Serialize, Deserialize)]
 enum PairDataResponse {
@@ -15,9 +17,13 @@ pub async fn is_pair_exists(pair_id: &str) -> Result<bool> {
         clone_with_state!(sybil_canister).expect("SYBIL CANISTER should be initialised");
 
     let pair_id = pair_id.to_string();
+
+    metrics!(inc SYBIL_OUTCALLS, "is_pair_exists");
     let (is_exist,): (bool,) = ic_cdk::call(sybil_canister, "is_pair_exists", (pair_id,))
         .await
         .map_err(|(code, msg)| anyhow!("{:?}: {}", code, msg))?;
+
+    metrics!(inc SUCCESSFUL_SYBIL_OUTCALLS, "is_pair_exists");
 
     Ok(is_exist)
 }
@@ -33,10 +39,14 @@ pub async fn get_asset_data(pair_id: &str) -> Result<RateDataLight> {
 
     let pair_id = pair_id.to_string();
     log!("Preparing to call");
+
+    metrics!(inc SYBIL_OUTCALLS, "get_asset_data");
     let (pair_data,): (Result<RateDataLight, String>,) =
         ic_cdk::call(sybil_canister, "get_asset_data", (pair_id,))
             .await
             .map_err(|(code, msg)| anyhow!("{:?}: {}", code, msg))?;
+    metrics!(inc SUCCESSFUL_SYBIL_OUTCALLS, "get_asset_data");
+
     log!("Call returned");
 
     match pair_data {

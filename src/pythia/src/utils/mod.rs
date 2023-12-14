@@ -6,6 +6,7 @@ pub mod abi;
 pub mod address;
 pub mod canister;
 pub mod macros;
+pub mod metrics;
 pub mod multicall;
 pub mod nat;
 pub mod processors;
