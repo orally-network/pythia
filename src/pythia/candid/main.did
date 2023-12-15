@@ -100,6 +100,12 @@ type WhitelistEntry = record {
     address : text;
     is_blacklisted : bool;
 };
+
+// Pagination struct used to paginate output of some methods
+type Pagination = record {
+    from : nat64;
+    size : nat64;
+};
 type Whitelist = vec WhitelistEntry;
 type GetWhiteListResponse = variant { Ok : Whitelist; Err : text};
 type IsWhitelistedResponse = variant { Ok : bool; Err : text};
@@ -135,7 +141,7 @@ service : {
     clear_balance : (chain_id : nat, address : text) -> (Error);
     // Subscriptions
     subscribe : (req : SubscribeRequest) -> (SubscribeResponse);
-    get_subscriptions : (owner : opt text) -> (vec Subscription);
+    get_subscriptions : (owner : opt text, pagination : opt Pagination) -> (vec Subscription);
     get_subscription : (chain_id : nat, sub_id : nat) -> (GetSubscriptionResponse);
     stop_subscriptions : () -> (Error);
     remove_subscriptions : () -> (Error);
