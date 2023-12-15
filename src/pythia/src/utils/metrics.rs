@@ -259,7 +259,7 @@ macro_rules! metrics {
     }};
 
     ( dec $metric:ident ) => {
-        $crate::utils::metrics::METRICS.with(|m| m.borrow_mut_mut().$metric.dec());
+        $crate::utils::metrics::METRICS.with(|m| m.borrow_mut().$metric.dec());
     };
 
     ( dec $metric:ident, $($labels:expr),+) => {
