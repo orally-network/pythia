@@ -41,6 +41,14 @@ impl Inner {
     pub fn get(&self) -> u128 {
         self.value
     }
+
+    pub fn inc_by(&mut self, value: u128) {
+        self.value = self.value.saturating_add(value);
+    }
+
+    pub fn dec_by(&mut self, value: u128) {
+        self.value = self.value.saturating_sub(value);
+    }
 }
 
 #[allow(unused)]
@@ -298,7 +306,16 @@ macro_rules! metrics {
     ( set $metric:ident, $val:expr, $($labels:expr),+) => {
         let lbls: Vec<String> = vec![$(format!("{}", $labels)),+];
 
+        let prev_val = $crate::utils::metrics::METRICS.with(|m| m.borrow_mut().$metric.with_label_values(lbls.clone()).get());
+
+        let diff = $val as i128 - prev_val as i128;
+
+
         $crate::utils::metrics::METRICS.with(|m| m.borrow_mut().$metric.with_label_values(lbls).set($val));
-        $crate::utils::metrics::METRICS.with(|m| m.borrow_mut().$metric.with_label_values(vec!["all".to_string()]).set($val));
+        if diff < prev_val as i128 {
+            $crate::utils::metrics::METRICS.with(|m| m.borrow_mut().$metric.with_label_values(vec!["all".to_string()]).dec_by(diff as u128));
+        } else {
+            $crate::utils::metrics::METRICS.with(|m| m.borrow_mut().$metric.with_label_values(vec!["all".to_string()]).inc_by(diff as u128));
+        }
     };
 }
