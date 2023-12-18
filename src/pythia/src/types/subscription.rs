@@ -94,7 +94,7 @@ pub struct GetSubscriptionsFilter {
     pub method_type: Option<MethodType>,
     pub owner: Option<String>,
     pub is_active: Option<bool>,
-    pub chain_id: Option<Nat>,
+    pub chain_ids: Option<Vec<Nat>>,
     pub search: Option<String>,
 }
 
@@ -207,10 +207,10 @@ impl Subscriptions {
 
             let filter = filter.unwrap();
 
-            if let Some(chain_id) = filter.chain_id {
+            if let Some(chain_ids) = filter.chain_ids {
                 subscriptions = subscriptions
                     .into_iter()
-                    .filter(|sub| sub.method.chain_id == chain_id)
+                    .filter(|sub| chain_ids.contains(&sub.method.chain_id))
                     .collect::<Vec<Subscription>>();
             }
 

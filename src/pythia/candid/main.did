@@ -123,7 +123,7 @@ type GetSubscriptionsFilter = record {
     method_type : opt MethodType;
     owner : opt text;
     is_active: opt bool;
-    chain_id : opt nat;
+    chain_ids : opt vec nat;
     search : opt text;
     
 };
