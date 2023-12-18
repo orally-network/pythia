@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     errors::PythiaError,
     logger::{PUBLISHER, SUBSCRIPTION},
-    methods::{ExecutionCondition, Method, PriceMutationType},
+    methods::{ExecutionCondition, Method, MethodType, PriceMutationType},
 };
 use crate::{
     clone_with_state, log, metrics,
@@ -37,6 +37,7 @@ impl SubscriptionsIndexer {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct Subscription {
     pub id: Nat,
+    pub label: String,
     pub owner: String,
     pub contract_addr: String,
     pub method: Method,
@@ -66,6 +67,7 @@ pub struct SubsribeRequest {
     pub method_abi: String,
     pub is_random: bool,
     pub gas_limit: Nat,
+    pub label: String,
     pub frequency_condition: Option<Nat>,
     pub price_mutation_condition: Option<PriceMutationCondition>,
     pub msg: String,
@@ -85,6 +87,15 @@ pub struct UpdateSubscriptionRequest {
     pub price_mutation_condition: Option<PriceMutationCondition>,
     pub msg: String,
     pub sig: String,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
+pub struct GetSubscriptionsFilter {
+    pub method_type: Option<MethodType>,
+    pub owner: Option<String>,
+    pub is_active: Option<bool>,
+    pub chain_id: Option<Nat>,
+    pub search: Option<String>,
 }
 
 /// Chain id => Subscriptions
@@ -122,6 +133,7 @@ impl Subscriptions {
 
         let subscription = Subscription {
             id: id.clone(),
+            label: req.label.clone(),
             owner: owner.into(),
             contract_addr: req.contract_addr.clone(),
             method: Method {
@@ -178,11 +190,7 @@ impl Subscriptions {
         })
     }
 
-    pub fn get_all(
-        chain_id: Option<Nat>,
-        ids: Vec<Nat>,
-        owner: Option<String>,
-    ) -> Vec<Subscription> {
+    pub fn get_all(filter: Option<GetSubscriptionsFilter>) -> Vec<Subscription> {
         STATE.with(|state| {
             let state = state.borrow();
             let mut subscriptions = state.subscriptions.0.values().fold(
@@ -193,14 +201,20 @@ impl Subscriptions {
                 },
             );
 
-            if let Some(chain_id) = chain_id {
+            if filter.is_none() {
+                return subscriptions;
+            }
+
+            let filter = filter.unwrap();
+
+            if let Some(chain_id) = filter.chain_id {
                 subscriptions = subscriptions
                     .into_iter()
                     .filter(|sub| sub.method.chain_id == chain_id)
                     .collect::<Vec<Subscription>>();
             }
 
-            if let Some(owner) = owner {
+            if let Some(owner) = filter.owner {
                 let owner = address::normalize(&owner).expect("should be valid address format");
                 subscriptions = subscriptions
                     .into_iter()
@@ -208,10 +222,43 @@ impl Subscriptions {
                     .collect::<Vec<Subscription>>();
             }
 
-            if !ids.is_empty() {
+            if let Some(is_active) = filter.is_active {
                 subscriptions = subscriptions
                     .into_iter()
-                    .filter(|sub| ids.contains(&sub.id))
+                    .filter(|sub| sub.status.is_active == is_active)
+                    .collect::<Vec<Subscription>>();
+            }
+
+            if let Some(method_type) = filter.method_type {
+                subscriptions = subscriptions
+                    .into_iter()
+                    .filter(|sub| sub.method.method_type.are_common_enums(&method_type))
+                    .collect::<Vec<Subscription>>();
+            }
+
+            if let Some(search) = filter.search {
+                subscriptions = subscriptions
+                    .into_iter()
+                    .filter(|sub| {
+                        let search = search.trim().to_lowercase();
+
+                        let owner = sub.owner.trim().to_lowercase();
+                        let label = sub.label.trim().to_lowercase();
+                        let contract_addr = sub.contract_addr.trim().to_lowercase();
+                        let method_name = sub.method.name.trim().to_lowercase();
+                        let pair_id = if let MethodType::Pair(ref pair_id) = sub.method.method_type
+                        {
+                            pair_id.trim().to_lowercase()
+                        } else {
+                            "".to_string()
+                        };
+
+                        strsim::jaro_winkler(&owner, &search) >= 0.8
+                            || strsim::jaro_winkler(&contract_addr, &search) >= 0.8
+                            || strsim::jaro_winkler(&method_name, &search) >= 0.8
+                            || strsim::jaro_winkler(&label, &search) >= 0.8
+                            || pair_id.contains(&search)
+                    })
                     .collect::<Vec<Subscription>>();
             }
 
