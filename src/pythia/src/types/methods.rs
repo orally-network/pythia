@@ -191,6 +191,17 @@ pub enum MethodType {
     Empty,
 }
 
+impl MethodType {
+    pub fn are_common_enums(&self, other: &MethodType) -> bool {
+        match (self, other) {
+            (MethodType::Pair(_), MethodType::Pair(_)) => true,
+            (MethodType::Random(_), MethodType::Random(_)) => true,
+            (MethodType::Empty, MethodType::Empty) => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, CandidType, Default)]
 pub struct Method {
     pub name: String,

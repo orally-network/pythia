@@ -59,6 +59,7 @@ type SubscriptionStatus = record {
 };
 type Subscription = record {
     id : nat;
+    label : text;
     owner : text;
     contract_addr : text;
     method : Method;
@@ -76,6 +77,7 @@ type SubscribeRequest = record {
     method_abi : text;
     is_random : bool;
     gas_limit : nat;
+    label : text;
     frequency_condition : opt nat;
     price_mutation_condition : opt PriceMutationCondition;
     msg : text;
@@ -85,6 +87,7 @@ type SubscribeResponse = variant { Ok : nat; Err : text };
 type UpdateSubscriptionRequest = record {
     id : nat;
     chain_id : nat;
+    label : opt text;
     pair_id : opt text;
     contract_addr : opt text;
     method_abi : opt text;
@@ -100,6 +103,31 @@ type WhitelistEntry = record {
     address : text;
     is_blacklisted : bool;
 };
+
+// Pagination struct used to paginate output of some methods
+type Pagination = record {
+    page : nat64;
+    size : nat64;
+};
+// PaginationResult struct used as a response to request with pagination
+type GetSubscriptionsResultWithPagination = record {
+    page: nat64;
+    size: nat64;
+    total_items: nat64;
+    total_pages: nat64;
+    items: vec Subscription;
+};
+
+// Filter struct used to filter output of some methods
+type GetSubscriptionsFilter = record {
+    method_type : opt MethodType;
+    owner : opt text;
+    is_active: opt bool;
+    chain_ids : opt vec nat;
+    search : opt text;
+    
+};
+
 type Whitelist = vec WhitelistEntry;
 type GetWhiteListResponse = variant { Ok : Whitelist; Err : text};
 type IsWhitelistedResponse = variant { Ok : bool; Err : text};
@@ -135,7 +163,7 @@ service : {
     clear_balance : (chain_id : nat, address : text) -> (Error);
     // Subscriptions
     subscribe : (req : SubscribeRequest) -> (SubscribeResponse);
-    get_subscriptions : (owner : opt text) -> (vec Subscription);
+    get_subscriptions : (filter : opt GetSubscriptionsFilter, pagination : opt Pagination) -> (GetSubscriptionsResultWithPagination);
     get_subscription : (chain_id : nat, sub_id : nat) -> (GetSubscriptionResponse);
     stop_subscriptions : () -> (Error);
     remove_subscriptions : () -> (Error);

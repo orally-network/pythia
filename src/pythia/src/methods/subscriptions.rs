@@ -8,7 +8,11 @@ use crate::{
     log,
     types::{
         balance::Balances,
-        subscription::{Subscription, Subscriptions, SubsribeRequest, UpdateSubscriptionRequest},
+        pagination::{Pagination, PaginationResult},
+        subscription::{
+            GetSubscriptionsFilter, Subscription, Subscriptions, SubsribeRequest,
+            UpdateSubscriptionRequest,
+        },
         timer::Timer,
         whitelist,
     },
@@ -61,14 +65,25 @@ async fn _subscribe(req: SubsribeRequest) -> Result<Nat> {
 ///
 /// # Arguments
 ///
-/// * `owner` - The owner of the subscription, can be omitted
+/// * `filter` - Filter options, can be omitted.
+/// * `pagination` - Pagination options, can be omitted. Vector of subscriptions sorted by subscirption id
 ///
 /// # Returns
 ///
-/// A vector of subscriptions
+/// A vector of subscriptions with or without pagination
 #[query]
-pub fn get_subscriptions(owner: Option<String>) -> Vec<Subscription> {
-    Subscriptions::get_all(None, vec![], owner)
+pub fn get_subscriptions(
+    filter: Option<GetSubscriptionsFilter>,
+    pagination: Option<Pagination>,
+) -> PaginationResult<Subscription> {
+    let mut res = Subscriptions::get_all(filter);
+    match pagination {
+        Some(pagination) => {
+            res.sort_by(|l, r| l.id.cmp(&r.id));
+            pagination.paginate(res)
+        }
+        None => res.into(),
+    }
 }
 
 #[query]

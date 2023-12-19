@@ -29,6 +29,7 @@ const OLD_MULTICALL_CONTRACT_ADDRESS: &str = "0x88e33D0d7f9d130c85687FC736554572
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct OldSubscription {
     pub id: Nat,
+    pub label: Option<String>,
     pub owner: String,
     pub contract_addr: String,
     pub frequency: Option<Nat>,
@@ -53,6 +54,7 @@ impl From<OldSubscription> for Subscription {
 
         let new = Subscription {
             id: old_subscription.id,
+            label: old_subscription.label.unwrap_or("label".to_string()),
             owner: old_subscription.owner,
             contract_addr: old_subscription.contract_addr,
             method: old_subscription.method,
