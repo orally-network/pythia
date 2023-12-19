@@ -181,7 +181,7 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
                 );
                 Subscriptions::stop(&chain_id, &sub.owner, &sub.id).expect("should stop sub");
                 // inscrease gas limit by 30 persent
-                let new_gas_limit = (used_gas.clone() / 10) / 13; // TODO: maybe / 10 * 12 ?
+                let new_gas_limit = (used_gas.clone() / 10) * 13;
                 Subscriptions::update(
                     &UpdateSubscriptionRequest {
                         chain_id: chain_id.clone(),

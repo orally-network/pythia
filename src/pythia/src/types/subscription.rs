@@ -156,7 +156,7 @@ impl Subscriptions {
                 .subscriptions
                 .0
                 .get_mut(&req.chain_id)
-                .context(PythiaError::ChainDoesNotExist)?
+                .context(PythiaError::ChainDoesNotExistInSubscriptions)?
                 .push(subscription);
 
             Ok::<(), Error>(())
@@ -182,7 +182,7 @@ impl Subscriptions {
                 .subscriptions
                 .0
                 .get(chain_id)
-                .context(PythiaError::ChainDoesNotExist)?
+                .context(PythiaError::ChainDoesNotExistInSubscriptions)?
                 .iter()
                 .find(|s| s.id == id)
                 .context(PythiaError::SubscriptionDoesNotExist)?
@@ -274,7 +274,7 @@ impl Subscriptions {
                 .subscriptions
                 .0
                 .get_mut(chain_id)
-                .context(PythiaError::ChainDoesNotExist)?;
+                .context(PythiaError::ChainDoesNotExistInSubscriptions)?;
             let index = subscriptions
                 .iter()
                 .position(|s| s.id == id && s.owner == owner)
@@ -335,7 +335,7 @@ impl Subscriptions {
                 .subscriptions
                 .0
                 .get_mut(chain_id)
-                .context(PythiaError::ChainDoesNotExist)?
+                .context(PythiaError::ChainDoesNotExistInSubscriptions)?
                 .iter_mut()
                 .find(|s| s.id == id && s.owner == owner)
                 .context(PythiaError::SubscriptionDoesNotExist)?;
@@ -401,7 +401,7 @@ impl Subscriptions {
                 .subscriptions
                 .0
                 .get_mut(chain_id)
-                .context(PythiaError::ChainDoesNotExist)?
+                .context(PythiaError::ChainDoesNotExistInSubscriptions)?
                 .iter_mut()
                 .find(|s| s.id == id && s.owner == owner)
                 .context(PythiaError::SubscriptionDoesNotExist)?;
@@ -493,7 +493,7 @@ impl Subscriptions {
                 .subscriptions
                 .0
                 .get_mut(&req.chain_id)
-                .context(PythiaError::ChainDoesNotExist)?
+                .context(PythiaError::ChainDoesNotExistInSubscriptions)?
                 .iter_mut()
                 .find(|sub| sub.id == req.id && sub.owner == address)
                 .context(PythiaError::SubscriptionDoesNotExist)?;
@@ -614,14 +614,14 @@ impl Subscriptions {
                 let fee = fees.get(i).context("fee not found")?;
                 let chain_min_balance = &chains
                     .get(chain_id)
-                    .context(PythiaError::ChainDoesNotExist)?
+                    .context(PythiaError::ChainDoesNotExistInSubscriptions)?
                     .min_balance;
 
                 for (owner, subs) in &subs.iter_mut().group_by(|sub| sub.owner.clone()) {
                     let subs = subs.collect::<Vec<&mut Subscription>>();
                     let balance = balances
                         .get(chain_id)
-                        .context(PythiaError::ChainDoesNotExist)?
+                        .context(PythiaError::ChainDoesNotExistInSubscriptions)?
                         .get(&owner)
                         .context(PythiaError::UnableToGetBalance)?;
 
@@ -725,7 +725,7 @@ impl Subscriptions {
                 .subscriptions
                 .0
                 .get_mut(chain_id)
-                .context(PythiaError::ChainDoesNotExist)?
+                .context(PythiaError::ChainDoesNotExistInSubscriptions)?
                 .iter_mut()
                 .find(|s| s.id == *sub_id)
                 .context(PythiaError::SubscriptionDoesNotExist)?;
@@ -740,37 +740,36 @@ impl Subscriptions {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
             if state.subscriptions.0.contains_key(chain_id) {
-                return Err(PythiaError::ChainAlreadyExists.into());
+                return Err(PythiaError::ChainAlreadyInitializedInSubscriptions.into());
             }
             state.subscriptions.0.insert(chain_id.clone(), vec![]);
 
-            log!("[{PUBLISHER}] New chain added: {chain_id}");
+            log!("[{SUBSCRIPTION}] New chain added: {chain_id}");
             Ok(())
         })
     }
 
     pub fn deinit_chain(chain_id: &Nat) -> Result<()> {
         STATE.with(|state| {
+            let ch = nat::to_u64(chain_id);
             let mut state = state.borrow_mut();
-            let new_active_subscriptions = metrics!(get ACTIVE_SUBSCRIPTIONS, "1")
-                - state
+
+            if let Some(subscriptions) = state.subscriptions.0.get(chain_id) {
+                let new_active_subscriptions =
+                    metrics!(get ACTIVE_SUBSCRIPTIONS, ch) - subscriptions.len() as u128;
+
+                state
                     .subscriptions
                     .0
-                    .get(chain_id)
-                    .ok_or(PythiaError::ChainDoesNotExist)?
-                    .len() as u128;
+                    .remove(chain_id)
+                    .expect("should be here");
 
-            state
-                .subscriptions
-                .0
-                .remove(chain_id)
-                .context(PythiaError::ChainDoesNotExist)?;
+                metrics!(set ACTIVE_SUBSCRIPTIONS, new_active_subscriptions, ch);
+                log!("[{SUBSCRIPTION}] Chain removed: {chain_id}");
+            } else {
+                log!("[{SUBSCRIPTION}] Chain does not exist: {chain_id}");
+            }
 
-            let ch = nat::to_u64(chain_id);
-
-            metrics!(set ACTIVE_SUBSCRIPTIONS, new_active_subscriptions, ch);
-
-            log!("[{PUBLISHER}] Chain removed: {chain_id}");
             Ok(())
         })
     }

@@ -27,7 +27,7 @@ impl WithdrawRequests {
                 .withdraw_requests
                 .0
                 .get_mut(chain_id)
-                .context(PythiaError::ChainDoesNotExist)?
+                .context(PythiaError::ChainDoesNotExistInWithdrawalRequests)?
                 .push(WithdrawRequest {
                     amount: amount.clone(),
                     receiver: receiver.to_string(),
@@ -51,7 +51,7 @@ impl WithdrawRequests {
                 .withdraw_requests
                 .0
                 .get_mut(chain_id)
-                .context(PythiaError::ChainDoesNotExist)?
+                .context(PythiaError::ChainDoesNotExistInWithdrawalRequests)?
                 .clear();
 
             log!(
@@ -66,7 +66,7 @@ impl WithdrawRequests {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
             if state.withdraw_requests.0.contains_key(chain_id) {
-                return Err(PythiaError::ChainAlreadyExists.into());
+                return Err(PythiaError::ChainAlreadyInitializedInWithdrawalRequests.into());
             }
             state.withdraw_requests.0.insert(chain_id.clone(), vec![]);
             log!("[{WITHDRAWER}] New chain added: {chain_id}");
@@ -77,12 +77,11 @@ impl WithdrawRequests {
     pub fn deinit_chain(chain_id: &Nat) -> Result<()> {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
-            state
-                .withdraw_requests
-                .0
-                .remove(chain_id)
-                .context(PythiaError::ChainDoesNotExist)?;
-            log!("[{WITHDRAWER}] Chain removed: {chain_id}");
+            if state.withdraw_requests.0.remove(chain_id).is_some() {
+                log!("[{WITHDRAWER}] Chain removed: {chain_id}");
+            } else {
+                log!("[{WITHDRAWER}] Chain does not exist: {chain_id}");
+            }
             Ok(())
         })
     }

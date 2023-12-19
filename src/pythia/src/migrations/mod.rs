@@ -70,19 +70,13 @@ pub struct OldSubscriptions(pub HashMap<Nat, Vec<OldSubscription>>);
 
 impl From<OldSubscriptions> for Subscriptions {
     fn from(old_subscriptions: OldSubscriptions) -> Self {
-        let mut subscriptions = Subscriptions::default();
-
-        for (chain_id, old_subscriptions) in old_subscriptions.0 {
-            for old_subscription in old_subscriptions {
-                subscriptions
-                    .0
-                    .entry(chain_id.clone())
-                    .or_default()
-                    .push(old_subscription.into());
-            }
-        }
-
-        subscriptions
+        Subscriptions(
+            old_subscriptions
+                .0
+                .into_iter()
+                .map(|(chain_id, subs)| (chain_id, subs.into_iter().map(|s| s.into()).collect()))
+                .collect(),
+        )
     }
 }
 

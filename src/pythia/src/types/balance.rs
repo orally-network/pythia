@@ -50,7 +50,7 @@ impl Balances {
                 .balances
                 .0
                 .get_mut(chain_id)
-                .context(PythiaError::ChainDoesNotExist)?;
+                .context(PythiaError::ChainDoesNotExistInBalances)?;
 
             if balances.contains_key(&address) {
                 return Err(PythiaError::BalanceAlreadyExists.into());
@@ -116,7 +116,7 @@ impl Balances {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
             if state.balances.0.contains_key(chain_id) {
-                return Err(PythiaError::ChainAlreadyExists.into());
+                return Err(PythiaError::ChainAlreadyInitializedInBalances.into());
             }
             state.balances.0.insert(chain_id.clone(), HashMap::new());
             log!("[{BALANCES}] New chain added: {chain_id}");
@@ -127,13 +127,12 @@ impl Balances {
     pub fn remove_chain(chain_id: &Nat) -> Result<()> {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
-            state
-                .balances
-                .0
-                .remove(chain_id)
-                .context(PythiaError::ChainDoesNotExist)?;
+            if state.balances.0.remove(chain_id).is_some() {
+                log!("[{BALANCES}] Chain removed: {chain_id}");
+            } else {
+                log!("[{BALANCES}] Chain does not exist: {chain_id}");
+            }
 
-            log!("[{BALANCES}] Chain removed: {chain_id}");
             Ok(())
         })
     }
