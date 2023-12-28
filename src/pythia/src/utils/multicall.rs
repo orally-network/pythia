@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr};
 
 use anyhow::{Context, Result};
 
@@ -262,11 +262,15 @@ async fn execute_multicall_batch<T: Transport>(
 
     log!("[{PUBLISHER}] chain: {}, abi method sent", chain_id);
     metrics!(inc RPC_OUTCALLS, "call");
-    let raw_result = retry_until_success!(w3.eth().call(
-        call_request.clone(),
-        Some(block_number),
-        canister::transform_ctx()
-    ))?;
+    let raw_result = retry_until_success!(
+        w3.eth().call(
+            call_request.clone(),
+            Some(block_number),
+            canister::transform_ctx()
+        ),
+        crate::utils::nat::to_u64(chain_id)
+    )?;
+
     metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "call");
 
     log!("[{PUBLISHER}] chain: {}, tx result was received", chain_id);

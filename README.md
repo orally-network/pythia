@@ -24,7 +24,7 @@ dfx canister install --wasm ./.dfx/ic/canisters/pythia/pythia.wasm.gz --network 
 
 ```sh
 CHAIN_ID=5 &&
-UPDATE_TIME_FREQUENCY=1800 &&
+UPDATE_TIME_FREQUENCY=300 &&
 RPC="https://ethereum-goerli.publicnode.com" &&
 MIN_BALANCE=1000000000 &&
 BLOCK_GAS_LIMIT=300000000 &&
@@ -71,9 +71,9 @@ dfx canister call pythia get_pma
 # deposit a funds to the pma
 dfx canister call pythia deposit "(${CHAIN_ID}:nat, \"${TX_HASH}\", \"${SIWE_MSG}\", \"${SIWE_SIG}\")"
 # create a subscription with a frequency condition
-dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_condition=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; label=\"test\"; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_condition=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
 # create a subscription with a price mutation condition
-dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=null; price_mutation_condition=opt record {mutation_rate=${MUTATION_RATE}; pair_id=\"${CONDITION_PRICE_ID}\"; price_mutation_type=variant {${MUTATION_TYPE}}}; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; pair_id=null; label=\"test\"; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=null; price_mutation_condition=opt record {mutation_rate=${MUTATION_RATE}; pair_id=\"${CONDITION_PRICE_ID}\"; price_mutation_type=variant {${MUTATION_TYPE}}}; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
 # to remove subscriptions
 dfx canister call pythia remove_subscription "(${SUBSCRIPTION_ID})"
 # to get all user subscriptions 

@@ -23,8 +23,11 @@ thread_local! {
 
 #[query]
 fn transform(response: TransformArgs) -> HttpResponse {
-    log!("[TRANSFORM] Got transform request: {:?}", response.response);
-    response.response
+    HttpResponse {
+        status: response.response.status,
+        body: response.response.body,
+        headers: Vec::new(),
+    }
 }
 
 #[query]

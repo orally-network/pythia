@@ -52,14 +52,22 @@ macro_rules! dig_mut {
 
 #[macro_export]
 macro_rules! retry_until_success {
-    ($func:expr) => {{
+    ($func:expr) => {
+        retry_until_success!($func, 0)
+    };
+
+    ($func:expr, $chain_id:expr) => {{
         const MAX_RETRIES: u32 = 5;
         const DURATION_BETWEEN_ATTEMPTS: std::time::Duration = std::time::Duration::from_millis(1000);
 
         let mut attempts = 0u32;
         let mut result = $func.await;
 
-        ic_utils::logger::log_message(format!("result in retry_until_success: {:#?}", result));
+        if $chain_id  != 0 {
+            ic_utils::logger::log_message(format!("result in chain {}, retry_until_success: {:?}", $chain_id, result));
+        } else {
+            ic_utils::logger::log_message(format!("result in retry_until_success: {:?}", result));
+        }
 
         let (func_name, func_other) = stringify!($func).rsplit_once("(").unwrap();
 

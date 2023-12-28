@@ -210,7 +210,7 @@ pub async fn get_sybil_input(pair_id: &str) -> Result<Vec<Token>> {
     let rate = retry_until_success!(sybil::get_asset_data(pair_id))
         .context(PythiaError::UnableToGetSybilRate)?;
 
-    log!("[ABI] get_sybil_input git asset_data [pair_id: {pair_id:?}");
+    log!("[ABI] get_sybil_input got asset_data pair_id: {pair_id:?}");
     Ok(vec![
         Token::String(rate.symbol),
         Token::Uint(rate.rate.into()),
