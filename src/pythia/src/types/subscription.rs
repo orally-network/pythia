@@ -55,14 +55,14 @@ pub struct SubscriptionStatus {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct PriceMutationCondition {
     pub mutation_rate: i64,
-    pub pair_id: String,
+    pub feed_id: String,
     pub price_mutation_type: PriceMutationType,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct SubsribeRequest {
     pub chain_id: Nat,
-    pub pair_id: Option<String>,
+    pub feed_id: Option<String>,
     pub contract_addr: String,
     pub method_abi: String,
     pub is_random: bool,
@@ -78,7 +78,7 @@ pub struct SubsribeRequest {
 pub struct UpdateSubscriptionRequest {
     pub id: Nat,
     pub chain_id: Nat,
-    pub pair_id: Option<String>,
+    pub feed_id: Option<String>,
     pub contract_addr: Option<String>,
     pub method_abi: Option<String>,
     pub is_random: Option<bool>,
@@ -109,7 +109,7 @@ impl Subscriptions {
         } else if let Some(price_mutation_cond_req) = req.price_mutation_condition {
             Ok(ExecutionCondition::PriceMutation {
                 mutation_rate: price_mutation_cond_req.mutation_rate,
-                pair_id: price_mutation_cond_req.pair_id,
+                feed_id: price_mutation_cond_req.feed_id,
                 creation_price: 0,
                 price_mutation_type: price_mutation_cond_req.price_mutation_type,
             })
@@ -119,10 +119,10 @@ impl Subscriptions {
 
         exec_contidion.validate().await?;
         let (abi, method_type) =
-            abi::resolve_abi(req.method_abi.clone(), req.pair_id.clone(), req.is_random)?;
-        if let Some(pair_id) = req.pair_id.clone() {
-            if !sybil::is_pair_exists(&pair_id).await? {
-                return Err(PythiaError::PairDoesNotExist.into());
+            abi::resolve_abi(req.method_abi.clone(), req.feed_id.clone(), req.is_random)?;
+        if let Some(feed_id) = req.feed_id.clone() {
+            if !sybil::is_feed_exists(&feed_id).await? {
+                return Err(PythiaError::FeedDoesNotExist.into());
             }
         }
 
@@ -246,9 +246,9 @@ impl Subscriptions {
                         let label = sub.label.trim().to_lowercase();
                         let contract_addr = sub.contract_addr.trim().to_lowercase();
                         let method_name = sub.method.name.trim().to_lowercase();
-                        let pair_id = if let MethodType::Pair(ref pair_id) = sub.method.method_type
+                        let feed_id = if let MethodType::Feed(ref feed_id) = sub.method.method_type
                         {
-                            pair_id.trim().to_lowercase()
+                            feed_id.trim().to_lowercase()
                         } else {
                             "".to_string()
                         };
@@ -257,7 +257,7 @@ impl Subscriptions {
                             || strsim::jaro_winkler(&contract_addr, &search) >= 0.8
                             || strsim::jaro_winkler(&method_name, &search) >= 0.8
                             || strsim::jaro_winkler(&label, &search) >= 0.8
-                            || pair_id.contains(&search)
+                            || feed_id.contains(&search)
                     })
                     .collect::<Vec<Subscription>>();
             }
@@ -475,7 +475,7 @@ impl Subscriptions {
             (None, Some(price_mutation_condition_req)) => {
                 let mut exec_condition = ExecutionCondition::PriceMutation {
                     mutation_rate: price_mutation_condition_req.mutation_rate,
-                    pair_id: price_mutation_condition_req.pair_id.clone(),
+                    feed_id: price_mutation_condition_req.feed_id.clone(),
                     creation_price: 0,
                     price_mutation_type: price_mutation_condition_req.price_mutation_type.clone(),
                 };
@@ -511,7 +511,7 @@ impl Subscriptions {
 
             if let (Some(method_abi), Some(is_random)) = (req.method_abi.clone(), req.is_random) {
                 let (abi, method_type) =
-                    abi::resolve_abi(method_abi, req.pair_id.clone(), is_random)?;
+                    abi::resolve_abi(method_abi, req.feed_id.clone(), is_random)?;
                 subscription.method.abi = abi;
                 subscription.method.method_type = method_type;
             }

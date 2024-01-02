@@ -6,7 +6,7 @@ use crate::{
     types::{
         balance::Balances,
         chains::Chains,
-        methods::{ExecutionCondition, Method},
+        methods::{ExecutionCondition, Method, MethodType},
         subscription::{Subscription, SubscriptionStatus, Subscriptions, SubscriptionsIndexer},
         timer::Timer,
         whitelist::Whitelist,
@@ -26,6 +26,48 @@ use serde::{Deserialize, Serialize};
 
 const OLD_MULTICALL_CONTRACT_ADDRESS: &str = "0x88e33D0d7f9d130c85687FC73655457204E29467";
 
+#[derive(Clone, Debug, CandidType, Serialize, Deserialize, Default)]
+pub enum OldMethodType {
+    Pair(String),
+    Random(String),
+    #[default]
+    Empty,
+}
+
+impl From<OldMethodType> for MethodType {
+    fn from(old_method_type: OldMethodType) -> Self {
+        match old_method_type {
+            OldMethodType::Pair(pair) => MethodType::Feed(pair),
+            OldMethodType::Random(random) => MethodType::Random(random),
+            OldMethodType::Empty => MethodType::Empty,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, CandidType, Default)]
+pub struct OldMethod {
+    pub name: String,
+    pub abi: String,
+    pub gas_limit: Nat,
+    pub chain_id: Nat,
+    pub method_type: OldMethodType,
+    pub exec_condition: Option<ExecutionCondition>,
+}
+
+impl From<OldMethod> for Method {
+    fn from(old_method: OldMethod) -> Self {
+        Method {
+            name: old_method.name,
+            abi: old_method.abi,
+            gas_limit: old_method.gas_limit,
+            chain_id: old_method.chain_id,
+            method_type: old_method.method_type.into(),
+            exec_condition: old_method.exec_condition,
+        }
+    }
+}
+
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct OldSubscription {
     pub id: Nat,
@@ -33,7 +75,7 @@ pub struct OldSubscription {
     pub owner: String,
     pub contract_addr: String,
     pub frequency: Option<Nat>,
-    pub method: Method,
+    pub method: OldMethod,
     pub status: SubscriptionStatus,
 }
 
@@ -57,7 +99,7 @@ impl From<OldSubscription> for Subscription {
             label: old_subscription.label.unwrap_or("label".to_string()),
             owner: old_subscription.owner,
             contract_addr: old_subscription.contract_addr,
-            method: old_subscription.method,
+            method: old_subscription.method.into(),
             status: old_subscription.status,
         };
 

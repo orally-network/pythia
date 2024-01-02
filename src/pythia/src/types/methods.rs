@@ -28,8 +28,8 @@ pub enum ExecutionConditionError {
     },
     #[error("change rate should be greater than or equil 1 and lower than 100")]
     InvalidChangeRate,
-    #[error("Pair does not exist")]
-    PairDoesNotExist,
+    #[error("Feed does not exist")]
+    FeedDoesNotExist,
     #[error("error: {0}")]
     Error(#[from] anyhow::Error),
 }
@@ -47,7 +47,7 @@ pub enum ExecutionCondition {
     Frequency(Nat),
     PriceMutation {
         mutation_rate: i64,
-        pair_id: String,
+        feed_id: String,
         creation_price: u64,
         price_mutation_type: PriceMutationType,
     },
@@ -93,7 +93,7 @@ impl ExecutionCondition {
     async fn check_price_mutation(&mut self) -> Result<bool, ExecutionConditionError> {
         let ExecutionCondition::PriceMutation {
             mutation_rate: change_rate,
-            pair_id,
+            feed_id,
             creation_price,
             price_mutation_type,
         } = self
@@ -102,7 +102,7 @@ impl ExecutionCondition {
         };
 
         log!("creation rate: {}", creation_price);
-        let rate = sybil::get_asset_data(pair_id).await?;
+        let rate = sybil::get_asset_data(feed_id).await?;
         log!("current rate: {}", rate.rate);
         let current_mutation_rate = BigInt::from(100)
             - ((BigInt::from(rate.rate) * BigInt::from(100)) / BigInt::from(*creation_price));
@@ -160,7 +160,7 @@ impl ExecutionCondition {
     async fn validate_price_mutation(&mut self) -> Result<(), ExecutionConditionError> {
         let ExecutionCondition::PriceMutation {
             mutation_rate,
-            pair_id,
+            feed_id,
             creation_price,
             ..
         } = self
@@ -172,11 +172,11 @@ impl ExecutionCondition {
             return Err(ExecutionConditionError::InvalidChangeRate);
         }
 
-        if !sybil::is_pair_exists(pair_id).await? {
-            return Err(ExecutionConditionError::PairDoesNotExist);
+        if !sybil::is_feed_exists(feed_id).await? {
+            return Err(ExecutionConditionError::FeedDoesNotExist);
         }
 
-        let rate = sybil::get_asset_data(pair_id).await?;
+        let rate = sybil::get_asset_data(feed_id).await?;
         *creation_price = rate.rate;
 
         Ok(())
@@ -185,7 +185,7 @@ impl ExecutionCondition {
 
 #[derive(Clone, Debug, CandidType, Serialize, Deserialize, Default)]
 pub enum MethodType {
-    Pair(String),
+    Feed(String),
     Random(String),
     #[default]
     Empty,
@@ -194,7 +194,7 @@ pub enum MethodType {
 impl MethodType {
     pub fn are_common_enums(&self, other: &MethodType) -> bool {
         match (self, other) {
-            (MethodType::Pair(_), MethodType::Pair(_)) => true,
+            (MethodType::Feed(_), MethodType::Feed(_)) => true,
             (MethodType::Random(_), MethodType::Random(_)) => true,
             (MethodType::Empty, MethodType::Empty) => true,
             _ => false,

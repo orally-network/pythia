@@ -58,8 +58,8 @@ pub enum PythiaError {
     UnableToUpdateChain,
     #[error("Unable to get a chain RPC")]
     UnableToGetChainRPC,
-    #[error("Pair does not exist")]
-    PairDoesNotExist,
+    #[error("Feed does not exist")]
+    FeedDoesNotExist,
     #[error("Invalid ABI function Name")]
     InvalidABIFunctionName,
     #[error("Invalid ABI parameters")]
