@@ -39,12 +39,12 @@ pub async fn pma_h160() -> Result<H160> {
 
 pub async fn fee(chain_id: &Nat) -> Result<Nat> {
     log!("Trying to get fee for chain_id: {}", chain_id);
-    let mut pair_id = Chains::get_symbol(chain_id)?;
-    pair_id.push_str("/USD");
+    let mut feed_id = Chains::get_symbol(chain_id)?;
+    feed_id.push_str("/USD");
 
-    if sybil::is_pair_exists(&pair_id).await? {
-        log!("Pair exists in Sybild");
-        let rate = sybil::get_asset_data(&pair_id)
+    if sybil::is_feed_exists(&feed_id).await? {
+        log!("Feed exists in Sybild");
+        let rate = sybil::get_asset_data(&feed_id)
             .await
             .context(PythiaError::UnableToGetAssetData)?;
         let decimals = Nat::from_str(DECIMALS)?;

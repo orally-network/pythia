@@ -33,13 +33,13 @@ type ExecutionCondition = variant {
     Frequency : nat;
     PriceMutation : record {
         mutation_rate : int64;
-        pair_id : text;
+        feed_id : text;
         creation_price : nat64;
         price_mutation_type : PriceMutationType;
     };
 };
 type MethodType = variant {
-    Pair : text;
+    Feed : text;
     Random : text;
     Empty : null;
 };
@@ -67,12 +67,12 @@ type Subscription = record {
 };
 type PriceMutationCondition = record {
     mutation_rate : int64;
-    pair_id : text;
+    feed_id : text;
     price_mutation_type : PriceMutationType;
 };
 type SubscribeRequest = record {
     chain_id : nat;
-    pair_id : opt text;
+    feed_id : opt text;
     contract_addr : text;
     method_abi : text;
     is_random : bool;
@@ -88,7 +88,7 @@ type UpdateSubscriptionRequest = record {
     id : nat;
     chain_id : nat;
     label : opt text;
-    pair_id : opt text;
+    feed_id : opt text;
     contract_addr : opt text;
     method_abi : opt text;
     is_random : opt bool;

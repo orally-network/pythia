@@ -14,12 +14,12 @@ const BITS_IN_BYTE: usize = 8;
 
 pub fn resolve_abi(
     method_abi: String,
-    pair_id: Option<String>,
+    feed_id: Option<String>,
     is_random: bool,
 ) -> Result<(String, MethodType)> {
     let raw_abi: Vec<&str> = method_abi.split_terminator(&['(', ')', ',']).collect();
-    if let Some(pair_id) = pair_id {
-        get_pair_abi(&raw_abi, &pair_id)
+    if let Some(feed_id) = feed_id {
+        get_feed_abi(&raw_abi, &feed_id)
     } else if is_random {
         get_random_abi(&raw_abi)
     } else {
@@ -27,7 +27,7 @@ pub fn resolve_abi(
     }
 }
 
-fn get_pair_abi(raw_abi: &[&str], pair_id: &str) -> Result<(String, MethodType)> {
+fn get_feed_abi(raw_abi: &[&str], feed_id: &str) -> Result<(String, MethodType)> {
     let func_name = raw_abi
         .first()
         .context(PythiaError::InvalidABIFunctionName)?
@@ -45,7 +45,7 @@ fn get_pair_abi(raw_abi: &[&str], pair_id: &str) -> Result<(String, MethodType)>
         "inputs": [
             {
                 "internalType": "string",
-                "name": "pair_id",
+                "name": "feed_id",
                 "type": "string",
             },
             {
@@ -70,7 +70,7 @@ fn get_pair_abi(raw_abi: &[&str], pair_id: &str) -> Result<(String, MethodType)>
         "type": "function"
     });
 
-    Ok((data.to_string(), MethodType::Pair(pair_id.into())))
+    Ok((data.to_string(), MethodType::Feed(feed_id.into())))
 }
 
 fn get_random_abi(raw_abi: &[&str]) -> Result<(String, MethodType)> {
@@ -176,7 +176,7 @@ pub async fn get_call_data(method: &Method) -> Result<Vec<u8>> {
 pub async fn get_input(method_type: &MethodType) -> Result<Vec<Token>> {
     log!("[ABI] get_input requested input method_type: {method_type:?}");
     let input = match method_type {
-        MethodType::Pair(pair_id) => get_sybil_input(pair_id).await?,
+        MethodType::Feed(feed_id) => get_sybil_input(feed_id).await?,
         MethodType::Random(abi_type) => vec![get_random_input(abi_type).await?],
         MethodType::Empty => vec![],
     };
@@ -205,12 +205,12 @@ pub async fn get_random_input(abi_type: &str) -> Result<Token> {
     cast_to_param_type(value, abi_type).context(PythiaError::InvalidABIParameterTypes)
 }
 
-pub async fn get_sybil_input(pair_id: &str) -> Result<Vec<Token>> {
-    log!("[ABI] get_sybil_input requested sybil::get_asset_data, pair_id: {pair_id:?}");
-    let rate = retry_until_success!(sybil::get_asset_data(pair_id))
+pub async fn get_sybil_input(feed_id: &str) -> Result<Vec<Token>> {
+    log!("[ABI] get_sybil_input requested sybil::get_asset_data, feed_id: {feed_id:?}");
+    let rate = retry_until_success!(sybil::get_asset_data(feed_id))
         .context(PythiaError::UnableToGetSybilRate)?;
 
-    log!("[ABI] get_sybil_input got asset_data pair_id: {pair_id:?}");
+    log!("[ABI] get_sybil_input got asset_data feed_id: {feed_id:?}");
     Ok(vec![
         Token::String(rate.symbol),
         Token::Uint(rate.rate.into()),
