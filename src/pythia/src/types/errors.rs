@@ -8,6 +8,12 @@ pub enum PythiaError {
     ChainAlreadyExists,
     #[error("Chain does not exist")]
     ChainDoesNotExist,
+    #[error("Chain does not exist in Balances")]
+    ChainDoesNotExistInBalances,
+    #[error("Chain does not exist in Subscriptions")]
+    ChainDoesNotExistInSubscriptions,
+    #[error("Chain does not exist in WithdrawalRequests")]
+    ChainDoesNotExistInWithdrawalRequests,
     #[error("Subscribtion does not exist")]
     SubscriptionDoesNotExist,
     #[error("Balance does not exist")]
@@ -52,8 +58,8 @@ pub enum PythiaError {
     UnableToUpdateChain,
     #[error("Unable to get a chain RPC")]
     UnableToGetChainRPC,
-    #[error("Pair does not exist")]
-    PairDoesNotExist,
+    #[error("Feed does not exist")]
+    FeedDoesNotExist,
     #[error("Invalid ABI function Name")]
     InvalidABIFunctionName,
     #[error("Invalid ABI parameters")]
@@ -120,6 +126,12 @@ pub enum PythiaError {
     UnableToGetAssetData,
     #[error("Unable to reduce balance")]
     UnableToReduceBalance,
+    #[error("Chain already initialized in Balances")]
+    ChainAlreadyInitializedInBalances,
+    #[error("Chain already initialized in Subscriptions")]
+    ChainAlreadyInitializedInSubscriptions,
+    #[error("Chain already initialized in WithdrawalRequests")]
+    ChainAlreadyInitializedInWithdrawalRequests,
     #[error("Unable to activate timer")]
     UnableToActivateTimer,
     #[error("Unable to deactivate timer")]
@@ -141,5 +153,5 @@ pub enum PythiaError {
     #[error("Unable to clear balance")]
     UnableToClearBalance,
     #[error("Unable to get Sybil rate")]
-    UnableToGetSybilRate
+    UnableToGetSybilRate,
 }

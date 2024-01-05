@@ -24,8 +24,22 @@ type CreateChainRequest = record {
 };
 type GetChainRPCResponse = variant { Ok : text; Err : text};
 // Subscribptions
+type PriceMutationType = variant {
+    Increase : null;
+    Decrease : null;
+    Both : null;
+};
+type ExecutionCondition = variant {
+    Frequency : nat;
+    PriceMutation : record {
+        mutation_rate : int64;
+        feed_id : text;
+        creation_price : nat64;
+        price_mutation_type : PriceMutationType;
+    };
+};
 type MethodType = variant {
-    Pair : text;
+    Feed : text;
     Random : text;
     Empty : null;
 };
@@ -35,6 +49,7 @@ type Method = record {
     gas_limit : nat;
     chain_id : nat;
     method_type : MethodType;
+    exec_condition : opt ExecutionCondition;
 };
 type SubscriptionStatus = record {
     is_active : bool;
@@ -44,33 +59,42 @@ type SubscriptionStatus = record {
 };
 type Subscription = record {
     id : nat;
+    label : text;
     owner : text;
     contract_addr : text;
-    frequency : nat;
     method : Method;
     status : SubscriptionStatus;
 };
+type PriceMutationCondition = record {
+    mutation_rate : int64;
+    feed_id : text;
+    price_mutation_type : PriceMutationType;
+};
 type SubscribeRequest = record {
     chain_id : nat;
-    pair_id : opt text;
+    feed_id : opt text;
     contract_addr : text;
     method_abi : text;
-    frequency : nat;
     is_random : bool;
     gas_limit : nat;
+    label : text;
+    frequency_condition : opt nat;
+    price_mutation_condition : opt PriceMutationCondition;
     msg : text;
     sig : text;
 };
 type SubscribeResponse = variant { Ok : nat; Err : text };
 type UpdateSubscriptionRequest = record {
-    chain_id : nat;
     id : nat;
-    pair_id : opt text;
-    gas_limit : opt nat;
-    method_abi : opt text;
+    chain_id : nat;
+    label : opt text;
+    feed_id : opt text;
     contract_addr : opt text;
-    frequency : opt nat;
+    method_abi : opt text;
     is_random : opt bool;
+    gas_limit : opt nat;
+    frequency_condition : opt nat;
+    price_mutation_condition : opt PriceMutationCondition;
     msg : text;
     sig : text;
 };
@@ -79,9 +103,35 @@ type WhitelistEntry = record {
     address : text;
     is_blacklisted : bool;
 };
+
+// Pagination struct used to paginate output of some methods
+type Pagination = record {
+    page : nat64;
+    size : nat64;
+};
+// PaginationResult struct used as a response to request with pagination
+type GetSubscriptionsResultWithPagination = record {
+    page: nat64;
+    size: nat64;
+    total_items: nat64;
+    total_pages: nat64;
+    items: vec Subscription;
+};
+
+// Filter struct used to filter output of some methods
+type GetSubscriptionsFilter = record {
+    method_type : opt MethodType;
+    owner : opt text;
+    is_active: opt bool;
+    chain_ids : opt vec nat;
+    search : opt text;
+    
+};
+
 type Whitelist = vec WhitelistEntry;
 type GetWhiteListResponse = variant { Ok : Whitelist; Err : text};
 type IsWhitelistedResponse = variant { Ok : bool; Err : text};
+type GetSubscriptionResponse = variant { Ok : Subscription; Err : text};
 
 // Serive
 service : {
@@ -113,7 +163,8 @@ service : {
     clear_balance : (chain_id : nat, address : text) -> (Error);
     // Subscriptions
     subscribe : (req : SubscribeRequest) -> (SubscribeResponse);
-    get_subscriptions : (owner : opt text) -> (vec Subscription);
+    get_subscriptions : (filter : opt GetSubscriptionsFilter, pagination : opt Pagination) -> (GetSubscriptionsResultWithPagination);
+    get_subscription : (chain_id : nat, sub_id : nat) -> (GetSubscriptionResponse);
     stop_subscriptions : () -> (Error);
     remove_subscriptions : () -> (Error);
     remove_subscription : (id : nat) -> (Error);

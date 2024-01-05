@@ -1,9 +1,9 @@
-use ic_cdk::export::{
-    candid::CandidType,
-    serde::{Deserialize, Serialize},
-};
+use candid::CandidType;
+use serde::{Deserialize, Serialize};
 
-use crate::STATE;
+use crate::{log, STATE};
+
+use super::logger::WHITELIST;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct WhitelistEntry {
@@ -31,6 +31,8 @@ pub fn add(address: &str) {
             is_blacklisted: false,
         };
         state.whitelist.push(entry);
+
+        log!("[{WHITELIST}] Address added: {}", address);
     })
 }
 
@@ -38,6 +40,7 @@ pub fn remove(address: &str) {
     STATE.with(|state| {
         let mut state = state.borrow_mut();
         state.whitelist.retain(|entry| entry.address != address);
+        log!("[{WHITELIST}] Address removed: {}", address);
     })
 }
 
@@ -49,6 +52,7 @@ pub fn blacklist(address: &str) {
                 entry.is_blacklisted = true;
             }
         });
+        log!("[{WHITELIST}] Address balcklisted: {}", address);
     })
 }
 
@@ -60,6 +64,7 @@ pub fn unblacklist(address: &str) {
                 entry.is_blacklisted = false;
             }
         });
+        log!("[{WHITELIST}] Address unbalcklisted: {}", address);
     })
 }
 

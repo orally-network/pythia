@@ -11,7 +11,7 @@ use ic_web3_rs::{
 };
 
 use crate::{
-    clone_with_state,
+    clone_with_state, log,
     types::{balance::Balances, chains::Chains, errors::PythiaError},
     update_state,
     utils::{address, canister, sybil},
@@ -38,19 +38,23 @@ pub async fn pma_h160() -> Result<H160> {
 }
 
 pub async fn fee(chain_id: &Nat) -> Result<Nat> {
-    let mut pair_id = Chains::get_symbol(chain_id)?;
-    pair_id.push_str("/USD");
+    log!("Trying to get fee for chain_id: {}", chain_id);
+    let mut feed_id = Chains::get_symbol(chain_id)?;
+    feed_id.push_str("/USD");
 
-    if sybil::is_pair_exists(&pair_id).await? {
-        let rate = sybil::get_asset_data(&pair_id)
+    if sybil::is_feed_exists(&feed_id).await? {
+        log!("Feed exists in Sybild");
+        let rate = sybil::get_asset_data(&feed_id)
             .await
             .context(PythiaError::UnableToGetAssetData)?;
         let decimals = Nat::from_str(DECIMALS)?;
-        let fee_in_usdt = clone_with_state!(tx_fee);
+        let fee_in_usdt = clone_with_state!(tx_fee); // TODO why only in one place occured ?
 
-        return Ok((fee_in_usdt * decimals) / rate.rate);
+        log!("Returning fee from Sybil");
+        return Ok((fee_in_usdt * decimals) / rate.rate); // TODO Why ?
     }
 
+    log!("Returning fee from State");
     Chains::get_fee(chain_id)
 }
 
@@ -83,4 +87,15 @@ fn get_transform_ctx(method: &str) -> CallOptions {
         .max_resp(None)
         .build()
         .expect("failed to build call options")
+}
+
+pub fn set_custom_panic_hook() {
+    _ = std::panic::take_hook(); // clear custom panic hook and set default
+    let old_handler = std::panic::take_hook(); // take default panic hook
+
+    // set custom panic hook
+    std::panic::set_hook(Box::new(move |info| {
+        log!("PANIC OCCURRED: {:#?}", info);
+        old_handler(info);
+    }));
 }

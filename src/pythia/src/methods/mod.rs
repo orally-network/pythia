@@ -1,6 +1,7 @@
 pub mod balance;
 pub mod chains;
 pub mod controllers;
+pub mod http;
 pub mod subscriptions;
 pub mod whitelist;
 

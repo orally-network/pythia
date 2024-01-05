@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 
-use ic_cdk::export::candid::Nat;
+use candid::Nat;
 use ic_cdk::{query, update};
 
 use crate::{
@@ -8,7 +8,11 @@ use crate::{
     log,
     types::{
         balance::Balances,
-        subscription::{Subscription, Subscriptions, SubsribeRequest, UpdateSubscriptionRequest},
+        pagination::{Pagination, PaginationResult},
+        subscription::{
+            GetSubscriptionsFilter, Subscription, Subscriptions, SubsribeRequest,
+            UpdateSubscriptionRequest,
+        },
         timer::Timer,
         whitelist,
     },
@@ -45,7 +49,7 @@ async fn _subscribe(req: SubsribeRequest) -> Result<Nat> {
     }
     Subscriptions::check_limits(&address)?;
 
-    let id = Subscriptions::add(&req, &address)
+    let id = Subscriptions::add(req, &address)
         .await
         .context(PythiaError::UnableToAddSubscription)?;
 
@@ -61,14 +65,30 @@ async fn _subscribe(req: SubsribeRequest) -> Result<Nat> {
 ///
 /// # Arguments
 ///
-/// * `owner` - The owner of the subscription, can be omitted
+/// * `filter` - Filter options, can be omitted.
+/// * `pagination` - Pagination options, can be omitted. Vector of subscriptions sorted by subscirption id
 ///
 /// # Returns
 ///
-/// A vector of subscriptions
+/// A vector of subscriptions with or without pagination
 #[query]
-pub fn get_subscriptions(owner: Option<String>) -> Vec<Subscription> {
-    Subscriptions::get_all(None, vec![], owner)
+pub fn get_subscriptions(
+    filter: Option<GetSubscriptionsFilter>,
+    pagination: Option<Pagination>,
+) -> PaginationResult<Subscription> {
+    let mut res = Subscriptions::get_all(filter);
+    match pagination {
+        Some(pagination) => {
+            res.sort_by(|l, r| l.id.cmp(&r.id));
+            pagination.paginate(res)
+        }
+        None => res.into(),
+    }
+}
+
+#[query]
+pub fn get_subscription(chain_id: Nat, id: Nat) -> Result<Subscription, String> {
+    Subscriptions::get(&chain_id, &id).map_err(|e| format!("{e:?}"))
 }
 
 /// Stop a subscription
@@ -193,7 +213,9 @@ async fn _update_subscription(req: UpdateSubscriptionRequest) -> Result<()> {
         return Err(PythiaError::UserIsNotWhitelisted.into());
     }
 
-    Subscriptions::update(&req, &address).context(PythiaError::UnableToUpdateSubscription)?;
+    Subscriptions::update(&req, &address)
+        .await
+        .context(PythiaError::UnableToUpdateSubscription)?;
 
     log!("[SUBSCRIPTIONS] updated, id: {}", req.id);
     Ok(())

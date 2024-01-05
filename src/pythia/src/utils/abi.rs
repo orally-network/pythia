@@ -4,7 +4,7 @@ use ic_web3_rs::ethabi::{Function, Token};
 use serde_json::json;
 
 use crate::{
-    retry_until_success,
+    log, retry_until_success,
     types::methods::{Method, MethodType},
     utils::sybil,
     PythiaError,
@@ -14,12 +14,12 @@ const BITS_IN_BYTE: usize = 8;
 
 pub fn resolve_abi(
     method_abi: String,
-    pair_id: Option<String>,
+    feed_id: Option<String>,
     is_random: bool,
 ) -> Result<(String, MethodType)> {
     let raw_abi: Vec<&str> = method_abi.split_terminator(&['(', ')', ',']).collect();
-    if let Some(pair_id) = pair_id {
-        get_pair_abi(&raw_abi, &pair_id)
+    if let Some(feed_id) = feed_id {
+        get_feed_abi(&raw_abi, &feed_id)
     } else if is_random {
         get_random_abi(&raw_abi)
     } else {
@@ -27,7 +27,7 @@ pub fn resolve_abi(
     }
 }
 
-fn get_pair_abi(raw_abi: &[&str], pair_id: &str) -> Result<(String, MethodType)> {
+fn get_feed_abi(raw_abi: &[&str], feed_id: &str) -> Result<(String, MethodType)> {
     let func_name = raw_abi
         .first()
         .context(PythiaError::InvalidABIFunctionName)?
@@ -45,7 +45,7 @@ fn get_pair_abi(raw_abi: &[&str], pair_id: &str) -> Result<(String, MethodType)>
         "inputs": [
             {
                 "internalType": "string",
-                "name": "pair_id",
+                "name": "feed_id",
                 "type": "string",
             },
             {
@@ -70,7 +70,7 @@ fn get_pair_abi(raw_abi: &[&str], pair_id: &str) -> Result<(String, MethodType)>
         "type": "function"
     });
 
-    Ok((data.to_string(), MethodType::Pair(pair_id.into())))
+    Ok((data.to_string(), MethodType::Feed(feed_id.into())))
 }
 
 fn get_random_abi(raw_abi: &[&str]) -> Result<(String, MethodType)> {
@@ -155,22 +155,32 @@ pub fn cast_to_param_type(value: u64, kind: &str) -> Option<Token> {
 }
 
 pub async fn get_call_data(method: &Method) -> Result<Vec<u8>> {
+    let chain_id = method.chain_id.clone();
     let input = get_input(&method.method_type)
         .await
         .context(PythiaError::UnableToGetInput)?;
+    log!("[ABI] get_call_data got input: {input:?}, chain_id: {chain_id:?}");
 
-    serde_json::from_str::<Function>(&method.abi)
-        .context(PythiaError::InvalidContractABI)?
+    let result =
+        serde_json::from_str::<Function>(&method.abi).context(PythiaError::InvalidContractABI)?;
+
+    log!("[ABI] get_call_data: deserialized function: {result:?}, chain_id: {chain_id:?}");
+
+    let result = result
         .encode_input(&input)
-        .context(PythiaError::UnableToEncodeCall)
+        .context(PythiaError::UnableToEncodeCall);
+
+    result
 }
 
 pub async fn get_input(method_type: &MethodType) -> Result<Vec<Token>> {
+    log!("[ABI] get_input requested input method_type: {method_type:?}");
     let input = match method_type {
-        MethodType::Pair(pair_id) => get_sybil_input(pair_id).await?,
+        MethodType::Feed(feed_id) => get_sybil_input(feed_id).await?,
         MethodType::Random(abi_type) => vec![get_random_input(abi_type).await?],
         MethodType::Empty => vec![],
     };
+    log!("[ABI] get_input got input: {input:?}");
 
     Ok(input)
 }
@@ -195,9 +205,12 @@ pub async fn get_random_input(abi_type: &str) -> Result<Token> {
     cast_to_param_type(value, abi_type).context(PythiaError::InvalidABIParameterTypes)
 }
 
-pub async fn get_sybil_input(pair_id: &str) -> Result<Vec<Token>> {
-    let rate = retry_until_success!(sybil::get_asset_data(pair_id)).context(PythiaError::UnableToGetSybilRate)?;
-    
+pub async fn get_sybil_input(feed_id: &str) -> Result<Vec<Token>> {
+    log!("[ABI] get_sybil_input requested sybil::get_asset_data, feed_id: {feed_id:?}");
+    let rate = retry_until_success!(sybil::get_asset_data(feed_id))
+        .context(PythiaError::UnableToGetSybilRate)?;
+
+    log!("[ABI] get_sybil_input got asset_data feed_id: {feed_id:?}");
     Ok(vec![
         Token::String(rate.symbol),
         Token::Uint(rate.rate.into()),

@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
+use candid::{CandidType, Nat};
+use serde::{Deserialize, Serialize};
 use url::Url;
 
-use ic_cdk::export::{
-    candid::{CandidType, Nat},
-    serde::{Deserialize, Serialize},
-};
-
-use super::errors::PythiaError;
-use crate::STATE;
+use super::{errors::PythiaError, logger::CHAINS};
+use crate::{log, STATE};
 
 #[derive(Clone, Debug, Deserialize, Serialize, CandidType, Default)]
 pub struct Chain {
@@ -65,17 +62,18 @@ impl Chains {
                 },
             );
         });
+
+        log!("[{CHAINS}] Chain added: chain_id = {}", req.chain_id);
         Ok(())
     }
 
     pub fn remove(id: &Nat) -> Result<()> {
         STATE.with(|state| {
-            state
-                .borrow_mut()
-                .chains
-                .0
-                .remove(id)
-                .ok_or(PythiaError::ChainDoesNotExist)?;
+            if state.borrow_mut().chains.0.remove(id).is_some() {
+                log!("[{CHAINS}] Chain removed: chain_id = {}", id);
+            } else {
+                log!("[{CHAINS}] Chain does not exist: chain_id = {}", id)
+            }
 
             Ok(())
         })

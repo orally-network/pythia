@@ -1,31 +1,35 @@
 use anyhow::{anyhow, Result};
+use candid::CandidType;
+use serde::{Deserialize, Serialize};
 
-use ic_cdk::export::{
-    candid::CandidType,
-    serde::{Deserialize, Serialize},
+use crate::{
+    clone_with_state, log, metrics, types::logger::SYBIL, types::rate_data::RateDataLight, STATE,
 };
 
-use crate::{clone_with_state, types::rate_data::RateDataLight, STATE};
-
 #[derive(Clone, Debug, CandidType, Serialize, Deserialize)]
-enum PairDataResponse {
+enum FeedDataResponse {
     Ok(RateDataLight),
     Err(String),
 }
 
-pub async fn is_pair_exists(pair_id: &str) -> Result<bool> {
+pub async fn is_feed_exists(feed_id: &str) -> Result<bool> {
     let sybil_canister =
         clone_with_state!(sybil_canister).expect("SYBIL CANISTER should be initialised");
 
-    let pair_id = pair_id.to_string();
-    let (is_exist,): (bool,) = ic_cdk::call(sybil_canister, "is_pair_exists", (pair_id,))
+    let feed_id = feed_id.to_string();
+
+    metrics!(inc SYBIL_OUTCALLS, "is_feed_exists");
+    let (is_exist,): (bool,) = ic_cdk::call(sybil_canister, "is_feed_exists", (feed_id,))
         .await
         .map_err(|(code, msg)| anyhow!("{:?}: {}", code, msg))?;
+
+    metrics!(inc SUCCESSFUL_SYBIL_OUTCALLS, "is_feed_exists");
 
     Ok(is_exist)
 }
 
-pub async fn get_asset_data(pair_id: &str) -> Result<RateDataLight> {
+pub async fn get_asset_data(feed_id: &str) -> Result<RateDataLight> {
+    log!("[{SYBIL}] Asset data requested for feed_id: {:#?}", feed_id);
     let sybil_canister = STATE.with(|state| {
         state
             .borrow()
@@ -33,14 +37,20 @@ pub async fn get_asset_data(pair_id: &str) -> Result<RateDataLight> {
             .expect("SYBIL CANISTER should be initialised")
     });
 
-    let pair_id = pair_id.to_string();
-    let (pair_data,): (PairDataResponse,) =
-        ic_cdk::call(sybil_canister, "get_asset_data", (pair_id,))
+    let feed_id = feed_id.to_string();
+    log!("Preparing to call");
+
+    metrics!(inc SYBIL_OUTCALLS, "get_asset_data");
+    let (feed_data,): (Result<RateDataLight, String>,) =
+        ic_cdk::call(sybil_canister, "get_asset_data", (feed_id,))
             .await
             .map_err(|(code, msg)| anyhow!("{:?}: {}", code, msg))?;
+    metrics!(inc SUCCESSFUL_SYBIL_OUTCALLS, "get_asset_data");
 
-    match pair_data {
-        PairDataResponse::Ok(data) => Ok(data),
-        PairDataResponse::Err(err) => Err(anyhow!(err)),
+    log!("Call returned");
+
+    match feed_data {
+        Result::Ok(data) => Ok(data),
+        Result::Err(err) => Err(anyhow!(err)),
     }
 }

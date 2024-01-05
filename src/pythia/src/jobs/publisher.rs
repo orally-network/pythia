@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use ic_cdk::export::candid::Nat;
+use candid::Nat;
 use ic_cdk_timers::set_timer;
 
 use futures::future::join_all;
@@ -35,27 +35,38 @@ async fn _execute() -> Result<()> {
     log!("[{PUBLISHER}] publisher job started");
     Timer::activate().context(PythiaError::UnableToActivateTimer)?;
 
+    let timer_id = set_timer(
+        Duration::from_secs(nat::to_u64(&clone_with_state!(timer_frequency))),
+        execute,
+    );
+
+    Timer::update(timer_id).context(PythiaError::UnableToUpdateTimer)?;
+
     subscriptions_grouper::group()?;
 
-    let (publishable_subs, is_active) = Subscriptions::get_publishable();
+    let (publishable_subs, is_active) = Subscriptions::get_publishable().await;
 
-    let futures = publishable_subs.clone()
+    log!(
+        "[{PUBLISHER}] Got publishable subs: len: {:#?}, is_active: {}",
+        publishable_subs.len(),
+        is_active
+    );
+
+    let futures = publishable_subs
+        .clone()
         .into_iter()
         .filter(|(_, subs)| !subs.is_empty())
         .map(|(chain_id, subs)| publish_on_chain(chain_id, subs))
         .collect::<Vec<_>>();
-    
-    let publishable_chain_ids = publishable_subs.clone()
-        .into_iter()
-        .filter(|(_, subs)| !subs.is_empty())
-        .map(|(chain_id, _)| chain_id)
-        .collect::<Vec<_>>();
+
+    log!("[{PUBLISHER}] Futures created: len = {:#?}", futures.len());
+
     let should_stop_insufficient_subs = !futures.is_empty();
 
     if !is_active {
         withdraw::withdraw().await;
         Timer::deactivate().context(PythiaError::UnableToDeactivateTimer)?;
-        log!("[{PUBLISHER}] publisher job stopped");
+        log!("[{PUBLISHER}] Subscription is inactive, publisher job stopped");
         return Ok(());
     }
 
@@ -66,22 +77,16 @@ async fn _execute() -> Result<()> {
     });
 
     if should_stop_insufficient_subs {
-        match Subscriptions::stop_insufficients(publishable_chain_ids)
+        match Subscriptions::stop_insufficients()
             .await
-            .context(PythiaError::UnableToStopInsufficientSubscriptions) {
+            .context(PythiaError::UnableToStopInsufficientSubscriptions)
+        {
             Ok(_) => log!("[{PUBLISHER}] stopped insufficient subscriptions"),
             Err(e) => log!("[{PUBLISHER}] error while stopping insufficient subscriptions: {e:?}"),
         }
     }
 
     withdraw::withdraw().await;
-
-    let timer_id = set_timer(
-        Duration::from_secs(nat::to_u64(&clone_with_state!(timer_frequency))),
-        execute,
-    );
-
-    Timer::update(timer_id).context(PythiaError::UnableToUpdateTimer)?;
 
     log!("[{PUBLISHER}] publisher job executed");
     Ok(())
@@ -113,18 +118,28 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             calls.push(call);
         }
 
-        let fee = canister::fee(&chain_id).await.context("Unable to get fe")?;
-        let mut gas_price = match retry_until_success!(w3.eth().gas_price(canister::transform_ctx())) {
-            Ok(gas_price) => gas_price,
-            Err(e) => Err(e).context(PythiaError::UnableToGetGasPrice)?,
-        };
+        log!("[{PUBLISHER}] Calls inited, chain: {}", chain_id);
+
+        let fee = canister::fee(&chain_id) // TODO: move out of loop
+            .await
+            .context("Unable to get fee")?;
+
+        log!("[{PUBLISHER}] Trying to get gas_price: {}", chain_id);
+        let mut gas_price =
+            match retry_until_success!(w3.eth().gas_price(canister::transform_ctx())) {
+                Ok(gas_price) => gas_price,
+                Err(e) => {
+                    log!("Unable to get gas_price: {e:?}");
+                    Err(e).context(PythiaError::UnableToGetGasPrice)?
+                }
+            };
         log!(
             "[{PUBLISHER}] chain: {}, gas price: {}, fee: {}",
             chain_id,
             gas_price,
             fee
         );
-        
+
         // multiply the gas_price to 1.2 to avoid long transaction confirmation
         gas_price = (gas_price / 10) * 12;
         let multicall_results = multicall(&w3, &chain_id, calls.clone(), gas_price)
@@ -139,64 +154,59 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             continue;
         }
 
-        subscriptions = multicall_results
-            .iter()
-            .zip(subscriptions)
-            .filter_map(|(result, sub)| {
-                let mut used_gas = nat::from_u256(&result.used_gas);
-                
+        let mut remaining_subs = vec![];
+
+        for (result, sub) in multicall_results.iter().zip(subscriptions) {
+            let mut used_gas = nat::from_u256(&result.used_gas);
+
+            log!(
+                "[{PUBLISHER}] chain: {}, sub: {}, used gas: {}, gas limit: {}",
+                chain_id,
+                sub.id,
+                used_gas,
+                sub.method.gas_limit
+            );
+
+            #[allow(clippy::cmp_owned)]
+            if used_gas == Nat::from(0) {
+                remaining_subs.push(sub);
+                continue;
+            }
+
+            if used_gas > sub.method.gas_limit {
                 log!(
-                    "[{PUBLISHER}] chain: {}, sub: {}, used gas: {}, gas limit: {}",
+                    "[{PUBLISHER}] chain: {}, gas limit exceeded for sub {}",
                     chain_id,
-                    sub.id,
-                    used_gas,
-                    sub.method.gas_limit
+                    sub.id
                 );
-                
-                #[allow(clippy::cmp_owned)]
-                if used_gas == Nat::from(0) {
-                    return Some(sub);
-                }
+                Subscriptions::stop(&chain_id, &sub.owner, &sub.id).expect("should stop sub");
+                // inscrease gas limit by 30 persent
+                let new_gas_limit = (used_gas.clone() / 10) * 13;
+                Subscriptions::update(
+                    &UpdateSubscriptionRequest {
+                        chain_id: chain_id.clone(),
+                        id: sub.id.clone(),
+                        gas_limit: Some(new_gas_limit),
+                        ..Default::default()
+                    },
+                    &sub.owner,
+                )
+                .await
+                .expect("should update sub");
+            }
 
-                if used_gas > sub.method.gas_limit {
-                    log!(
-                        "[{PUBLISHER}] chain: {}, gas limit exceeded for sub {}",
-                        chain_id,
-                        sub.id
-                    );
-                    Subscriptions::stop(&chain_id, &sub.owner, &sub.id).expect("should stop sub");
-                    // inscrease gas limit by 30 persent
-                    let new_gas_limit = (used_gas.clone() / 10) / 13;
-                    Subscriptions::update(
-                        &UpdateSubscriptionRequest {
-                            chain_id: chain_id.clone(),
-                            id: sub.id.clone(),
-                            gas_limit: Some(new_gas_limit),
-                            ..Default::default()
-                        },
-                        &sub.owner,
-                    )
-                    .expect("should update sub");
-                }
+            Subscriptions::update_last_update(&chain_id, &sub.id, !result.success, publishing_time);
+            let gas_for_tx = (web3::TRANSFER_GAS_LIMIT / multicall_results.len() as u64) + 100;
+            used_gas += gas_for_tx;
 
-                Subscriptions::update_last_update(
-                    &chain_id,
-                    &sub.id,
-                    !result.success,
-                    publishing_time,
-                );
-                let gas_for_tx = (web3::TRANSFER_GAS_LIMIT / multicall_results.len() as u64) + 100;
-                used_gas += gas_for_tx;
+            let mut amount = nat::from_u256(&gas_price) * (used_gas);
+            amount += fee.clone();
 
-                let mut amount = nat::from_u256(&gas_price) * (used_gas);
-                amount += fee.clone();
+            Balances::reduce(&chain_id, &sub.owner, &amount).expect("should reduce balance");
+            canister::collect_fee(&chain_id, &pma, &fee).expect("should collect fee");
+        }
 
-                Balances::reduce(&chain_id, &sub.owner, &amount).expect("should reduce balance");
-                canister::collect_fee(&chain_id, &pma, &fee).expect("should collect fee");
-
-                None
-            })
-            .collect();
+        subscriptions = remaining_subs;
     }
 
     log!("[{PUBLISHER}] chain: {}, published", chain_id);

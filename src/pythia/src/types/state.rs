@@ -1,8 +1,5 @@
-use candid::{Nat, Principal};
-use ic_cdk::export::{
-    candid::CandidType,
-    serde::{Deserialize, Serialize},
-};
+use candid::{CandidType, Nat, Principal};
+use serde::{Deserialize, Serialize};
 
 use super::{
     balance::Balances,
