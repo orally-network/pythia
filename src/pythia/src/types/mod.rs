@@ -4,7 +4,7 @@ pub mod errors;
 pub mod logger;
 pub mod methods;
 pub mod pagination;
-pub mod rate_data;
+pub mod asset_data;
 pub mod state;
 pub mod subscription;
 pub mod timer;

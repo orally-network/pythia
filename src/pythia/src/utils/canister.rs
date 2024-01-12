@@ -12,7 +12,7 @@ use ic_web3_rs::{
 
 use crate::{
     clone_with_state, log,
-    types::{balance::Balances, chains::Chains, errors::PythiaError},
+    types::{balance::Balances, chains::Chains, errors::PythiaError, asset_data::AssetData},
     update_state,
     utils::{address, canister, sybil},
 };
@@ -44,14 +44,21 @@ pub async fn fee(chain_id: &Nat) -> Result<Nat> {
 
     if sybil::is_feed_exists(&feed_id).await? {
         log!("Feed exists in Sybild");
-        let rate = sybil::get_asset_data(&feed_id)
+        let asset_data = sybil::get_asset_data(&feed_id)
             .await
             .context(PythiaError::UnableToGetAssetData)?;
+
+        let rate = match asset_data.data {
+            AssetData::DefaultPriceFeed { rate, .. } | AssetData::CustomPriceFeed { rate, .. } => rate,
+            _ => return Err(PythiaError::UnsupportedAssetDataType.into()),
+        };
+
+
         let decimals = Nat::from_str(DECIMALS)?;
         let fee_in_usdt = clone_with_state!(tx_fee); // TODO why only in one place occured ?
 
         log!("Returning fee from Sybil");
-        return Ok((fee_in_usdt * decimals) / rate.rate); // TODO Why ?
+        return Ok((fee_in_usdt * decimals) / rate); // TODO Why ?
     }
 
     log!("Returning fee from State");
