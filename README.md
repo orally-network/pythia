@@ -47,7 +47,7 @@ METHOD_ABI="increment_counter()" &&
 GAS_LIMIT=1000000 && 
 MUTATION_RATE=1 && 
 CONDITION_PRICE_ID="ETH/USD" && 
-MUTATION_TYPE="Both" && 
+MUTATION_TYPE="Both" 
 MULTICALL_CONTRACT="{Enter your evm-oracle multicall smartcontract}" && 
 TX_HASH="{Enter tx where you sent some tokens to the sybil address}"
 SUBSCRIPTION_ID={Enter subscription id}
@@ -70,6 +70,10 @@ dfx canister call pythia add_to_whitelist "(\"${ADDRESS}\")"
 dfx canister call pythia get_pma
 # deposit a funds to the pma
 dfx canister call pythia deposit "(${CHAIN_ID}:nat, \"${TX_HASH}\", \"${SIWE_MSG}\", \"${SIWE_SIG}\")"
+# get balance 
+dfx canister call pythia get_balance "(${CHAIN_ID}, \"${ADDRESS}\")"
+# withdraw balance 
+dfx canister call pythia withdraw "(${CHAIN_ID}, \"${SIWE_MSG}\", \"${SIWE_SIG}\", \"${ADDRESS}\")"
 # create a subscription with a frequency condition
 dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; feed_id=null; label=\"test\"; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_condition=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
 # create a subscription with a price mutation condition
