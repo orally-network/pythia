@@ -154,4 +154,6 @@ pub enum PythiaError {
     UnableToClearBalance,
     #[error("Unable to get Sybil rate")]
     UnableToGetSybilRate,
+    #[error("Unable to estimate gas")]
+    UnableToEstimateGas,
 }

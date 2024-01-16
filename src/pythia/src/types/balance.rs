@@ -7,13 +7,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     dig, dig_mut, log,
-    utils::{address, multicall::GAS_PER_TRANSFER},
+    utils::{address, multicall::{GAS_PER_TRANSFER, BASE_GAS}},
     STATE,
 };
 
 use super::{chains::Chains, errors::PythiaError, logger::BALANCES};
 
-const ETH_TRANSFER_GAS_LIMIT: u64 = 21_000 + GAS_PER_TRANSFER;
+const ETH_TRANSFER_GAS_LIMIT: u64 = BASE_GAS + GAS_PER_TRANSFER;
 
 #[derive(Clone, Debug, Default, CandidType, Serialize, Deserialize)]
 pub struct UserBalance {
@@ -26,7 +26,7 @@ pub struct UserBalance {
 pub struct Balances(pub HashMap<Nat, HashMap<String, UserBalance>>);
 
 impl Balances {
-    pub fn get_value_for_witndraw(chain_id: &Nat, address: &str, gas_price: &Nat) -> Result<Nat> {
+    pub fn get_value_for_withdraw(chain_id: &Nat, address: &str, gas_price: &Nat) -> Result<Nat> {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
             let balance = dig_mut!(state, balances, chain_id, address)
@@ -87,10 +87,10 @@ impl Balances {
     }
 
     pub fn add_amount(chain_id: &Nat, address: &str, amount: &Nat) -> Result<()> {
+        let address = address::normalize(address)?;
         STATE.with(|state| {
             let mut state = state.borrow_mut();
-            let balance = dig_mut!(state, balances, chain_id, address)
-                .context(PythiaError::BalanceDoesNotExist)?;
+            let balance = state.balances.0.get_mut(chain_id).context(PythiaError::ChainDoesNotExistInBalances)?.get_mut(&address).context(PythiaError::BalanceDoesNotExist)?;
             balance.amount += amount.clone();
             log!(
                 "[{BALANCES}] Balance amount added: chain_id = {}, address = {}, amount = {}",

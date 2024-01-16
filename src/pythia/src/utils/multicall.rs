@@ -1,7 +1,5 @@
-use std::{str::FromStr};
-
+use std::str::FromStr;
 use anyhow::{Context, Result};
-
 use candid::Nat;
 use ic_web3_rs::{
     contract::{tokens::Tokenizable, Contract, Error, Options},
@@ -23,7 +21,7 @@ use crate::{
 const MULTICALL_ABI: &[u8] = include_bytes!("../../assets/MulticallABI.json");
 const MULTICALL_CALL_FUNCTION: &str = "multicall";
 const MULTICALL_TRANSFER_FUNCTION: &str = "multitransfer";
-const BASE_GAS: u64 = 27_000;
+pub const BASE_GAS: u64 = 27_000;
 pub const GAS_PER_TRANSFER: u64 = 7_900;
 const GAS_FOR_OPS: u64 = 10_000;
 const TX_TIMEOUT: u64 = 60 * 5;
@@ -318,7 +316,8 @@ pub async fn multitransfer<T: Transport>(
     let gas_price = retry_until_success!(w3.eth().gas_price(canister::transform_ctx()))?;
     metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "gas_price");
 
-    let gas_limit = BASE_GAS + (GAS_PER_TRANSFER * transfers.len() as u64) + 7000;
+    let params: Vec<Token> = transfers.iter().map(|c| c.clone().into_token()).collect();
+
     let value = transfers.iter().fold(U256::from(0), |sum, t| sum + t.value);
 
     metrics!(inc RPC_OUTCALLS, "transaction_count");
@@ -329,15 +328,23 @@ pub async fn multitransfer<T: Transport>(
     ))?;
     metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "transaction_count");
 
-    let options = Options {
+    let mut options = Options {
         gas_price: Some(gas_price),
-        gas: Some(U256::from(gas_limit)),
         value: Some(value),
         nonce: Some(nonce),
         ..Default::default()
     };
 
-    let params: Vec<Token> = transfers.iter().map(|c| c.clone().into_token()).collect();
+
+    let gas_limit = contract.estimate_gas(
+        &MULTICALL_TRANSFER_FUNCTION,
+        params.clone(),
+        H160::from_str(&from)?,
+        options.clone(),
+    ).await.context(PythiaError::UnableToEstimateGas)?;
+
+    options.value = Some(value - (gas_limit / transfers.len()) * gas_price);
+    options.gas = Some(gas_limit);
 
     let signed_call = contract
         .sign(
@@ -353,6 +360,9 @@ pub async fn multitransfer<T: Transport>(
     metrics!(inc ECDSA_SIGNS);
 
     metrics!(inc RPC_OUTCALLS, "send_raw_transaction");
+    log!("[Multitransfer] tx send, chain_id: {}", chain_id);
+
+
     let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(
         signed_call.raw_transaction.clone(),
         canister::transform_ctx()
@@ -363,6 +373,8 @@ pub async fn multitransfer<T: Transport>(
     web3::wait_for_success_confirmation(w3, &tx_hash, TX_TIMEOUT)
         .await
         .context(PythiaError::WaitingForSuccessConfirmationFailed)?;
+
+    log!("[Multitransfer] tx received, chain_id: {}", chain_id);
 
     Ok(())
 }

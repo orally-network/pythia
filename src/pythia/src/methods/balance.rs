@@ -121,7 +121,7 @@ async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) ->
     let gas_price = web3::gas_price(&chain_id)
         .await
         .context(PythiaError::UnableToGetGasPrice)?;
-    let amount = Balances::get_value_for_witndraw(&chain_id, &address, &gas_price)
+    let amount = Balances::get_value_for_withdraw(&chain_id, &address, &gas_price)
         .context(PythiaError::UnableToGetValueForWithdraw)?;
     Subscriptions::stop_all(Some(chain_id.clone()), vec![], Some(address.clone()))
         .context(PythiaError::UnableToStopSubscriptions)?;
