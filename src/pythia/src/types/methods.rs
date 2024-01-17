@@ -9,7 +9,7 @@ use crate::{
     utils::{nat, sybil, time},
 };
 
-use super::subscription::Subscriptions;
+use super::{subscription::Subscriptions, asset_data::AssetData};
 
 #[derive(Error, Debug)]
 pub enum ExecutionConditionError {
@@ -102,13 +102,16 @@ impl ExecutionCondition {
         };
 
         log!("creation rate: {}", creation_price);
-        let rate = sybil::get_asset_data(feed_id).await?;
-        log!("current rate: {}", rate.rate);
+        let rate = match sybil::get_asset_data(feed_id).await?.data {
+            AssetData::DefaultPriceFeed { rate, .. } | AssetData::CustomPriceFeed { rate, .. } => rate,
+            _ => return Err(anyhow!("unsupported asset data type"))?,
+        };
+        log!("current rate: {}", rate);
         let current_mutation_rate = BigInt::from(100)
-            - ((BigInt::from(rate.rate) * BigInt::from(100)) / BigInt::from(*creation_price));
+            - ((BigInt::from(rate) * BigInt::from(100)) / BigInt::from(*creation_price));
         log!("mutation rate: {}", change_rate);
         log!("current mutation rate: {}", current_mutation_rate);
-        *creation_price = rate.rate;
+        *creation_price = rate;
         match price_mutation_type {
             PriceMutationType::Increase if current_mutation_rate >= BigInt::from(*change_rate) => {
                 Ok(true)
@@ -176,8 +179,12 @@ impl ExecutionCondition {
             return Err(ExecutionConditionError::FeedDoesNotExist);
         }
 
-        let rate = sybil::get_asset_data(feed_id).await?;
-        *creation_price = rate.rate;
+        let rate = match sybil::get_asset_data(feed_id).await?.data {
+            AssetData::DefaultPriceFeed { rate, .. } | AssetData::CustomPriceFeed { rate, .. } => rate,
+            _ => return Err(anyhow!("unsupported asset data type"))?,
+        };
+
+        *creation_price = rate;
 
         Ok(())
     }

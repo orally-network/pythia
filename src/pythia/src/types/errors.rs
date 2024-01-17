@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use super::methods::ExecutionConditionError;
+
 #[derive(Error, Debug)]
 pub enum PythiaError {
     #[error("Not a controller")]
@@ -154,4 +156,8 @@ pub enum PythiaError {
     UnableToClearBalance,
     #[error("Unable to get Sybil rate")]
     UnableToGetSybilRate,
+    #[error("Unsupported asset data type")]
+    UnsupportedAssetDataType,
+    #[error("Execution condition error: {0}")]
+    ExecutionConditionError(#[from] ExecutionConditionError),
 }
