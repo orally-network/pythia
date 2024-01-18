@@ -160,4 +160,6 @@ pub enum PythiaError {
     UnsupportedAssetDataType,
     #[error("Execution condition error: {0}")]
     ExecutionConditionError(#[from] ExecutionConditionError),
+    #[error("Unable to estimate gas")]
+    UnableToEstimateGas,
 }
