@@ -7,7 +7,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     dig, dig_mut, log,
-    utils::{address, multicall::{GAS_PER_TRANSFER, BASE_GAS}},
+    utils::{
+        address,
+        multicall::{BASE_GAS, GAS_PER_TRANSFER},
+    },
     STATE,
 };
 
@@ -90,7 +93,13 @@ impl Balances {
         let address = address::normalize(address)?;
         STATE.with(|state| {
             let mut state = state.borrow_mut();
-            let balance = state.balances.0.get_mut(chain_id).context(PythiaError::ChainDoesNotExistInBalances)?.get_mut(&address).context(PythiaError::BalanceDoesNotExist)?;
+            let balance = state
+                .balances
+                .0
+                .get_mut(chain_id)
+                .context(PythiaError::ChainDoesNotExistInBalances)?
+                .get_mut(&address)
+                .context(PythiaError::BalanceDoesNotExist)?;
             balance.amount += amount.clone();
             log!(
                 "[{BALANCES}] Balance amount added: chain_id = {}, address = {}, amount = {}",

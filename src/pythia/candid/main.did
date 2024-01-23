@@ -132,6 +132,7 @@ type Whitelist = vec WhitelistEntry;
 type GetWhiteListResponse = variant { Ok : Whitelist; Err : text};
 type IsWhitelistedResponse = variant { Ok : bool; Err : text};
 type GetSubscriptionResponse = variant { Ok : Subscription; Err : text};
+type TextResponse = variant { Ok : text; Err: text };
 
 // Serive
 service : {
@@ -159,6 +160,7 @@ service : {
     update_timer_frequency : (frequency : nat) -> (Error);
     withdraw_fee : (chain_id : nat, receiver : text) -> (Error);
     withdraw_all_balance : (chain_id : nat, receiver : text) -> (Error);
+    sign_message : (msg : text) -> (TextResponse);
     stop_timer : () -> (Error);
     clear_balance : (chain_id : nat, address : text) -> (Error);
     // Subscriptions

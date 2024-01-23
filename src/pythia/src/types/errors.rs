@@ -162,4 +162,6 @@ pub enum PythiaError {
     ExecutionConditionError(#[from] ExecutionConditionError),
     #[error("Unable to estimate gas")]
     UnableToEstimateGas,
+    #[error("Sign error: {0}")]
+    SignError(String),
 }

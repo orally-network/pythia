@@ -70,6 +70,8 @@ dfx canister call pythia add_to_whitelist "(\"${ADDRESS}\")"
 dfx canister call pythia get_pma
 # deposit a funds to the pma
 dfx canister call pythia deposit "(${CHAIN_ID}:nat, \"${TX_HASH}\", \"${SIWE_MSG}\", \"${SIWE_SIG}\")"
+# get balace 
+dfx canister call pythia get_balance "(${CHAIN_ID}:nat, \"${ADDRESS}\")"
 # get balance 
 dfx canister call pythia get_balance "(${CHAIN_ID}, \"${ADDRESS}\")"
 # withdraw balance 
