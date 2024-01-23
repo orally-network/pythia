@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use anyhow::{Context, Result};
 use candid::Nat;
 use ic_web3_rs::{
@@ -7,6 +6,7 @@ use ic_web3_rs::{
     types::{BlockId, Bytes, CallRequest, H160, U256},
     Transport, Web3,
 };
+use std::str::FromStr;
 
 use super::{address, canister, nat, web3};
 use crate::{
@@ -335,13 +335,15 @@ pub async fn multitransfer<T: Transport>(
         ..Default::default()
     };
 
-
-    let gas_limit = contract.estimate_gas(
-        &MULTICALL_TRANSFER_FUNCTION,
-        params.clone(),
-        H160::from_str(&from)?,
-        options.clone(),
-    ).await.context(PythiaError::UnableToEstimateGas)?;
+    let gas_limit = contract
+        .estimate_gas(
+            &MULTICALL_TRANSFER_FUNCTION,
+            params.clone(),
+            H160::from_str(&from)?,
+            options.clone(),
+        )
+        .await
+        .context(PythiaError::UnableToEstimateGas)?;
 
     options.value = Some(value - (gas_limit / transfers.len()) * gas_price);
     options.gas = Some(gas_limit);
@@ -359,10 +361,9 @@ pub async fn multitransfer<T: Transport>(
         .context(PythiaError::UnableToSignContractCall)?;
     metrics!(inc ECDSA_SIGNS);
 
-    metrics!(inc RPC_OUTCALLS, "send_raw_transaction");
     log!("[Multitransfer] tx send, chain_id: {}", chain_id);
 
-
+    metrics!(inc RPC_OUTCALLS, "send_raw_transaction");
     let tx_hash = retry_until_success!(w3.eth().send_raw_transaction(
         signed_call.raw_transaction.clone(),
         canister::transform_ctx()

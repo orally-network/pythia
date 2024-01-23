@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, str::FromStr, time::Duration};
 
 use crate::{
     jobs::publisher,
@@ -28,7 +28,7 @@ const OLD_MULTICALL_CONTRACT_ADDRESS: &str = "0x88e33D0d7f9d130c85687FC736554572
 
 #[derive(Clone, Debug, CandidType, Serialize, Deserialize, Default)]
 pub enum OldMethodType {
-    Feed(String),
+    Pair(String),
     Random(String),
     #[default]
     Empty,
@@ -37,7 +37,7 @@ pub enum OldMethodType {
 impl From<OldMethodType> for MethodType {
     fn from(old_method_type: OldMethodType) -> Self {
         match old_method_type {
-            OldMethodType::Feed(pair) => MethodType::Feed(pair),
+            OldMethodType::Pair(pair) => MethodType::Feed(pair),
             OldMethodType::Random(random) => MethodType::Random(random),
             OldMethodType::Empty => MethodType::Empty,
         }
@@ -66,7 +66,6 @@ impl From<OldMethod> for Method {
         }
     }
 }
-
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, CandidType)]
 pub struct OldSubscription {
@@ -238,7 +237,21 @@ fn post_upgrade() {
         }
     });
 
-    STATE.with(|s| s.replace(state.into()));
+    STATE.with(|s| {
+        s.replace(state.into());
+
+        // let mut state = s.borrow_mut();
+
+        // state.withdraw_requests.0.clear();
+
+        // let aboba = state.balances.0.get_mut(&Nat::from(167007)).unwrap()
+        // .entry("0x654dff41d51c230fa400205a633101c5c1f1969c".to_string()).or_default();
+
+        // aboba.amount = Nat::from_str("312240980509378889").unwrap();
+
+        // log!("balances: {:#?}", state.balances);
+    });
+
     if let Some(metrics) = metrics {
         METRICS.with(|m| m.replace(metrics.into()));
 

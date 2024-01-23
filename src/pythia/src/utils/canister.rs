@@ -12,7 +12,7 @@ use ic_web3_rs::{
 
 use crate::{
     clone_with_state, log,
-    types::{balance::Balances, chains::Chains, errors::PythiaError, asset_data::AssetData},
+    types::{asset_data::AssetData, balance::Balances, chains::Chains, errors::PythiaError},
     update_state,
     utils::{address, canister, sybil},
 };
@@ -49,10 +49,11 @@ pub async fn fee(chain_id: &Nat) -> Result<Nat> {
             .context(PythiaError::UnableToGetAssetData)?;
 
         let rate = match asset_data.data {
-            AssetData::DefaultPriceFeed { rate, .. } | AssetData::CustomPriceFeed { rate, .. } => rate,
+            AssetData::DefaultPriceFeed { rate, .. } | AssetData::CustomPriceFeed { rate, .. } => {
+                rate
+            }
             _ => return Err(PythiaError::UnsupportedAssetDataType.into()),
         };
-
 
         let decimals = Nat::from_str(DECIMALS)?;
         let fee_in_usdt = clone_with_state!(tx_fee); // TODO why only in one place occured ?

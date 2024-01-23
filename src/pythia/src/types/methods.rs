@@ -9,7 +9,7 @@ use crate::{
     utils::{nat, sybil, time},
 };
 
-use super::{subscription::Subscriptions, asset_data::AssetData};
+use super::{asset_data::AssetData, subscription::Subscriptions};
 
 #[derive(Error, Debug)]
 pub enum ExecutionConditionError {
@@ -103,7 +103,9 @@ impl ExecutionCondition {
 
         log!("creation rate: {}", creation_price);
         let rate = match sybil::get_asset_data(feed_id).await?.data {
-            AssetData::DefaultPriceFeed { rate, .. } | AssetData::CustomPriceFeed { rate, .. } => rate,
+            AssetData::DefaultPriceFeed { rate, .. } | AssetData::CustomPriceFeed { rate, .. } => {
+                rate
+            }
             _ => return Err(anyhow!("unsupported asset data type"))?,
         };
         log!("current rate: {}", rate);
@@ -180,7 +182,9 @@ impl ExecutionCondition {
         }
 
         let rate = match sybil::get_asset_data(feed_id).await?.data {
-            AssetData::DefaultPriceFeed { rate, .. } | AssetData::CustomPriceFeed { rate, .. } => rate,
+            AssetData::DefaultPriceFeed { rate, .. } | AssetData::CustomPriceFeed { rate, .. } => {
+                rate
+            }
             _ => return Err(anyhow!("unsupported asset data type"))?,
         };
 

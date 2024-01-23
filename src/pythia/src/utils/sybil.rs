@@ -3,7 +3,9 @@ use candid::CandidType;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    clone_with_state, log, metrics, types::{logger::SYBIL, asset_data::AssetDataResult}, STATE,
+    clone_with_state, log, metrics,
+    types::{asset_data::AssetDataResult, logger::SYBIL},
+    STATE,
 };
 
 #[derive(Clone, Debug, CandidType, Serialize, Deserialize)]
