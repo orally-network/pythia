@@ -10,6 +10,7 @@ pub mod metrics;
 pub mod multicall;
 pub mod nat;
 pub mod processors;
+pub mod signature;
 pub mod siwe;
 pub mod sybil;
 pub mod time;

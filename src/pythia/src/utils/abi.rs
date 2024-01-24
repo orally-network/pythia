@@ -5,7 +5,10 @@ use serde_json::json;
 
 use crate::{
     log, retry_until_success,
-    types::methods::{Method, MethodType},
+    types::{
+        asset_data::AssetData,
+        methods::{Method, MethodType},
+    },
     utils::sybil,
     PythiaError,
 };
@@ -207,14 +210,34 @@ pub async fn get_random_input(abi_type: &str) -> Result<Token> {
 
 pub async fn get_sybil_input(feed_id: &str) -> Result<Vec<Token>> {
     log!("[ABI] get_sybil_input requested sybil::get_asset_data, feed_id: {feed_id:?}");
-    let rate = retry_until_success!(sybil::get_asset_data(feed_id))
+    let asset_data = retry_until_success!(sybil::get_asset_data(feed_id))
         .context(PythiaError::UnableToGetSybilRate)?;
 
     log!("[ABI] get_sybil_input got asset_data feed_id: {feed_id:?}");
-    Ok(vec![
-        Token::String(rate.symbol),
-        Token::Uint(rate.rate.into()),
-        Token::Uint(rate.decimals.into()),
-        Token::Uint(rate.timestamp.into()),
-    ])
+    match asset_data.data {
+        AssetData::DefaultPriceFeed {
+            symbol,
+            rate,
+            decimals,
+            timestamp,
+        } => Ok(vec![
+            Token::String(symbol),
+            Token::Uint(rate.into()),
+            Token::Uint(decimals.into()),
+            Token::Uint(timestamp.into()),
+        ]),
+        AssetData::CustomPriceFeed {
+            symbol,
+            rate,
+            decimals,
+            timestamp,
+            ..
+        } => Ok(vec![
+            Token::String(symbol),
+            Token::Uint(rate.into()),
+            Token::Uint(decimals.unwrap_or_default().into()),
+            Token::Uint(timestamp.into()),
+        ]),
+        _ => return Err(PythiaError::UnsupportedAssetDataType.into()),
+    }
 }

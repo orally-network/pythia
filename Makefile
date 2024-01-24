@@ -31,8 +31,8 @@ local_upgrade_siwe:
 ic_upgrade: ic_upgrade_siwe ic_upgrade_pythia
 
 ic_upgrade_siwe:
-	dfx build siwe --network ic && gzip -f -1 ./siwe.wasm
-	dfx canister install --mode upgrade --wasm ./siwe.wasm --network ic siwe
+	dfx build siwe_signer --network ic && gzip -f -1 ./.dfx/ic/canisters/siwe_signer/siwe_signer.wasm
+	dfx canister install --mode upgrade --wasm ./.dfx/ic/canisters/siwe_signer/siwe_signer.wasm.gz --network ic siwe_signer
 
 ic_upgrade_pythia:
 	dfx build pythia --network ic && gzip -f -1 ./.dfx/ic/canisters/pythia/pythia.wasm
