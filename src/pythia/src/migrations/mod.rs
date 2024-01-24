@@ -28,7 +28,7 @@ const OLD_MULTICALL_CONTRACT_ADDRESS: &str = "0x88e33D0d7f9d130c85687FC736554572
 
 #[derive(Clone, Debug, CandidType, Serialize, Deserialize, Default)]
 pub enum OldMethodType {
-    Pair(String),
+    Feed(String),
     Random(String),
     #[default]
     Empty,
@@ -37,7 +37,7 @@ pub enum OldMethodType {
 impl From<OldMethodType> for MethodType {
     fn from(old_method_type: OldMethodType) -> Self {
         match old_method_type {
-            OldMethodType::Pair(pair) => MethodType::Feed(pair),
+            OldMethodType::Feed(pair) => MethodType::Feed(pair),
             OldMethodType::Random(random) => MethodType::Random(random),
             OldMethodType::Empty => MethodType::Empty,
         }
