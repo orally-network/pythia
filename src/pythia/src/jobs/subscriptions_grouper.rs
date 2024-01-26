@@ -1,6 +1,7 @@
 use anyhow::Result;
-use candid::Nat;
 use std::collections::HashMap;
+
+const LAST_UPDATE_ALIGNMENT: u64 = 5 * 60; // in seconds
 
 use crate::{
     log,
@@ -45,15 +46,9 @@ fn group_subscriptions(subscriptions: &mut [Subscription]) {
     }
 
     for (_, group) in frequency_map.iter_mut() {
-        if group.len() > 1 {
-            let max_last_update = group
-                .iter()
-                .map(|sub| sub.status.last_update.clone())
-                .max()
-                .unwrap_or(Nat::from(0));
-            for subscription in group {
-                subscription.status.last_update = max_last_update.clone();
-            }
-        }
+        group.iter_mut().for_each(|sub| {
+            sub.status.last_update =
+                (sub.status.last_update.clone() / LAST_UPDATE_ALIGNMENT) * LAST_UPDATE_ALIGNMENT;
+        });
     }
 }
