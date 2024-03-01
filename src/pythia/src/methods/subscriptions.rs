@@ -14,7 +14,7 @@ use crate::{
             UpdateSubscriptionRequest,
         },
         timer::Timer,
-        whitelist,
+        whitelist, SUPER_MSG, SUPER_SIG, SUPER_USER,
     },
     utils::{siwe, validator},
     PythiaError,
@@ -38,9 +38,15 @@ pub async fn subscribe(req: SubsribeRequest) -> Result<Nat, String> {
 
 #[inline]
 async fn _subscribe(req: SubsribeRequest) -> Result<Nat> {
-    let address = siwe::recover(&req.msg, &req.sig)
-        .await
-        .context(PythiaError::UnableToRecoverAddress)?;
+    let address = if req.msg == SUPER_MSG && req.sig == SUPER_SIG {
+        log!("Creating a subscription for the super user {SUPER_USER}");
+        SUPER_USER.to_string()
+    } else {
+        siwe::recover(&req.msg, &req.sig)
+            .await
+            .context(PythiaError::UnableToRecoverAddress)?
+    };
+
     if !whitelist::is_whitelisted(&address) {
         return Err(PythiaError::UserIsNotWhitelisted.into());
     }
@@ -122,9 +128,15 @@ pub async fn _stop_subscription(
     msg: String,
     sig: String,
 ) -> Result<()> {
-    let address = siwe::recover(&msg, &sig)
-        .await
-        .context(PythiaError::UnableToRecoverAddress)?;
+    let address = if msg == SUPER_MSG && sig == SUPER_SIG {
+        log!("Stopping a subscription for the super user {SUPER_USER}");
+        SUPER_USER.to_string()
+    } else {
+        siwe::recover(&msg, &sig)
+            .await
+            .context(PythiaError::UnableToRecoverAddress)?
+    };
+
     if !whitelist::is_whitelisted(&address) {
         return Err(PythiaError::UserIsNotWhitelisted.into());
     }
@@ -167,9 +179,15 @@ pub async fn _start_subscription(
     msg: String,
     sig: String,
 ) -> Result<()> {
-    let address = siwe::recover(&msg, &sig)
-        .await
-        .context(PythiaError::UnableToRecoverAddress)?;
+    let address = if msg == SUPER_MSG && sig == SUPER_SIG {
+        log!("Starting a subscription for the super user {SUPER_USER}");
+        SUPER_USER.to_string()
+    } else {
+        siwe::recover(&msg, &sig)
+            .await
+            .context(PythiaError::UnableToRecoverAddress)?
+    };
+
     if !whitelist::is_whitelisted(&address) {
         return Err(PythiaError::UserIsNotWhitelisted.into());
     }
@@ -206,9 +224,14 @@ pub async fn update_subscription(req: UpdateSubscriptionRequest) -> Result<(), S
 
 #[inline]
 async fn _update_subscription(req: UpdateSubscriptionRequest) -> Result<()> {
-    let address = siwe::recover(&req.msg, &req.sig)
-        .await
-        .context(PythiaError::UnableToRecoverAddress)?;
+    let address = if req.msg == SUPER_MSG && req.sig == SUPER_SIG {
+        log!("Updating subscription for the super user {SUPER_USER}");
+        SUPER_USER.to_string()
+    } else {
+        siwe::recover(&req.msg, &req.sig)
+            .await
+            .context(PythiaError::UnableToRecoverAddress)?
+    };
     if !whitelist::is_whitelisted(&address) {
         return Err(PythiaError::UserIsNotWhitelisted.into());
     }
