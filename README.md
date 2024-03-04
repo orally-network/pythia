@@ -42,8 +42,14 @@ Chain ID: 324
 Nonce: NUY87tYWuZwkxrTZM
 Issued At: 2023-11-03T11:40:39.690Z" &&
 SIWE_SIG="31f8f8ea2104062e242dc13b9729c75b866e1ab1635c69404a1e7438221ff23849ea6a82e2544d28b4a16075f27fd3db6569e8664191af501572ad342e616c0300" &&
-CONTRACT_ADDR="0x8540Bca176E8566e3F26B2c23A542934d26DAc29" && 
+CONTRACT_ADDR="0xECD94bc01120A01D5121C8934859faA402849Ca1" && 
 METHOD_ABI="increment_counter()" && 
+SET_PRICE_FEED_ID="custom_BTC/USDT" &&
+SET_PRICE_METHOD_ABI="set_price(string, uint256, uint256, uint256)" &&
+SET_CUSTOM_NUMBER_FEED_ID="custom_get_logs_investly_subscription" &&
+SET_CUSTOM_NUMBER_METHOD_ABI="set_custom_number(string, uint256, uint256)" &&
+SET_CUSTOM_STRING_FEED_ID="custom_get_logs_example" &&
+SET_CUSTOM_STRING_METHOD_ABI="set_custom_string(string, string)" &&
 GAS_LIMIT=1000000 && 
 MUTATION_RATE=1 && 
 CONDITION_PRICE_ID="ETH/USD" && 
@@ -76,10 +82,25 @@ dfx canister call pythia get_balance "(${CHAIN_ID}:nat, \"${ADDRESS}\")"
 dfx canister call pythia get_balance "(${CHAIN_ID}, \"${ADDRESS}\")"
 # withdraw balance 
 dfx canister call pythia withdraw "(${CHAIN_ID}, \"${SIWE_MSG}\", \"${SIWE_SIG}\", \"${ADDRESS}\")"
+
+
+# create a feed subscription with a frequency condition
+dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; feed_id=opt \"${SET_PRICE_FEED_ID}\"; label=\"test\"; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${SET_PRICE_METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_condition=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+
+# create a custom number feed subscription with a frequency condition
+dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; feed_id=opt \"${SET_CUSTOM_NUMBER_FEED_ID}\"; label=\"test\"; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${SET_CUSTOM_NUMBER_METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_condition=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+
+# create a custom string feed subscription with a frequency condition
+dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; feed_id=opt \"${SET_CUSTOM_STRING_FEED_ID}\"; label=\"test\"; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${SET_CUSTOM_STRING_METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_condition=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+
+
 # create a subscription with a frequency condition
 dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; feed_id=null; label=\"test\"; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=opt ${UPDATE_TIME_FREQUENCY}; price_mutation_condition=null; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+
 # create a subscription with a price mutation condition
 dfx canister call pythia subscribe "(record {chain_id=${CHAIN_ID}:nat; feed_id=null; label=\"test\"; contract_addr=\"${CONTRACT_ADDR}\"; method_abi=\"${METHOD_ABI}\"; is_random=false; gas_limit=${GAS_LIMIT}:nat; frequency_condition=null; price_mutation_condition=opt record {mutation_rate=${MUTATION_RATE}; feed_id=\"${CONDITION_PRICE_ID}\"; price_mutation_type=variant {${MUTATION_TYPE}}}; msg=\"${SIWE_MSG}\"; sig=\"${SIWE_SIG}\"})"
+
+
 # to remove subscriptions
 dfx canister call pythia remove_subscription "(${SUBSCRIPTION_ID})"
 # to get all user subscriptions 
