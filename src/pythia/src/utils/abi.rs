@@ -324,6 +324,5 @@ pub async fn get_sybil_input(feed_id: &str) -> Result<Vec<Token>> {
             Token::Uint(decimals.into()),
         ]),
         AssetData::CustomString { id, value } => Ok(vec![Token::String(id), Token::String(value)]),
-        _ => return Err(PythiaError::UnsupportedAssetDataType.into()),
     }
 }
