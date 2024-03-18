@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use super::{errors::PythiaError, logger::CHAINS};
-use crate::{log, STATE};
+use crate::{log, types::subscription::Subscriptions, STATE};
+
+// After ${CHAIN_ERROR_LIMIT} errors, all subscription will be stopped
+const CHAIN_ERRORS_LIMIT: u8 = 3;
 
 #[derive(Clone, Debug, Deserialize, Serialize, CandidType, Default)]
 pub struct Chain {
@@ -17,6 +20,7 @@ pub struct Chain {
     pub fee: Option<Nat>,
     pub symbol: Option<String>,
     pub multicall_contract: Option<String>,
+    pub errors_count: u8,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, CandidType)]
@@ -59,11 +63,49 @@ impl Chains {
                     fee: Some(req.fee.clone()),
                     symbol: Some(req.symbol.clone()),
                     multicall_contract: Some(req.multicall_contract.clone()),
+                    errors_count: 0,
                 },
             );
         });
 
         log!("[{CHAINS}] Chain added: chain_id = {}", req.chain_id);
+        Ok(())
+    }
+
+    pub fn increment_error_count(id: Nat) -> Result<()> {
+        let errors_count = STATE.with(|state| -> anyhow::Result<u8> {
+            let mut state = state.borrow_mut();
+            let chain = state
+                .chains
+                .0
+                .get_mut(&id)
+                .ok_or(PythiaError::ChainDoesNotExist)?;
+
+            chain.errors_count += 1;
+            Ok(chain.errors_count)
+        });
+
+        if errors_count? >= CHAIN_ERRORS_LIMIT {
+            Subscriptions::stop_all(Some(id.clone()), vec![], None)?;
+            log!("[{CHAINS}] Chain {} stopped due to errors", id);
+        }
+
+        Ok(())
+    }
+
+    pub fn reset_error_count(id: Nat) -> Result<()> {
+        STATE.with(|state| -> anyhow::Result<()> {
+            let mut state = state.borrow_mut();
+            let chain = state
+                .chains
+                .0
+                .get_mut(&id)
+                .ok_or(PythiaError::ChainDoesNotExist)?;
+
+            chain.errors_count = 0;
+            Ok(())
+        })?;
+
         Ok(())
     }
 

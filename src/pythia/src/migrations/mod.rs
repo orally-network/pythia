@@ -5,7 +5,7 @@ use crate::{
     log, metrics,
     types::{
         balance::Balances,
-        chains::Chains,
+        chains::{Chain, Chains},
         methods::{ExecutionCondition, Method, MethodType},
         subscription::{Subscription, SubscriptionStatus, Subscriptions, SubscriptionsIndexer},
         timer::Timer,
@@ -121,13 +121,55 @@ impl From<OldSubscriptions> for Subscriptions {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, CandidType, Default)]
+pub struct OldChain {
+    pub chain_id: Nat,
+    pub rpc: String,
+    pub min_balance: Nat,
+    pub block_gas_limit: Nat,
+    pub fee: Option<Nat>,
+    pub symbol: Option<String>,
+    pub multicall_contract: Option<String>,
+}
+
+impl From<OldChain> for Chain {
+    fn from(old_chain: OldChain) -> Self {
+        Chain {
+            chain_id: old_chain.chain_id,
+            rpc: old_chain.rpc,
+            min_balance: old_chain.min_balance,
+            block_gas_limit: old_chain.block_gas_limit,
+            fee: old_chain.fee,
+            symbol: old_chain.symbol,
+            multicall_contract: old_chain.multicall_contract,
+            errors_count: 0,
+        }
+    }
+}
+
+/// Chain id => Chain
+#[derive(Clone, Debug, Default, Deserialize, Serialize, CandidType)]
+pub struct OldChains(pub HashMap<Nat, OldChain>);
+
+impl From<OldChains> for Chains {
+    fn from(old_chains: OldChains) -> Self {
+        Chains(
+            old_chains
+                .0
+                .into_iter()
+                .map(|(chain_id, chain)| (chain_id, chain.into()))
+                .collect(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, CandidType, Default)]
 pub struct OldState {
     #[deprecated]
     pub initialized: bool,
     #[deprecated]
     pub controllers: Vec<Principal>,
-    pub chains: Chains,
+    pub chains: OldChains,
     pub tx_fee: Nat,
     pub key_name: String,
     pub siwe_canister: Option<Principal>,
@@ -150,10 +192,9 @@ impl From<OldState> for State {
     fn from(old_state: OldState) -> Self {
         State {
             initialized: old_state.initialized,
-            chains: old_state.chains,
+            chains: old_state.chains.into(),
             tx_fee: old_state.tx_fee,
             key_name: old_state.key_name,
-            siwe_canister: old_state.siwe_canister,
             sybil_canister: old_state.sybil_canister,
             subs_limit_wallet: old_state.subs_limit_wallet,
             subs_limit_total: old_state.subs_limit_total,

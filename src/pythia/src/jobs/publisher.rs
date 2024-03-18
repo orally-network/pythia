@@ -5,12 +5,14 @@ use candid::Nat;
 use ic_cdk_timers::set_timer;
 
 use futures::future::join_all;
+use thiserror::Error;
 
 use super::{subscriptions_grouper, withdraw};
 use crate::{
     clone_with_state, log, retry_until_success,
     types::{
         balance::Balances,
+        chains::Chains,
         errors::PythiaError,
         logger::PUBLISHER,
         subscription::{Subscription, Subscriptions, UpdateSubscriptionRequest},
@@ -22,6 +24,14 @@ use crate::{
         nat, time, web3,
     },
 };
+
+#[derive(Error, Debug)]
+enum PublishOnChainError {
+    #[error("Chain error")]
+    ChainError(anyhow::Error),
+    #[error("Subscription error")]
+    SubscriptionError { err: anyhow::Error, sub_id: Nat },
+}
 
 pub fn execute() {
     ic_cdk::spawn(async {
@@ -70,11 +80,30 @@ async fn _execute() -> Result<()> {
         return Ok(());
     }
 
-    join_all(futures).await.iter().for_each(|e| {
-        if let Err(e) = e {
-            log!("[{PUBLISHER}] error while publishing: {e:?}");
-        }
-    });
+    join_all(futures)
+        .await
+        .iter()
+        .zip(publishable_subs)
+        .for_each(|(e, sub)| {
+            if let Err(e) = e {
+                log!("[{PUBLISHER}] error while publishing: {e:?}");
+                match e {
+                    PublishOnChainError::ChainError(_) => {
+                        Chains::increment_error_count(sub.0).expect("Shouldn't fail");
+                    }
+                    PublishOnChainError::SubscriptionError { sub_id, .. } => {
+                        Subscriptions::update_last_update(
+                            &sub.0,
+                            &sub_id,
+                            true,
+                            time::in_seconds(),
+                        );
+                    }
+                }
+            } else {
+                Chains::reset_error_count(sub.0).expect("Shouldn't fail");
+            }
+        });
 
     if should_stop_insufficient_subs {
         match Subscriptions::stop_insufficients()
@@ -92,11 +121,19 @@ async fn _execute() -> Result<()> {
     Ok(())
 }
 
-async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -> Result<()> {
+async fn publish_on_chain(
+    chain_id: Nat,
+    mut subscriptions: Vec<Subscription>,
+) -> Result<(), PublishOnChainError> {
     let publishing_time = time::in_seconds();
     log!("[{PUBLISHER}] chain: {}, publishing", chain_id);
-    let w3 = web3::instance(&chain_id)?;
-    let pma = canister::pma().await.context(PythiaError::UnableToGetPMA)?;
+
+    let w3 = web3::instance(&chain_id).map_err(PublishOnChainError::ChainError)?;
+    let pma = canister::pma()
+        .await
+        .context(PythiaError::UnableToGetPMA)
+        .map_err(PublishOnChainError::ChainError)?;
+
     while !subscriptions.is_empty() {
         log!(
             "[{PUBLISHER}] chain: {}, subscriptions left: {}",
@@ -104,33 +141,25 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
             subscriptions.len()
         );
 
-        let mut calls = vec![];
-        for sub in subscriptions.iter() {
-            let call = Call {
-                target: address::to_h160(&sub.contract_addr)
-                    .context(PythiaError::InvalidAddressFormat)?,
-                call_data: abi::get_call_data(&sub.method)
-                    .await
-                    .context(PythiaError::UnableToFormCallData)?,
-                gas_limit: nat::to_u256(&sub.method.gas_limit),
-            };
-
-            calls.push(call);
-        }
+        let calls = get_calls_from_subs(&subscriptions).await?;
 
         log!("[{PUBLISHER}] Calls inited, chain: {}", chain_id);
 
         let fee = canister::fee(&chain_id) // TODO: move out of loop
             .await
-            .context("Unable to get fee")?;
+            .context("Unable to get fee")
+            .map_err(PublishOnChainError::ChainError)?;
 
         log!("[{PUBLISHER}] Trying to get gas_price: {}", chain_id);
+
         let mut gas_price =
             match retry_until_success!(w3.eth().gas_price(canister::transform_ctx())) {
                 Ok(gas_price) => gas_price,
                 Err(e) => {
                     log!("Unable to get gas_price: {e:?}");
-                    Err(e).context(PythiaError::UnableToGetGasPrice)?
+                    Err(e)
+                        .context(PythiaError::UnableToGetGasPrice)
+                        .map_err(PublishOnChainError::ChainError)?
                 }
             };
         log!(
@@ -144,7 +173,8 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
         gas_price = (gas_price / 10) * 12;
         let multicall_results = multicall(&w3, &chain_id, calls.clone(), gas_price)
             .await
-            .context(PythiaError::UnableToExecuteMulticall)?;
+            .context(PythiaError::UnableToExecuteMulticall)
+            .map_err(PublishOnChainError::ChainError)?;
 
         if multicall_results.is_empty() {
             log!(
@@ -211,4 +241,31 @@ async fn publish_on_chain(chain_id: Nat, mut subscriptions: Vec<Subscription>) -
 
     log!("[{PUBLISHER}] chain: {}, published", chain_id);
     Ok(())
+}
+
+async fn get_calls_from_subs(subs: &[Subscription]) -> Result<Vec<Call>, PublishOnChainError> {
+    let mut calls = Vec::with_capacity(subs.len());
+
+    for sub in subs {
+        let call = Call {
+            target: address::to_h160(&sub.contract_addr)
+                .context(PythiaError::InvalidAddressFormat)
+                .map_err(|err| PublishOnChainError::SubscriptionError {
+                    err,
+                    sub_id: sub.id.clone(),
+                })?,
+            call_data: abi::get_call_data(&sub.method)
+                .await
+                .context(PythiaError::UnableToFormCallData)
+                .map_err(|err| PublishOnChainError::SubscriptionError {
+                    err,
+                    sub_id: sub.id.clone(),
+                })?,
+            gas_limit: nat::to_u256(&sub.method.gas_limit),
+        };
+
+        calls.push(call);
+    }
+
+    Ok(calls)
 }

@@ -190,6 +190,7 @@ async fn execute_multicall_batch<T: Transport>(
     chain_id: &Nat,
 ) -> Result<Vec<Token>> {
     metrics!(inc RPC_OUTCALLS, "transaction_count");
+
     let options = Options {
         gas_price: Some(*gas_price),
         gas: Some(
@@ -204,6 +205,7 @@ async fn execute_multicall_batch<T: Transport>(
             None,
             canister::transform_ctx()
         ))?),
+        max_fee_per_gas: Some(*gas_price * 2),
         ..Default::default()
     };
     metrics!(inc SUCCESSFUL_RPC_OUTCALLS, "transaction_count");

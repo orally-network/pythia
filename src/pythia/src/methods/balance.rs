@@ -50,7 +50,7 @@ pub async fn deposit(
 
 #[inline]
 async fn _deposit(chain_id: Nat, tx_hash: String, msg: String, sig: String) -> Result<()> {
-    let address = siwe::recover(&msg, &sig)
+    let address = siwe::siwe_recover(&msg, &sig)
         .await
         .context(PythiaError::UnableToRecoverAddress)?;
     if !whitelist::is_whitelisted(&address) {
@@ -115,7 +115,7 @@ pub async fn withdraw(
 
 #[inline]
 async fn _withdraw(chain_id: Nat, msg: String, sig: String, receiver: String) -> Result<()> {
-    let address = siwe::recover(&msg, &sig)
+    let address = siwe::siwe_recover(&msg, &sig)
         .await
         .context(PythiaError::UnableToRecoverAddress)?;
     let gas_price = web3::gas_price(&chain_id)

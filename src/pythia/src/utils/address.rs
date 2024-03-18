@@ -21,3 +21,8 @@ pub fn normalize(address: &str) -> Result<String> {
     let h160 = to_h160(address)?;
     Ok(from_h160(&h160))
 }
+
+pub fn eip55(address: String) -> Result<String> {
+    let h160 = to_h160(&address)?;
+    Ok(siwe::eip55(&h160.to_fixed_bytes()))
+}

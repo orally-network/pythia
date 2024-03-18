@@ -35,43 +35,119 @@ fn get_feed_abi(raw_abi: &[&str], feed_id: &str) -> Result<(String, MethodType)>
         .first()
         .context(PythiaError::InvalidABIFunctionName)?
         .to_string();
-    if raw_abi.len() != 5
-        || raw_abi[1] != "string"
-        || raw_abi[2] != " uint256"
-        || raw_abi[3] != " uint256"
-        || raw_abi[4] != " uint256"
-    {
-        return Err(PythiaError::InvalidABIParameters.into());
-    }
 
-    let data = json!({
-        "inputs": [
-            {
-                "internalType": "string",
-                "name": "feed_id",
-                "type": "string",
-            },
-            {
-                "internalType": "uint256",
-                "name": "price",
-                "type": "uint256",
-            },
-            {
-                "internalType": "uint256",
-                "name": "decimals",
-                "type": "uint256",
-            },
-            {
-                "internalType": "uint256",
-                "name": "timestamp",
-                "type": "uint256",
-            }
-        ],
-        "name": func_name,
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    });
+    let data = if raw_abi.len() == 5
+        && raw_abi[1] == "string"
+        && raw_abi[2] == " uint256"
+        && raw_abi[3] == " uint256"
+        && raw_abi[4] == " uint256"
+    {
+        json!({
+            "inputs": [
+                {
+                    "internalType": "string",
+                    "name": "feed_id",
+                    "type": "string",
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "price",
+                    "type": "uint256",
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "decimals",
+                    "type": "uint256",
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "timestamp",
+                    "type": "uint256",
+                }
+            ],
+            "name": func_name,
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        })
+    } else if raw_abi.len() == 4
+        && raw_abi[1] == "string"
+        && raw_abi[2] == " uint256"
+        && raw_abi[3] == " uint256"
+    {
+        json!({
+            "inputs": [
+                {
+                    "internalType": "string",
+                    "name": "feed_id",
+                    "type": "string",
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "price",
+                    "type": "uint256",
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "timestamp",
+                    "type": "uint256",
+                }
+            ],
+            "name": func_name,
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        })
+    } else if raw_abi.len() == 4
+        && raw_abi[1] == "string"
+        && raw_abi[2] == " uint256"
+        && raw_abi[3] == " uint256"
+    {
+        json!({
+            "inputs": [
+                {
+                    "internalType": "string",
+                    "name": "feed_id",
+                    "type": "string",
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "value",
+                    "type": "uint256",
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "decimals",
+                    "type": "uint256",
+                }
+            ],
+            "name": func_name,
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        })
+    } else if raw_abi.len() == 3 && raw_abi[1] == "string" && raw_abi[2] == " string" {
+        json!({
+            "inputs": [
+                {
+                    "internalType": "string",
+                    "name": "feed_id",
+                    "type": "string",
+                },
+                {
+                    "internalType": "string",
+                    "name": "value",
+                    "type": "string",
+                }
+            ],
+            "name": func_name,
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        })
+    } else {
+        return Err(PythiaError::InvalidABIParameters.into());
+    };
 
     Ok((data.to_string(), MethodType::Feed(feed_id.into())))
 }
@@ -238,6 +314,15 @@ pub async fn get_sybil_input(feed_id: &str) -> Result<Vec<Token>> {
             Token::Uint(decimals.unwrap_or_default().into()),
             Token::Uint(timestamp.into()),
         ]),
-        _ => return Err(PythiaError::UnsupportedAssetDataType.into()),
+        AssetData::CustomNumber {
+            id,
+            value,
+            decimals,
+        } => Ok(vec![
+            Token::String(id),
+            Token::Uint(value.into()),
+            Token::Uint(decimals.into()),
+        ]),
+        AssetData::CustomString { id, value } => Ok(vec![Token::String(id), Token::String(value)]),
     }
 }
