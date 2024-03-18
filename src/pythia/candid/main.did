@@ -128,11 +128,17 @@ type GetSubscriptionsFilter = record {
     
 };
 
+type SIWESignedMessage = record {
+    signature : text;
+    message : text;
+};
+
 type Whitelist = vec WhitelistEntry;
 type GetWhiteListResponse = variant { Ok : Whitelist; Err : text};
 type IsWhitelistedResponse = variant { Ok : bool; Err : text};
 type GetSubscriptionResponse = variant { Ok : Subscription; Err : text};
 type TextResponse = variant { Ok : text; Err: text };
+type SIWESignedMessageResponse = variant { Ok : SIWESignedMessage; Err: text };
 
 // Serive
 service : {
@@ -161,6 +167,9 @@ service : {
     withdraw_fee : (chain_id : nat, receiver : text) -> (Error);
     withdraw_all_balance : (chain_id : nat, receiver : text) -> (Error);
     sign_message : (msg : text) -> (TextResponse);
+    verify_signed_message : (msg : text, sig : text) -> (Error);
+    siwe_sign_message : (msg : text, chain_id : nat) -> (SIWESignedMessageResponse);
+    siwe_verify_signed_message : (msg : text, sig : text) -> (Error);
     stop_timer : () -> (Error);
     clear_balance : (chain_id : nat, address : text) -> (Error);
     // Subscriptions

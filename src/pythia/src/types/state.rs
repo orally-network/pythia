@@ -19,7 +19,6 @@ pub struct State {
     pub chains: Chains,
     pub tx_fee: Nat,
     pub key_name: String,
-    pub siwe_canister: Option<Principal>,
     pub sybil_canister: Option<Principal>,
     pub subs_limit_wallet: Nat,
     pub subs_limit_total: Nat,

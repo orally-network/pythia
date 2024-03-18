@@ -195,7 +195,6 @@ impl From<OldState> for State {
             chains: old_state.chains.into(),
             tx_fee: old_state.tx_fee,
             key_name: old_state.key_name,
-            siwe_canister: old_state.siwe_canister,
             sybil_canister: old_state.sybil_canister,
             subs_limit_wallet: old_state.subs_limit_wallet,
             subs_limit_total: old_state.subs_limit_total,

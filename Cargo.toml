@@ -1,2 +1,2 @@
 [workspace]
-members = ["src/pythia", "src/siwe_signer", "src/siwe_signer_mock"]
+members = ["src/pythia"]

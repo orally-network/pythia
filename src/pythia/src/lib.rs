@@ -41,14 +41,13 @@ fn transform_tx(args: TransformArgs) -> HttpResponse {
 }
 
 #[init]
-fn init(tx_fee: Nat, key_name: String, siwe_canister: Principal, sybil_canister: Principal) {
+fn init(tx_fee: Nat, key_name: String, sybil_canister: Principal) {
     set_custom_panic_hook();
 
     STATE.with(|state| {
         let mut state = state.borrow_mut();
         state.tx_fee = tx_fee;
         state.key_name = key_name;
-        state.siwe_canister = Some(siwe_canister);
         state.sybil_canister = Some(sybil_canister);
         state.subs_limit_wallet = 5.into();
         state.subs_limit_total = 100.into();

@@ -42,7 +42,7 @@ async fn _subscribe(req: SubsribeRequest) -> Result<Nat> {
         log!("Creating a subscription for the super user {SUPER_USER}");
         SUPER_USER.to_string()
     } else {
-        siwe::recover(&req.msg, &req.sig)
+        siwe::siwe_recover(&req.msg, &req.sig)
             .await
             .context(PythiaError::UnableToRecoverAddress)?
     };
@@ -132,7 +132,7 @@ pub async fn _stop_subscription(
         log!("Stopping a subscription for the super user {SUPER_USER}");
         SUPER_USER.to_string()
     } else {
-        siwe::recover(&msg, &sig)
+        siwe::siwe_recover(&msg, &sig)
             .await
             .context(PythiaError::UnableToRecoverAddress)?
     };
@@ -183,7 +183,7 @@ pub async fn _start_subscription(
         log!("Starting a subscription for the super user {SUPER_USER}");
         SUPER_USER.to_string()
     } else {
-        siwe::recover(&msg, &sig)
+        siwe::siwe_recover(&msg, &sig)
             .await
             .context(PythiaError::UnableToRecoverAddress)?
     };
@@ -228,7 +228,7 @@ async fn _update_subscription(req: UpdateSubscriptionRequest) -> Result<()> {
         log!("Updating subscription for the super user {SUPER_USER}");
         SUPER_USER.to_string()
     } else {
-        siwe::recover(&req.msg, &req.sig)
+        siwe::siwe_recover(&req.msg, &req.sig)
             .await
             .context(PythiaError::UnableToRecoverAddress)?
     };
